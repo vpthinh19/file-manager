@@ -26,7 +26,7 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
         meta = itemView.findViewById(R.id.tv_meta);
     }
 
-    public void bind(FileNode node) {
+    public void bind(FileNode node, boolean selected) {
         if (node instanceof ParentFileNode) {
             icon.setText("..");
             icon.setBackgroundResource(R.drawable.bg_icon_folder);
@@ -45,6 +45,7 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
                 : "Parent";
         meta.setText(size + " - " + date);
         meta.setTextColor(0xFF9E9E9E);
+        itemView.setBackgroundColor(selected ? 0xFF1A3E5B : 0xFF303030);
     }
 
     private static String labelFor(String name) {

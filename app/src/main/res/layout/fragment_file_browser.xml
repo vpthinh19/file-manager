@@ -44,7 +44,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="#303030"
+                android:background="@drawable/bg_pane_indicator"
                 android:clipToPadding="false" />
 
             <View
@@ -59,7 +59,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="#303030"
+                android:background="@drawable/bg_pane_indicator"
                 android:clipToPadding="false"
                 android:visibility="gone" />
         </LinearLayout>
@@ -82,32 +82,73 @@
             android:visibility="gone" />
     </FrameLayout>
 
-    <LinearLayout
-        android:id="@+id/bottom_bar"
+    <FrameLayout
+        android:id="@+id/bottom_container"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:background="@drawable/bg_bottom_bar"
-        android:gravity="center"
-        android:orientation="horizontal">
+        android:layout_height="64dp">
 
-        <TextView
-            android:id="@+id/btn_add"
-            style="@style/BrowserBottomButton"
-            android:text="+" />
+        <LinearLayout
+            android:id="@+id/bottom_bar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_bottom_bar"
+            android:gravity="center"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/btn_swap"
-            style="@style/BrowserBottomButton"
-            android:text="⇄" />
+            <TextView
+                android:id="@+id/btn_add"
+                style="@style/BrowserBottomButton"
+                android:text="+" />
 
-        <TextView
-            android:id="@+id/btn_trash"
-            style="@style/BrowserBottomButton"
-            android:text="⌫" />
+            <TextView
+                android:id="@+id/btn_swap"
+                style="@style/BrowserBottomButton"
+                android:text="⇄" />
 
-        <TextView
-            android:id="@+id/btn_up"
-            style="@style/BrowserBottomButton"
-            android:text="↑" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/btn_trash"
+                style="@style/BrowserBottomButton"
+                android:text="⌫" />
+
+            <TextView
+                android:id="@+id/btn_up"
+                style="@style/BrowserBottomButton"
+                android:text="↑" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/selection_bar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_bottom_bar"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/btn_sel_cancel"
+                style="@style/BrowserBottomButton"
+                android:text="✕" />
+
+            <TextView
+                android:id="@+id/btn_sel_all"
+                style="@style/BrowserBottomButton"
+                android:text="☑" />
+
+            <TextView
+                android:id="@+id/btn_sel_delete"
+                style="@style/BrowserBottomButton"
+                android:text="🗑" />
+
+            <TextView
+                android:id="@+id/btn_sel_share"
+                style="@style/BrowserBottomButton"
+                android:text="⤳" />
+
+            <TextView
+                android:id="@+id/btn_sel_more"
+                style="@style/BrowserBottomButton"
+                android:text="⋮" />
+        </LinearLayout>
+    </FrameLayout>
 </LinearLayout>

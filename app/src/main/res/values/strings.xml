@@ -3,7 +3,6 @@
     <string name="permission_title">Storage access required</string>
     <string name="permission_body">Grant all files access to browse, copy, move, rename, delete, and inspect files across shared storage.</string>
     <string name="permission_open_settings">Open settings</string>
-    <string name="permission_continue_limited">Continue limited</string>
     <string name="action_up">Up</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_new_folder">New folder</string>
@@ -36,4 +35,7 @@
     <string name="error_listing_denied">Permission denied. You may not be allowed to list this directory.</string>
     <string name="archive_path_format">%1$s/</string>
     <string name="forward_not_implemented">Forward history is not implemented yet</string>
+    <string name="selected_count">%1$d selected</string>
+    <string name="delete_confirm_count">Delete %1$d items?</string>
+    <string name="selection_single_only">Only available for a single item</string>
 </resources>

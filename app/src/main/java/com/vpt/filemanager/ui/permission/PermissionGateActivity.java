@@ -70,11 +70,6 @@ public final class PermissionGateActivity extends AppCompatActivity {
         settings.setOnClickListener(v -> openManageStorageSettings());
         root.addView(settings);
 
-        MaterialButton limited = new MaterialButton(this);
-        limited.setText(R.string.permission_continue_limited);
-        limited.setOnClickListener(v -> openMain());
-        root.addView(limited);
-
         setContentView(root);
     }
 

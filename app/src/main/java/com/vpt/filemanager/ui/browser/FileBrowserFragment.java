@@ -22,7 +22,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
@@ -79,9 +81,11 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
 
         configureToolbar();
         configureBottomBar();
+        configureSelectionBar();
         observePane(PANE_LEFT, leftViewModel, leftAdapter);
         applyInsets();
         installBackHandler();
+        applyActivePaneVisual();
 
         if (savedInstanceState == null) {
             String home = Environment.getExternalStorageDirectory() != null
@@ -105,12 +109,17 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
     @Override
     public void onFileClicked(int pane, FileNode node) {
         setActivePane(pane);
+        FileBrowserViewModel vm = viewModelFor(pane);
+        if (vm.isInSelectionMode()) {
+            vm.toggleSelect(node);
+            return;
+        }
         if (node instanceof ParentFileNode) {
-            viewModelFor(pane).navigateTo(node.path());
+            vm.navigateTo(node.path());
             return;
         }
         if (node.isDirectory()) {
-            viewModelFor(pane).onItemClicked(node);
+            vm.onItemClicked(node);
         } else {
             openFile(pane, node);
         }
@@ -122,7 +131,7 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
         if (node instanceof ParentFileNode) {
             return;
         }
-        showNodeActions(node);
+        viewModelFor(pane).toggleSelect(node);
     }
 
     private void configureToolbar() {
@@ -133,13 +142,19 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
         binding.btnUp.setOnClickListener(v -> viewModelFor(activePane).navigateUp());
         binding.btnAdd.setOnClickListener(v -> showCreateMenu(binding.btnAdd));
         binding.btnTrash.setOnClickListener(v -> viewModelFor(activePane).openTrash());
-        binding.btnSwap.setOnClickListener(v -> {
-            setActivePane(activePane == PANE_LEFT ? PANE_RIGHT : PANE_LEFT);
-        });
+        binding.btnSwap.setOnClickListener(v -> setActivePane(activePane == PANE_LEFT ? PANE_RIGHT : PANE_LEFT));
+    }
+
+    private void configureSelectionBar() {
+        binding.btnSelCancel.setOnClickListener(v -> viewModelFor(activePane).clearSelection());
+        binding.btnSelAll.setOnClickListener(v -> viewModelFor(activePane).selectAllVisible());
+        binding.btnSelDelete.setOnClickListener(v -> confirmDeleteSelected());
+        binding.btnSelShare.setOnClickListener(v -> shareSelected());
+        binding.btnSelMore.setOnClickListener(v -> showSelectionMoreMenu());
     }
 
     private void applyInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomBar, (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomContainer, (v, insets) -> {
             int bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
             v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), bottom);
             return insets;
@@ -155,29 +170,35 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
             }
             if (state instanceof FileBrowserViewModel.UiState.Content content) {
                 adapter.submitList(withParent(content.path, content.nodes));
-                if (isActive) {
+                if (isActive && !viewModel.isInSelectionMode()) {
                     updateToolbarForContent(content);
                 }
             } else if (state instanceof FileBrowserViewModel.UiState.Roots roots) {
                 adapter.submitList(new ArrayList<>(roots.roots));
-                if (isActive) {
+                if (isActive && !viewModel.isInSelectionMode()) {
                     updateToolbarForRoots(roots);
                 }
             } else if (state instanceof FileBrowserViewModel.UiState.Empty empty) {
                 adapter.submitList(withParent(empty.path, List.of()));
-                if (isActive) {
+                if (isActive && !viewModel.isInSelectionMode()) {
                     binding.toolbar.setTitle(displayPath(empty.path));
                     binding.toolbar.setSubtitle(getString(R.string.stats_basic, 0, 0));
                 }
             } else if (state instanceof FileBrowserViewModel.UiState.Error error) {
                 adapter.submitList(withParent(error.path, List.of()));
-                if (isActive) {
+                if (isActive && !viewModel.isInSelectionMode()) {
                     binding.toolbar.setTitle(displayPath(error.path));
                     binding.toolbar.setSubtitle(R.string.error_listing_denied);
                     if (error.message != null) {
                         toast(error.message);
                     }
                 }
+            }
+        });
+        viewModel.selection().observe(getViewLifecycleOwner(), selection -> {
+            adapter.setSelection(selection);
+            if (pane == activePane) {
+                refreshBottomBars(selection);
             }
         });
         viewModel.events().observe(getViewLifecycleOwner(), this::toast);
@@ -187,7 +208,12 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
         requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (!viewModelFor(activePane).navigateUp()) {
+                FileBrowserViewModel vm = viewModelFor(activePane);
+                if (vm.isInSelectionMode()) {
+                    vm.clearSelection();
+                    return;
+                }
+                if (!vm.navigateUp()) {
                     setEnabled(false);
                     requireActivity().getOnBackPressedDispatcher().onBackPressed();
                 }
@@ -200,18 +226,43 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
             return;
         }
         activePane = pane;
-        // Re-render header for the now-active pane state
-        FileBrowserViewModel.UiState state = viewModelFor(pane).uiState().getValue();
-        if (state instanceof FileBrowserViewModel.UiState.Content content) {
-            updateToolbarForContent(content);
-        } else if (state instanceof FileBrowserViewModel.UiState.Roots roots) {
-            updateToolbarForRoots(roots);
-        } else if (state instanceof FileBrowserViewModel.UiState.Empty empty) {
-            binding.toolbar.setTitle(displayPath(empty.path));
-            binding.toolbar.setSubtitle(getString(R.string.stats_basic, 0, 0));
-        } else if (state instanceof FileBrowserViewModel.UiState.Error error) {
-            binding.toolbar.setTitle(displayPath(error.path));
-            binding.toolbar.setSubtitle(R.string.error_listing_denied);
+        applyActivePaneVisual();
+        FileBrowserViewModel vm = viewModelFor(pane);
+        if (vm.isInSelectionMode()) {
+            refreshBottomBars(vm.selection().getValue());
+        } else {
+            refreshBottomBars(Collections.emptySet());
+            FileBrowserViewModel.UiState state = vm.uiState().getValue();
+            if (state instanceof FileBrowserViewModel.UiState.Content content) {
+                updateToolbarForContent(content);
+            } else if (state instanceof FileBrowserViewModel.UiState.Roots roots) {
+                updateToolbarForRoots(roots);
+            } else if (state instanceof FileBrowserViewModel.UiState.Empty empty) {
+                binding.toolbar.setTitle(displayPath(empty.path));
+                binding.toolbar.setSubtitle(getString(R.string.stats_basic, 0, 0));
+            } else if (state instanceof FileBrowserViewModel.UiState.Error error) {
+                binding.toolbar.setTitle(displayPath(error.path));
+                binding.toolbar.setSubtitle(R.string.error_listing_denied);
+            }
+        }
+    }
+
+    private void applyActivePaneVisual() {
+        if (!dualPane) {
+            binding.rvLeft.setActivated(false);
+            return;
+        }
+        binding.rvLeft.setActivated(activePane == PANE_LEFT);
+        binding.rvRight.setActivated(activePane == PANE_RIGHT);
+    }
+
+    private void refreshBottomBars(Set<FilePath> selection) {
+        boolean inMode = selection != null && !selection.isEmpty();
+        binding.bottomBar.setVisibility(inMode ? View.GONE : View.VISIBLE);
+        binding.selectionBar.setVisibility(inMode ? View.VISIBLE : View.GONE);
+        if (inMode) {
+            binding.toolbar.setTitle(getString(R.string.selected_count, selection.size()));
+            binding.toolbar.setSubtitle(null);
         }
     }
 
@@ -257,30 +308,51 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
         menu.show();
     }
 
-    private void showNodeActions(FileNode node) {
-        NodeActionsBottomSheet.newInstance(node.name())
-                .setListener(action -> handleNodeAction(action, node))
-                .show(getChildFragmentManager(), "node-actions");
+    private void showSelectionMoreMenu() {
+        Set<FilePath> selection = viewModelFor(activePane).selection().getValue();
+        if (selection == null || selection.isEmpty()) {
+            return;
+        }
+        boolean single = selection.size() == 1;
+        FilePath singlePath = single ? selection.iterator().next() : null;
+        FileNode singleNode = single ? findVisibleNode(singlePath) : null;
+
+        NodeActionsBottomSheet sheet = NodeActionsBottomSheet
+                .newInstance(single ? singlePath.name() : selection.size() + " items");
+        sheet.setListener(action -> handleSelectionAction(action, singleNode));
+        sheet.show(getChildFragmentManager(), "selection-more");
     }
 
-    private void handleNodeAction(NodeActionsBottomSheet.Action action, FileNode node) {
+    private void handleSelectionAction(NodeActionsBottomSheet.Action action, @Nullable FileNode singleNode) {
         FileBrowserViewModel vm = viewModelFor(activePane);
         switch (action) {
             case DELETE:
-                confirmDelete(node);
-                break;
-            case RENAME:
-                showNameDialog(R.string.action_rename, R.string.file_name,
-                        name -> vm.rename(node, name));
-                break;
-            case OPEN_WITH:
-                openWith(node);
+                confirmDeleteSelected();
                 break;
             case SHARE:
-                share(node);
+                shareSelected();
+                break;
+            case RENAME:
+                if (singleNode == null) {
+                    toast(getString(R.string.selection_single_only));
+                } else {
+                    showNameDialog(R.string.action_rename, R.string.file_name,
+                            name -> vm.rename(singleNode, name));
+                }
                 break;
             case PROPERTIES:
-                showProperties(node);
+                if (singleNode == null) {
+                    toast(getString(R.string.selection_single_only));
+                } else {
+                    showProperties(singleNode);
+                }
+                break;
+            case OPEN_WITH:
+                if (singleNode == null) {
+                    toast(getString(R.string.selection_single_only));
+                } else {
+                    openWith(singleNode);
+                }
                 break;
             case COPY:
             case MOVE:
@@ -288,18 +360,81 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
             case COMPRESS:
             case BOOKMARK:
             default:
-                toast(getString(action.labelRes) + " — coming in Phase 2");
+                toast(getString(action.labelRes) + " — coming in Phase 2B");
                 break;
         }
     }
 
-    private void confirmDelete(FileNode node) {
+    private void confirmDeleteSelected() {
+        FileBrowserViewModel vm = viewModelFor(activePane);
+        Set<FilePath> selection = vm.selection().getValue();
+        if (selection == null || selection.isEmpty()) {
+            return;
+        }
+        int count = selection.size();
         new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.action_delete)
-                .setMessage(node.name())
+                .setMessage(count == 1
+                        ? selection.iterator().next().name()
+                        : getString(R.string.delete_confirm_count, count))
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> viewModelFor(activePane).delete(node))
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> vm.deleteSelected())
                 .show();
+    }
+
+    private void shareSelected() {
+        FileBrowserViewModel vm = viewModelFor(activePane);
+        Set<FilePath> selection = vm.selection().getValue();
+        if (selection == null || selection.isEmpty()) {
+            return;
+        }
+        ArrayList<Uri> uris = new ArrayList<>();
+        String authority = requireContext().getPackageName() + ".fileprovider";
+        for (FilePath p : selection) {
+            if (!p.isLocal()) {
+                continue;
+            }
+            try {
+                uris.add(FileProvider.getUriForFile(requireContext(), authority, new File(p.path())));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (uris.isEmpty()) {
+            toast(getString(R.string.unavailable));
+            return;
+        }
+        Intent intent;
+        if (uris.size() == 1) {
+            intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_STREAM, uris.get(0));
+        } else {
+            intent = new Intent(Intent.ACTION_SEND_MULTIPLE);
+            intent.setType("*/*");
+            intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivity(Intent.createChooser(intent, getString(R.string.action_share)));
+            vm.clearSelection();
+        } catch (ActivityNotFoundException e) {
+            toast(e.getMessage() == null ? getString(R.string.unavailable) : e.getMessage());
+        }
+    }
+
+    @Nullable
+    private FileNode findVisibleNode(FilePath path) {
+        FileListAdapter adapter = activePane == PANE_LEFT ? leftAdapter : rightAdapter;
+        if (adapter == null) {
+            return null;
+        }
+        for (int i = 0; i < adapter.getItemCount(); i++) {
+            FileNode node = adapter.getCurrentList().get(i);
+            if (node.path().equals(path)) {
+                return node;
+            }
+        }
+        return null;
     }
 
     private void showNameDialog(int titleRes, int hintRes, NameCallback callback) {
@@ -323,14 +458,14 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
                     intent.putExtra(TextEditorActivity.EXTRA_PATH, node.path().path());
                     startActivity(intent);
                 } else {
-                    toast("Editing inside archive: coming in Phase 2");
+                    toast("Editing inside archive: coming in Phase 2B");
                 }
                 break;
             case OPEN_ARCHIVE:
                 if (node.path().isLocal()) {
                     viewModelFor(pane).openArchive(node.path());
                 } else {
-                    toast("Nested archive: coming in Phase 2");
+                    toast("Nested archive: coming in Phase 2B");
                 }
                 break;
             case OPEN_IMAGE:
@@ -341,7 +476,7 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
                 if (node.path().isLocal()) {
                     openWith(node);
                 } else {
-                    toast("Opening files inside archive: coming in Phase 2");
+                    toast("Opening files inside archive: coming in Phase 2B");
                 }
                 break;
         }
@@ -357,22 +492,6 @@ public final class FileBrowserFragment extends BaseFragment implements FileListA
             intent.setDataAndType(uri, MimeTypes.detect(node.name()));
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(Intent.createChooser(intent, getString(R.string.action_open_with)));
-        } catch (IllegalArgumentException | ActivityNotFoundException e) {
-            toast(e.getMessage() == null ? getString(R.string.unavailable) : e.getMessage());
-        }
-    }
-
-    private void share(FileNode node) {
-        try {
-            Uri uri = FileProvider.getUriForFile(
-                    requireContext(),
-                    requireContext().getPackageName() + ".fileprovider",
-                    new File(node.path().path()));
-            Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType(MimeTypes.detect(node.name()));
-            intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(intent, getString(R.string.action_share)));
         } catch (IllegalArgumentException | ActivityNotFoundException e) {
             toast(e.getMessage() == null ? getString(R.string.unavailable) : e.getMessage());
         }

@@ -7,17 +7,31 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 
+import java.util.Collections;
+import java.util.Set;
+
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.domain.model.FileNode;
+import com.vpt.filemanager.domain.model.FilePath;
 
 public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder> {
     private final int pane;
     private final Listener listener;
+    private Set<FilePath> selectedPaths = Collections.emptySet();
 
     public FileListAdapter(int pane, Listener listener) {
         super(DIFF);
         this.pane = pane;
         this.listener = listener;
+    }
+
+    public void setSelection(Set<FilePath> selection) {
+        Set<FilePath> next = selection == null ? Collections.emptySet() : selection;
+        if (next.equals(selectedPaths)) {
+            return;
+        }
+        this.selectedPaths = next;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -30,7 +44,8 @@ public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder>
     @Override
     public void onBindViewHolder(@NonNull FileViewHolder holder, int position) {
         FileNode node = getItem(position);
-        holder.bind(node);
+        boolean selected = selectedPaths.contains(node.path());
+        holder.bind(node, selected);
         holder.itemView.setOnClickListener(view -> listener.onFileClicked(pane, node));
         holder.itemView.setOnLongClickListener(view -> {
             listener.onFileLongClicked(pane, node);
