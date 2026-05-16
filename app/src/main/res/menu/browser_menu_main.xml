@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_refresh"
+        android:title="@string/action_refresh" />
+    <item
+        android:id="@+id/action_new_folder"
+        android:title="@string/action_new_folder" />
+    <item
+        android:id="@+id/action_new_file"
+        android:title="@string/action_new_file" />
+    <item
+        android:id="@+id/action_trash"
+        android:title="@string/action_trash" />
+</menu>

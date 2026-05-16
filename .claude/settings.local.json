@@ -1,3 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\github\\\\file-manager\\\\app\\\\src\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(xargs ls -lh)",
+      "Bash(./gradlew :app:assembleDebug)",
+      "Bash(./gradlew --stop)"
+    ]
+  },
   "outputStyle": "Explanatory"
 }

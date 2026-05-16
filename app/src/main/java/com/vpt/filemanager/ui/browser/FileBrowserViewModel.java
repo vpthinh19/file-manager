@@ -10,6 +10,7 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
+import com.vpt.filemanager.core.storage.StorageRootsProvider;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.Result;
@@ -27,6 +28,7 @@ public final class FileBrowserViewModel extends ViewModel {
     private final CreateFolderUseCase createFolderUseCase;
     private final DeleteFilesUseCase deleteFilesUseCase;
     private final RenameFileUseCase renameFileUseCase;
+    private final StorageRootsProvider storageRoots;
     private final MutableLiveData<UiState> uiState = new MutableLiveData<>(new UiState.Loading());
     private final LiveEvent<String> events = new LiveEvent<>();
     private FilePath currentPath;
@@ -38,12 +40,14 @@ public final class FileBrowserViewModel extends ViewModel {
             CreateFileUseCase createFileUseCase,
             CreateFolderUseCase createFolderUseCase,
             DeleteFilesUseCase deleteFilesUseCase,
-            RenameFileUseCase renameFileUseCase) {
+            RenameFileUseCase renameFileUseCase,
+            StorageRootsProvider storageRoots) {
         this.listDirectoryUseCase = listDirectoryUseCase;
         this.createFileUseCase = createFileUseCase;
         this.createFolderUseCase = createFolderUseCase;
         this.deleteFilesUseCase = deleteFilesUseCase;
         this.renameFileUseCase = renameFileUseCase;
+        this.storageRoots = storageRoots;
     }
 
     public LiveData<UiState> uiState() {
@@ -63,12 +67,20 @@ public final class FileBrowserViewModel extends ViewModel {
         load(path);
     }
 
+    public void openArchive(FilePath archiveFile) {
+        navigateTo(FilePath.inArchive(archiveFile, "/"));
+    }
+
     public boolean navigateUp() {
-        if (currentPath == null || "/".equals(currentPath.path())) {
+        if (currentPath == null) {
             return false;
         }
-        if ("/storage/emulated/0".equals(currentPath.path()) || "/sdcard".equals(currentPath.path())) {
-            navigateTo(FilePath.local("/"));
+        if (currentPath.isLocal() && "/".equals(currentPath.path())) {
+            return false;
+        }
+        if (currentPath.isArchive() && "/".equals(currentPath.path())) {
+            FilePath archiveFile = FilePath.parse(currentPath.authority());
+            navigateTo(archiveFile.parent());
             return true;
         }
         navigateTo(currentPath.parent());
@@ -82,15 +94,15 @@ public final class FileBrowserViewModel extends ViewModel {
     }
 
     public void createFolder(String name) {
-        if (currentPath == null || name == null || name.isBlank()) {
+        if (!isWritableContext() || name == null || name.isBlank()) {
             return;
         }
         Future<Result<FileNode>> future = createFolderUseCase.execute(currentPath.child(name.trim()));
-        waitForFolderCreation(future);
+        waitAndRefresh(future, "Folder created");
     }
 
     public void createFile(String name) {
-        if (currentPath == null || name == null || name.isBlank()) {
+        if (!isWritableContext() || name == null || name.isBlank()) {
             return;
         }
         Future<Result<FileNode>> future = createFileUseCase.execute(currentPath.child(name.trim()));
@@ -114,10 +126,10 @@ public final class FileBrowserViewModel extends ViewModel {
     }
 
     public void openTrash() {
-        if (currentPath == null) {
+        if (currentPath == null || !currentPath.isLocal()) {
             return;
         }
-        navigateTo(FilePath.local(storageRoot(currentPath.path()) + "/.AppTrash"));
+        navigateTo(FilePath.local(storageRootFor(currentPath.path()) + "/.AppTrash"));
     }
 
     public void onItemClicked(FileNode node) {
@@ -128,32 +140,51 @@ public final class FileBrowserViewModel extends ViewModel {
         }
     }
 
+    private boolean isWritableContext() {
+        return currentPath != null && currentPath.isLocal();
+    }
+
     private void load(FilePath path) {
         if (pendingLoad != null) {
             pendingLoad.cancel(true);
+            pendingLoad = null;
         }
-        uiState.setValue(new UiState.Loading());
-        pendingLoad = listDirectoryUseCase.execute(path);
+        uiState.postValue(new UiState.Loading());
+        Future<Result<List<FileNode>>> future = listDirectoryUseCase.execute(path);
+        pendingLoad = future;
         new Thread(() -> {
             try {
-                @SuppressWarnings("unchecked")
-                Result<List<FileNode>> result = (Result<List<FileNode>>) pendingLoad.get();
+                Result<List<FileNode>> result = future.get();
                 if (result.isSuccess()) {
                     List<FileNode> nodes = result.getOrNull();
-                    uiState.postValue(nodes.isEmpty()
-                            ? new UiState.Empty(path)
-                            : new UiState.Content(path, nodes));
+                    if (nodes == null || nodes.isEmpty()) {
+                        if (shouldFallbackToRoots(path)) {
+                            uiState.postValue(new UiState.Roots(path, storageRoots.discover()));
+                        } else {
+                            uiState.postValue(new UiState.Empty(path));
+                        }
+                    } else {
+                        uiState.postValue(new UiState.Content(path, nodes));
+                    }
+                } else if (shouldFallbackToRoots(path)) {
+                    uiState.postValue(new UiState.Roots(path, storageRoots.discover()));
                 } else {
-                    uiState.postValue(new UiState.Error(path, result.errorOrNull().getMessage()));
+                    Throwable error = result.errorOrNull();
+                    uiState.postValue(new UiState.Error(path,
+                            error == null ? "Unknown error" : error.getMessage()));
                 }
             } catch (Throwable e) {
-                uiState.postValue(new UiState.Error(path, e.getMessage()));
+                if (shouldFallbackToRoots(path)) {
+                    uiState.postValue(new UiState.Roots(path, storageRoots.discover()));
+                } else {
+                    uiState.postValue(new UiState.Error(path, e.getMessage()));
+                }
             }
         }, "file-browser-load").start();
     }
 
-    private void waitForFolderCreation(Future<Result<FileNode>> future) {
-        waitAndRefresh(future, "Folder created");
+    private static boolean shouldFallbackToRoots(FilePath path) {
+        return path.isLocal() && "/".equals(path.path());
     }
 
     private <T> void waitAndRefresh(Future<Result<T>> future, String successMessage) {
@@ -164,7 +195,8 @@ public final class FileBrowserViewModel extends ViewModel {
                     events.postValue(successMessage);
                     refresh();
                 } else {
-                    events.postValue(result.errorOrNull().getMessage());
+                    Throwable error = result.errorOrNull();
+                    events.postValue(error == null ? "Action failed" : error.getMessage());
                 }
             } catch (Throwable e) {
                 events.postValue(e.getMessage());
@@ -172,7 +204,7 @@ public final class FileBrowserViewModel extends ViewModel {
         }, "file-browser-action").start();
     }
 
-    private static String storageRoot(String path) {
+    private static String storageRootFor(String path) {
         if (path.startsWith("/storage/emulated/0")) {
             return "/storage/emulated/0";
         }
@@ -215,9 +247,21 @@ public final class FileBrowserViewModel extends ViewModel {
                 }
                 this.folderCount = folders;
                 this.fileCount = files;
-                java.io.File file = new java.io.File(path.path());
-                this.freeBytes = file.getUsableSpace();
-                this.totalBytes = file.getTotalSpace();
+                if (path.isLocal()) {
+                    java.io.File file = new java.io.File(path.path());
+                    long total = 0;
+                    long free = 0;
+                    try {
+                        total = file.getTotalSpace();
+                        free = file.getUsableSpace();
+                    } catch (SecurityException ignored) {
+                    }
+                    this.totalBytes = total;
+                    this.freeBytes = free;
+                } else {
+                    this.totalBytes = -1;
+                    this.freeBytes = -1;
+                }
             }
         }
 
@@ -226,6 +270,16 @@ public final class FileBrowserViewModel extends ViewModel {
 
             public Empty(FilePath path) {
                 this.path = path;
+            }
+        }
+
+        public static final class Roots extends UiState {
+            public final FilePath path;
+            public final List<FileNode> roots;
+
+            public Roots(FilePath path, List<FileNode> roots) {
+                this.path = path;
+                this.roots = List.copyOf(roots);
             }
         }
 
