@@ -29,58 +29,30 @@
             app:titleTextColor="#F2F2F2" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:orientation="horizontal">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <FrameLayout
+            android:id="@+id/pane_left_container"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:orientation="horizontal">
+            android:layout_weight="1" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_left"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pane_indicator"
-                android:clipToPadding="false" />
+        <View
+            android:id="@+id/divider_panes"
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#171717" />
 
-            <View
-                android:id="@+id/divider_panes"
-                android:layout_width="1dp"
-                android:layout_height="match_parent"
-                android:background="#171717"
-                android:visibility="gone" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_right"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pane_indicator"
-                android:clipToPadding="false"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/progress"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_gravity="center"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_empty"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="@string/empty_folder"
-            android:textColor="#D0D0D0"
-            android:textSize="16sp"
-            android:visibility="gone" />
-    </FrameLayout>
+        <FrameLayout
+            android:id="@+id/pane_right_container"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+    </LinearLayout>
 
     <FrameLayout
         android:id="@+id/bottom_container"
@@ -95,25 +67,23 @@
             android:gravity="center"
             android:orientation="horizontal">
 
-            <TextView
+            <ImageButton
                 android:id="@+id/btn_add"
                 style="@style/BrowserBottomButton"
-                android:text="+" />
+                android:contentDescription="@string/action_new_file"
+                android:src="@drawable/ic_add" />
 
-            <TextView
+            <ImageButton
                 android:id="@+id/btn_swap"
                 style="@style/BrowserBottomButton"
-                android:text="⇄" />
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_swap" />
 
-            <TextView
-                android:id="@+id/btn_trash"
-                style="@style/BrowserBottomButton"
-                android:text="⌫" />
-
-            <TextView
+            <ImageButton
                 android:id="@+id/btn_up"
                 style="@style/BrowserBottomButton"
-                android:text="↑" />
+                android:contentDescription="@string/action_up"
+                android:src="@drawable/ic_arrow_up" />
         </LinearLayout>
 
         <LinearLayout
@@ -125,30 +95,23 @@
             android:orientation="horizontal"
             android:visibility="gone">
 
-            <TextView
+            <ImageButton
                 android:id="@+id/btn_sel_cancel"
                 style="@style/BrowserBottomButton"
-                android:text="✕" />
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_close" />
 
-            <TextView
+            <ImageButton
                 android:id="@+id/btn_sel_all"
                 style="@style/BrowserBottomButton"
-                android:text="☑" />
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_select_all" />
 
-            <TextView
-                android:id="@+id/btn_sel_delete"
-                style="@style/BrowserBottomButton"
-                android:text="🗑" />
-
-            <TextView
-                android:id="@+id/btn_sel_share"
-                style="@style/BrowserBottomButton"
-                android:text="⤳" />
-
-            <TextView
+            <ImageButton
                 android:id="@+id/btn_sel_more"
                 style="@style/BrowserBottomButton"
-                android:text="⋮" />
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_more" />
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>

@@ -31,7 +31,6 @@
         <activity
             android:name=".ui.permission.PermissionGateActivity"
             android:exported="true"
-            android:noHistory="true"
             android:theme="@style/Theme.FileManager.Translucent">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

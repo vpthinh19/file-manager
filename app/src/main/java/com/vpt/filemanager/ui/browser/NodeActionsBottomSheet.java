@@ -33,8 +33,8 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
         OPEN_WITH(R.string.action_open_with, "✓"),
         BOOKMARK(R.string.action_bookmark, "☆");
 
-        final int labelRes;
-        final String iconText;
+        public final int labelRes;
+        public final String iconText;
 
         Action(int labelRes, String iconText) {
             this.labelRes = labelRes;

@@ -1,8 +1,5 @@
 <resources>
     <string name="app_name">File Manager</string>
-    <string name="permission_title">Storage access required</string>
-    <string name="permission_body">Grant all files access to browse, copy, move, rename, delete, and inspect files across shared storage.</string>
-    <string name="permission_open_settings">Open settings</string>
     <string name="action_up">Up</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_new_folder">New folder</string>
@@ -25,6 +22,7 @@
     <string name="unavailable">Unavailable</string>
     <string name="file_name">File name</string>
     <string name="folder_name">Folder name</string>
+    <string name="create_name_hint">Name</string>
     <string name="read_only">Read-only</string>
     <string name="menu_open_drawer">Open drawer</string>
     <string name="menu_more_options">More options</string>

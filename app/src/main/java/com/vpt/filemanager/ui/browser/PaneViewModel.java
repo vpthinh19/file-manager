@@ -15,6 +15,7 @@ import javax.inject.Inject;
 import dagger.hilt.android.lifecycle.HiltViewModel;
 import com.vpt.filemanager.core.concurrent.AppExecutors;
 import com.vpt.filemanager.core.storage.StorageRootsProvider;
+import com.vpt.filemanager.core.storage.StorageScope;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.Result;
@@ -26,7 +27,7 @@ import com.vpt.filemanager.domain.usecase.RenameFileUseCase;
 import com.vpt.filemanager.ui.common.LiveEvent;
 
 @HiltViewModel
-public final class FileBrowserViewModel extends ViewModel {
+public final class PaneViewModel extends ViewModel {
     private final ListDirectoryUseCase listDirectoryUseCase;
     private final CreateFileUseCase createFileUseCase;
     private final CreateFolderUseCase createFolderUseCase;
@@ -42,7 +43,7 @@ public final class FileBrowserViewModel extends ViewModel {
     private Future<?> pendingLoad;
 
     @Inject
-    public FileBrowserViewModel(
+    public PaneViewModel(
             ListDirectoryUseCase listDirectoryUseCase,
             CreateFileUseCase createFileUseCase,
             CreateFolderUseCase createFolderUseCase,
@@ -126,7 +127,7 @@ public final class FileBrowserViewModel extends ViewModel {
         if (currentPath == null) {
             return false;
         }
-        if (currentPath.isLocal() && "/".equals(currentPath.path())) {
+        if (StorageScope.isAtRoot(currentPath)) {
             return false;
         }
         if (currentPath.isArchive() && "/".equals(currentPath.path())) {
@@ -161,10 +162,17 @@ public final class FileBrowserViewModel extends ViewModel {
     }
 
     public void rename(FileNode node, String newName) {
-        if (node == null || newName == null || newName.isBlank()) {
+        if (node == null) {
             return;
         }
-        Future<Result<Void>> future = renameFileUseCase.execute(node.path(), newName.trim());
+        rename(node.path(), newName);
+    }
+
+    public void rename(FilePath path, String newName) {
+        if (path == null || newName == null || newName.isBlank()) {
+            return;
+        }
+        Future<Result<Void>> future = renameFileUseCase.execute(path, newName.trim());
         waitAndRefresh(future, "Renamed");
     }
 
@@ -220,22 +228,12 @@ public final class FileBrowserViewModel extends ViewModel {
                 if (result.isSuccess()) {
                     List<FileNode> nodes = result.getOrNull();
                     if (nodes == null || nodes.isEmpty()) {
-                        if (shouldFallbackToRoots(path)) {
-                            List<FileNode> roots = storageRoots.discover();
-                            lastVisibleNodes = roots;
-                            uiState.postValue(new UiState.Roots(path, roots));
-                        } else {
-                            lastVisibleNodes = Collections.emptyList();
-                            uiState.postValue(new UiState.Empty(path));
-                        }
+                        lastVisibleNodes = Collections.emptyList();
+                        uiState.postValue(new UiState.Empty(path));
                     } else {
                         lastVisibleNodes = nodes;
                         uiState.postValue(new UiState.Content(path, nodes));
                     }
-                } else if (shouldFallbackToRoots(path)) {
-                    List<FileNode> roots = storageRoots.discover();
-                    lastVisibleNodes = roots;
-                    uiState.postValue(new UiState.Roots(path, roots));
                 } else {
                     lastVisibleNodes = Collections.emptyList();
                     Throwable error = result.errorOrNull();
@@ -243,20 +241,10 @@ public final class FileBrowserViewModel extends ViewModel {
                             error == null ? "Unknown error" : error.getMessage()));
                 }
             } catch (Throwable e) {
-                if (shouldFallbackToRoots(path)) {
-                    List<FileNode> roots = storageRoots.discover();
-                    lastVisibleNodes = roots;
-                    uiState.postValue(new UiState.Roots(path, roots));
-                } else {
-                    lastVisibleNodes = Collections.emptyList();
-                    uiState.postValue(new UiState.Error(path, e.getMessage()));
-                }
+                lastVisibleNodes = Collections.emptyList();
+                uiState.postValue(new UiState.Error(path, e.getMessage()));
             }
         });
-    }
-
-    private static boolean shouldFallbackToRoots(FilePath path) {
-        return path.isLocal() && "/".equals(path.path());
     }
 
     private <T> void waitAndRefresh(Future<Result<T>> future, String successMessage) {

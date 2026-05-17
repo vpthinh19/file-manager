@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.ui.browser.FileBrowserFragment;
+import com.vpt.filemanager.ui.dualpane.DualPaneHostFragment;
 
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
@@ -22,7 +22,7 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             getSupportFragmentManager()
                     .beginTransaction()
-                    .replace(R.id.fragment_container, new FileBrowserFragment())
+                    .replace(R.id.fragment_container, new DualPaneHostFragment())
                     .commit();
         }
     }

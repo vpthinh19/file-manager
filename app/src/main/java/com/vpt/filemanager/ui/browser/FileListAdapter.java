@@ -15,13 +15,11 @@ import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
 
 public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder> {
-    private final int pane;
     private final Listener listener;
     private Set<FilePath> selectedPaths = Collections.emptySet();
 
-    public FileListAdapter(int pane, Listener listener) {
+    public FileListAdapter(Listener listener) {
         super(DIFF);
-        this.pane = pane;
         this.listener = listener;
     }
 
@@ -46,17 +44,17 @@ public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder>
         FileNode node = getItem(position);
         boolean selected = selectedPaths.contains(node.path());
         holder.bind(node, selected);
-        holder.itemView.setOnClickListener(view -> listener.onFileClicked(pane, node));
+        holder.itemView.setOnClickListener(view -> listener.onFileClicked(node));
         holder.itemView.setOnLongClickListener(view -> {
-            listener.onFileLongClicked(pane, node);
+            listener.onFileLongClicked(node);
             return true;
         });
     }
 
     public interface Listener {
-        void onFileClicked(int pane, FileNode node);
+        void onFileClicked(@NonNull FileNode node);
 
-        void onFileLongClicked(int pane, FileNode node);
+        void onFileLongClicked(@NonNull FileNode node);
     }
 
     private static final DiffUtil.ItemCallback<FileNode> DIFF = new DiffUtil.ItemCallback<>() {
