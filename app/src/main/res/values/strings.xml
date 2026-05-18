@@ -36,4 +36,10 @@
     <string name="selected_count">%1$d selected</string>
     <string name="delete_confirm_count">Delete %1$d items?</string>
     <string name="selection_single_only">Only available for a single item</string>
+    <string name="openas_title">Open \"%1$s\" as</string>
+    <string name="openas_text">Text</string>
+    <string name="openas_image">Image</string>
+    <string name="openas_video">Video</string>
+    <string name="openas_audio">Audio</string>
+    <string name="openas_archive">Archive</string>
 </resources>

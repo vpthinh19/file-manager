@@ -1,5 +1,6 @@
 package com.vpt.filemanager.ui.browser;
 
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -79,6 +80,23 @@ public final class PaneViewModel extends ViewModel {
     public boolean isInSelectionMode() {
         Set<FilePath> current = selection.getValue();
         return current != null && !current.isEmpty();
+    }
+
+    /**
+     * Look up the currently-visible node for a path. Used by the host fragment when computing
+     * action availability (e.g. is the selected path a folder?) without re-walking the file system.
+     */
+    @Nullable
+    public FileNode findNode(@Nullable FilePath path) {
+        if (path == null) {
+            return null;
+        }
+        for (FileNode node : lastVisibleNodes) {
+            if (path.equals(node.path())) {
+                return node;
+            }
+        }
+        return null;
     }
 
     public void toggleSelect(FileNode node) {

@@ -25,6 +25,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Set;
 
 import dagger.hilt.android.AndroidEntryPoint;
@@ -33,9 +34,11 @@ import com.vpt.filemanager.core.io.FileOpener;
 import com.vpt.filemanager.core.util.ByteSize;
 import com.vpt.filemanager.core.util.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
+import com.vpt.filemanager.domain.model.FileCategory;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.ui.browser.NodeActionsBottomSheet;
+import com.vpt.filemanager.ui.browser.OpenAsDialogFragment;
 import com.vpt.filemanager.ui.browser.PaneFragment;
 import com.vpt.filemanager.ui.browser.PaneViewModel;
 import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
@@ -140,16 +143,17 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             syncFromActive();
         }
         PaneViewModel vm = viewModelForPane(paneId);
+
+        if (!node.isDirectory()
+                && FileCategory.ofExtension(node.name()) == FileCategory.UNKNOWN) {
+            showOpenAsDialog(node);
+            return;
+        }
+
         FileOpener.Action action = FileOpener.decide(node);
         switch (action) {
             case OPEN_TEXT:
-                if (node.path().isLocal()) {
-                    Intent intent = new Intent(requireContext(), TextEditorActivity.class);
-                    intent.putExtra(TextEditorActivity.EXTRA_PATH, node.path().path());
-                    startActivity(intent);
-                } else {
-                    toast("Editing inside archive: coming in Phase 2C");
-                }
+                openAsText(node.path());
                 break;
             case OPEN_ARCHIVE:
                 if (node.path().isLocal()) {
@@ -170,6 +174,46 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 }
                 break;
         }
+    }
+
+    private void showOpenAsDialog(@NonNull FileNode node) {
+        if (!node.path().isLocal()) {
+            toast("Opening files inside archive: coming in Phase 2C");
+            return;
+        }
+        OpenAsDialogFragment.newInstance(node.name())
+                .setListener(choice -> handleOpenAs(node, choice))
+                .show(getChildFragmentManager(), "open-as");
+    }
+
+    private void handleOpenAs(@NonNull FileNode node, @NonNull OpenAsDialogFragment.OpenAs choice) {
+        switch (choice) {
+            case TEXT:
+                openAsText(node.path());
+                break;
+            case IMAGE:
+                openWithMime(node.path(), "image/*");
+                break;
+            case VIDEO:
+                openWithMime(node.path(), "video/*");
+                break;
+            case AUDIO:
+                openWithMime(node.path(), "audio/*");
+                break;
+            case ARCHIVE:
+                activeVm().openArchive(node.path());
+                break;
+        }
+    }
+
+    private void openAsText(@NonNull FilePath path) {
+        if (!path.isLocal()) {
+            toast("Editing inside archive: coming in Phase 2C");
+            return;
+        }
+        Intent intent = new Intent(requireContext(), TextEditorActivity.class);
+        intent.putExtra(TextEditorActivity.EXTRA_PATH, path.path());
+        startActivity(intent);
     }
 
     // ---------- Setup ----------
