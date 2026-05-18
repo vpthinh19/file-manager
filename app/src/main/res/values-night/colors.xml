@@ -14,14 +14,20 @@
     <color name="md_secondary_container">#444559</color>
     <color name="md_on_secondary_container">#E0E1F9</color>
 
-    <color name="md_surface">#131318</color>
+    <!-- Dark pane surface kept near-black; neutralised (was #131318 with violet tint). -->
+    <color name="md_surface">#121212</color>
     <color name="md_on_surface">#E4E1E9</color>
     <color name="md_on_surface_variant">#C6C6D0</color>
 
-    <color name="md_surface_container_low">#1B1B21</color>
-    <color name="md_surface_container">#1F1F25</color>
-    <color name="md_surface_container_high">#2A2A30</color>
-    <color name="md_surface_container_highest">#353541</color>
+    <color name="md_surface_container_low">#1A1A1A</color>
+    <color name="md_surface_container">#1F1F1F</color>
+    <color name="md_surface_container_high">#2A2A2A</color>
+    <color name="md_surface_container_highest">#353535</color>
+
+    <!-- Chrome: same dark constant as light mode (slightly different to differentiate from pane bg). -->
+    <color name="md_chrome_bg">#1A1A1A</color>
+    <color name="md_chrome_on_bg">#FFFFFF</color>
+    <color name="md_chrome_on_bg_variant">#B0B0B0</color>
 
     <color name="md_outline">#8F909A</color>
     <color name="md_outline_variant">#45464F</color>
@@ -37,16 +43,47 @@
       dark surface (#131318). Text stays white — light bg badges keep contrast because of the
       shape's edge anti-aliasing on dark surface.
     -->
-    <color name="badge_folder">#FFCA28</color>
-    <color name="badge_text">#90A4AE</color>
-    <color name="badge_code">#A5D6A7</color>
+    <!-- Folder: same dark slate family (MT-faithful), slightly brighter for dark surface contrast. -->
+    <color name="badge_folder">#455A64</color>
+
+    <!-- TOP-7 category badges (dark mode — pastel for surface contrast). -->
     <color name="badge_image">#CE93D8</color>
     <color name="badge_video">#F48FB1</color>
     <color name="badge_audio">#FFB74D</color>
     <color name="badge_archive">#BCAAA4</color>
     <color name="badge_pdf">#EF9A9A</color>
-    <color name="badge_doc">#64B5F6</color>
     <color name="badge_apk">#C5E1A5</color>
+
+    <!-- Legacy category colors (dark). -->
+    <color name="badge_text">#90A4AE</color>
+    <color name="badge_code">#A5D6A7</color>
+    <color name="badge_doc">#64B5F6</color>
     <color name="badge_unknown">#BDBDBD</color>
     <color name="badge_on_color">#0E0E12</color>
+
+    <!-- Brand colors (dark mode — lightened/desaturated versions of brand palette). -->
+    <color name="brand_python">#6FA8DC</color>
+    <color name="brand_java">#FFB74D</color>
+    <color name="brand_kotlin">#B388FF</color>
+    <color name="brand_js">#FFF59D</color>
+    <color name="brand_ts">#81B5E6</color>
+    <color name="brand_go">#80DEEA</color>
+    <color name="brand_rust">#FF8A65</color>
+    <color name="brand_ruby">#EF9A9A</color>
+    <color name="brand_php">#B3B7DD</color>
+    <color name="brand_c_lang">#CFD8DC</color>
+    <color name="brand_cpp">#82B1FF</color>
+    <color name="brand_csharp">#CE93D8</color>
+    <color name="brand_html">#FFAB91</color>
+    <color name="brand_css">#90CAF9</color>
+    <color name="brand_json">#B0B0B0</color>
+    <color name="brand_xml">#D7B895</color>
+    <color name="brand_yaml">#EF9A9A</color>
+    <color name="brand_sh">#A5D6A7</color>
+    <color name="brand_sql">#90CAF9</color>
+    <color name="brand_md">#9E9E9E</color>
+    <color name="brand_word">#90CAF9</color>
+    <color name="brand_excel">#A5D6A7</color>
+    <color name="brand_ppt">#FFAB91</color>
+    <color name="brand_default">#9E9E9E</color>
 </resources>

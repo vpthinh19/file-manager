@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,7 +43,11 @@ public final class PaneViewModel extends ViewModel {
     private final AppExecutors executors;
     private final MutableLiveData<UiState> uiState = new MutableLiveData<>(new UiState.Loading());
     private final MutableLiveData<Set<FilePath>> selection = new MutableLiveData<>(Collections.emptySet());
+    private final MutableLiveData<Boolean> canGoBack = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> canGoForward = new MutableLiveData<>(false);
     private final LiveEvent<String> events = new LiveEvent<>();
+    private final ArrayDeque<FilePath> backStack = new ArrayDeque<>();
+    private final ArrayDeque<FilePath> forwardStack = new ArrayDeque<>();
     private FilePath currentPath;
     private List<FileNode> lastVisibleNodes = Collections.emptyList();
     private Future<?> pendingLoad;
@@ -97,6 +102,14 @@ public final class PaneViewModel extends ViewModel {
 
     public LiveData<String> events() {
         return events;
+    }
+
+    public LiveData<Boolean> canGoBack() {
+        return canGoBack;
+    }
+
+    public LiveData<Boolean> canGoForward() {
+        return canGoForward;
     }
 
     public FilePath currentPath() {
@@ -158,10 +171,56 @@ public final class PaneViewModel extends ViewModel {
     }
 
     public void navigateTo(FilePath path) {
+        if (currentPath != null && !currentPath.equals(path)) {
+            backStack.push(currentPath);
+            forwardStack.clear();
+            emitStackState();
+        }
+        switchPath(path);
+    }
+
+    /**
+     * Pop one entry from the back stack. Symmetric with {@link #forward()} — the leaving location
+     * is pushed onto the forward stack so the user can ping-pong. Returns {@code false} when no
+     * history exists (so the bar button stays disabled).
+     */
+    public boolean back() {
+        if (backStack.isEmpty()) {
+            return false;
+        }
+        if (currentPath != null) {
+            forwardStack.push(currentPath);
+        }
+        FilePath prev = backStack.pop();
+        emitStackState();
+        switchPath(prev);
+        return true;
+    }
+
+    public boolean forward() {
+        if (forwardStack.isEmpty()) {
+            return false;
+        }
+        if (currentPath != null) {
+            backStack.push(currentPath);
+        }
+        FilePath next = forwardStack.pop();
+        emitStackState();
+        switchPath(next);
+        return true;
+    }
+
+    /** Apply a new currentPath without touching the back/forward stacks (used by back/forward). */
+    private void switchPath(FilePath path) {
         clearSelection();
         currentPath = path;
         savedState.set(KEY_PATH, path.toString());
         load(path);
+    }
+
+    private void emitStackState() {
+        canGoBack.setValue(!backStack.isEmpty());
+        canGoForward.setValue(!forwardStack.isEmpty());
     }
 
     public void openArchive(FilePath archiveFile) {

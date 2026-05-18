@@ -34,12 +34,15 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
     }
 
     public void bind(FileNode node, boolean selected) {
-        if (node instanceof ParentFileNode) {
-            icon.bindParent();
-        } else if (node.isDirectory()) {
+        if (node instanceof ParentFileNode || node.isDirectory()) {
             icon.bindFolder();
         } else {
-            icon.bindFile(FileCategory.ofExtension(node.name()));
+            FileCategory category = FileCategory.ofExtension(node.name());
+            if (FileLabel.usesGlyph(category)) {
+                icon.bindGlyph(category);
+            } else {
+                icon.bindExtText(node.name());
+            }
         }
         name.setText(node.name());
         meta.setText(formatMeta(node));

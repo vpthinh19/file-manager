@@ -225,10 +225,21 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     }
 
     private void configureBottomBar() {
+        binding.btnBack.setOnClickListener(v -> activeVm().back());
+        binding.btnForward.setOnClickListener(v -> activeVm().forward());
         binding.btnUp.setOnClickListener(v -> activeVm().navigateUp());
         binding.btnAdd.setOnClickListener(v -> showCreateDialog());
         binding.btnSwap.setOnClickListener(v -> onPaneActivated(
                 PANE_LEFT.equals(activePaneId) ? PANE_RIGHT : PANE_LEFT));
+    }
+
+    private static final float DISABLED_ALPHA = 0.38f;
+
+    private void applyNavButtonState(boolean canBack, boolean canForward) {
+        binding.btnBack.setEnabled(canBack);
+        binding.btnBack.setAlpha(canBack ? 1f : DISABLED_ALPHA);
+        binding.btnForward.setEnabled(canForward);
+        binding.btnForward.setAlpha(canForward ? 1f : DISABLED_ALPHA);
     }
 
     private void configureSelectionBar() {
@@ -276,6 +287,18 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 renderBottomBars(selection);
             }
         });
+        vm.canGoBack().observe(getViewLifecycleOwner(), can -> {
+            if (paneId.equals(activePaneId)) {
+                applyNavButtonState(Boolean.TRUE.equals(can),
+                        Boolean.TRUE.equals(vm.canGoForward().getValue()));
+            }
+        });
+        vm.canGoForward().observe(getViewLifecycleOwner(), can -> {
+            if (paneId.equals(activePaneId)) {
+                applyNavButtonState(Boolean.TRUE.equals(vm.canGoBack().getValue()),
+                        Boolean.TRUE.equals(can));
+            }
+        });
         vm.events().observe(getViewLifecycleOwner(), this::toast);
     }
 
@@ -288,6 +311,9 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             renderBottomBars(null);
             renderToolbarForState(vm.uiState().getValue());
         }
+        applyNavButtonState(
+                Boolean.TRUE.equals(vm.canGoBack().getValue()),
+                Boolean.TRUE.equals(vm.canGoForward().getValue()));
     }
 
     private void renderToolbarForState(@Nullable PaneViewModel.UiState state) {

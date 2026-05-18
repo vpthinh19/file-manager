@@ -52,18 +52,17 @@ public final class TextEditorActivity extends AppCompatActivity {
     }
 
     private void applySystemBarIconContrast() {
-        boolean isLight = ThemeUtils.isLightTheme(this);
+        // Chrome is constant dark in both themes — bar icons stay light.
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        controller.setAppearanceLightStatusBars(isLight);
-        controller.setAppearanceLightNavigationBars(isLight);
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(false);
     }
 
     private void buildUi() {
         int colorSurface = ThemeUtils.color(this, com.google.android.material.R.attr.colorSurface);
-        int colorSurfaceContainer = ThemeUtils.color(
-                this, com.google.android.material.R.attr.colorSurfaceContainer);
-        int colorOnSurface = ThemeUtils.color(this, com.google.android.material.R.attr.colorOnSurface);
+        int chromeBg = getColor(R.color.md_chrome_bg);
+        int chromeOn = getColor(R.color.md_chrome_on_bg);
         int colorPrimary = ThemeUtils.color(this, androidx.appcompat.R.attr.colorPrimary);
 
         LinearLayout root = new LinearLayout(this);
@@ -79,13 +78,13 @@ public final class TextEditorActivity extends AppCompatActivity {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(dp(24), dp(12), dp(8), dp(12));
-        header.setBackgroundColor(colorSurfaceContainer);
+        header.setBackgroundColor(chromeBg);
 
         TextView title = new TextView(this);
         title.setText(path.toString());
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        title.setTextColor(colorOnSurface);
+        title.setTextColor(chromeOn);
         title.setTextSize(16);
         title.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));

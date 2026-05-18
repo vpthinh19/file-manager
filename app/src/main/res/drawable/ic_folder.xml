@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Filled folder icon. Tint via android:tint or ImageView setColorFilter (badge_folder).
-  Single-path SVG kept small for adapter throughput.
+  Folder glyph — pure WHITE fill, sits on top of the (separately-tinted) badge background.
+  Used by FileIconView in folder mode.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24"
-    android:tint="@color/badge_folder">
+    android:viewportHeight="24">
     <path
-        android:fillColor="@android:color/white"
+        android:fillColor="#FFFFFF"
         android:pathData="M10,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V8C22,6.89 21.11,6 20,6H12L10,4Z" />
 </vector>
