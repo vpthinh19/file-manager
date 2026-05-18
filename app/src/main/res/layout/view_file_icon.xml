@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileIconView contents. Inflated into a parent FrameLayout via <merge>.
+  Children are mutually exclusive at runtime: folders show iv_folder; files show v_badge_bg +
+  tv_badge_label. Tinting is applied programmatically because the badge color is per-row.
+-->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <View
+        android:id="@+id/v_badge_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_badge_rounded" />
+
+    <TextView
+        android:id="@+id/tv_badge_label"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:textColor="@color/badge_on_color"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/iv_folder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_folder"
+        android:visibility="gone" />
+</merge>

@@ -5,10 +5,13 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -16,29 +19,36 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import com.vpt.filemanager.R;
 
+/**
+ * Long-press / "More" menu for a file node. Each action is rendered as icon + label; entries
+ * supplied via {@link #setDisabledActions(Set)} are greyed out and non-clickable so the host can
+ * surface why an action is unavailable for the current selection (e.g. RENAME for multi-select).
+ */
 public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
     public enum Action {
-        COPY(R.string.action_copy, "📋"),
-        MOVE(R.string.action_move, "✂"),
-        DELETE(R.string.action_delete, "🗑"),
-        RENAME(R.string.action_rename, "✎"),
-        TOOLS(R.string.action_tools, "🔧"),
-        COMPRESS(R.string.action_compress, "⤵"),
-        PROPERTIES(R.string.properties, "ⓘ"),
-        SHARE(R.string.action_share, "⤳"),
-        OPEN_WITH(R.string.action_open_with, "✓"),
-        BOOKMARK(R.string.action_bookmark, "☆");
+        COPY(R.string.action_copy, R.drawable.ic_copy),
+        MOVE(R.string.action_move, R.drawable.ic_move),
+        DELETE(R.string.action_delete, R.drawable.ic_trash),
+        RENAME(R.string.action_rename, R.drawable.ic_rename),
+        TOOLS(R.string.action_tools, R.drawable.ic_tools),
+        COMPRESS(R.string.action_compress, R.drawable.ic_compress),
+        PROPERTIES(R.string.properties, R.drawable.ic_properties),
+        SHARE(R.string.action_share, R.drawable.ic_share),
+        OPEN_WITH(R.string.action_open_with, R.drawable.ic_open_with),
+        BOOKMARK(R.string.action_bookmark, R.drawable.ic_bookmark);
 
-        public final int labelRes;
-        public final String iconText;
+        @StringRes public final int labelRes;
+        @DrawableRes public final int iconRes;
 
-        Action(int labelRes, String iconText) {
+        Action(@StringRes int labelRes, @DrawableRes int iconRes) {
             this.labelRes = labelRes;
-            this.iconText = iconText;
+            this.iconRes = iconRes;
         }
     }
 
@@ -47,8 +57,10 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
     }
 
     private static final String ARG_TITLE = "title";
+    private static final float DISABLED_ALPHA = 0.38f;
 
     private Listener listener;
+    private EnumSet<Action> disabled = EnumSet.noneOf(Action.class);
 
     public static NodeActionsBottomSheet newInstance(String title) {
         NodeActionsBottomSheet sheet = new NodeActionsBottomSheet();
@@ -60,6 +72,14 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
 
     public NodeActionsBottomSheet setListener(Listener listener) {
         this.listener = listener;
+        return this;
+    }
+
+    /** Mark the given actions as visible-but-disabled (greyed + non-clickable). */
+    public NodeActionsBottomSheet setDisabledActions(@Nullable Set<Action> actions) {
+        this.disabled = (actions == null || actions.isEmpty())
+                ? EnumSet.noneOf(Action.class)
+                : EnumSet.copyOf(actions);
         return this;
     }
 
@@ -90,7 +110,7 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
         for (Action action : Action.values()) {
             actions.add(action);
         }
-        rv.setAdapter(new ActionsAdapter(actions, action -> {
+        rv.setAdapter(new ActionsAdapter(actions, disabled, action -> {
             if (listener != null) {
                 listener.onActionSelected(action);
             }
@@ -100,10 +120,12 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
 
     private static final class ActionsAdapter extends RecyclerView.Adapter<ActionViewHolder> {
         private final List<Action> actions;
+        private final EnumSet<Action> disabled;
         private final Listener listener;
 
-        ActionsAdapter(List<Action> actions, Listener listener) {
+        ActionsAdapter(List<Action> actions, EnumSet<Action> disabled, Listener listener) {
             this.actions = actions;
+            this.disabled = disabled;
             this.listener = listener;
         }
 
@@ -118,9 +140,16 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
         @Override
         public void onBindViewHolder(@NonNull ActionViewHolder holder, int position) {
             Action action = actions.get(position);
-            holder.icon.setText(action.iconText);
+            holder.icon.setImageResource(action.iconRes);
             holder.label.setText(action.labelRes);
-            holder.itemView.setOnClickListener(v -> listener.onActionSelected(action));
+            boolean isDisabled = disabled.contains(action);
+            float alpha = isDisabled ? DISABLED_ALPHA : 1f;
+            holder.icon.setAlpha(alpha);
+            holder.label.setAlpha(alpha);
+            holder.itemView.setEnabled(!isDisabled);
+            holder.itemView.setOnClickListener(isDisabled
+                    ? null
+                    : v -> listener.onActionSelected(action));
         }
 
         @Override
@@ -130,12 +159,12 @@ public final class NodeActionsBottomSheet extends BottomSheetDialogFragment {
     }
 
     private static final class ActionViewHolder extends RecyclerView.ViewHolder {
-        final TextView icon;
+        final ImageView icon;
         final TextView label;
 
         ActionViewHolder(@NonNull View itemView) {
             super(itemView);
-            icon = itemView.findViewById(R.id.tv_action_icon);
+            icon = itemView.findViewById(R.id.iv_action_icon);
             label = itemView.findViewById(R.id.tv_action_label);
         }
     }

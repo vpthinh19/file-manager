@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Row item. Background uses a state-list (bg_file_row) that swaps to row_selected_bg when the
+  itemView is in selected state. Activation toggled via View#setSelected(boolean) from adapter.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="52dp"
-    android:background="#303030"
+    android:background="@drawable/bg_file_row"
     android:foreground="?attr/selectableItemBackground"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:paddingHorizontal="8dp">
 
-    <TextView
-        android:id="@+id/tv_icon"
+    <com.vpt.filemanager.ui.browser.FileIconView
+        android:id="@+id/file_icon"
         android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:gravity="center"
-        android:textColor="#E0E0E0"
-        android:textSize="10sp"
-        android:textStyle="bold" />
+        android:layout_height="36dp" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -31,7 +31,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="#E0E0E0"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="15sp" />
 
         <TextView
@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="#9E9E9E"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>

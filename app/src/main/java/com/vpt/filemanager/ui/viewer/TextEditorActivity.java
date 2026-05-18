@@ -10,7 +10,9 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -22,9 +24,19 @@ import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
 import com.vpt.filemanager.R;
+import com.vpt.filemanager.core.util.ThemeUtils;
 
+/**
+ * Lightweight wrapper around sora-editor's {@code CodeEditor}.
+ *
+ * <p>Chrome (root background, header bar, title, save action) is themed via M3 attrs and adapts to
+ * light/dark automatically. The editor surface itself currently uses sora's built-in {@code
+ * SchemeDarcula}; Phase 3 will plug in a theme-aware sora color scheme.
+ */
 public final class TextEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PATH = "com.vpt.filemanager.extra.PATH";
+
+    private static final int EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
 
     private Path path;
     private CodeEditor editor;
@@ -33,16 +45,30 @@ public final class TextEditorActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(0xFF050505);
+        applySystemBarIconContrast();
         path = Path.of(getIntent().getStringExtra(EXTRA_PATH));
         buildUi();
         load();
     }
 
+    private void applySystemBarIconContrast() {
+        boolean isLight = ThemeUtils.isLightTheme(this);
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(isLight);
+        controller.setAppearanceLightNavigationBars(isLight);
+    }
+
     private void buildUi() {
+        int colorSurface = ThemeUtils.color(this, com.google.android.material.R.attr.colorSurface);
+        int colorSurfaceContainer = ThemeUtils.color(
+                this, com.google.android.material.R.attr.colorSurfaceContainer);
+        int colorOnSurface = ThemeUtils.color(this, com.google.android.material.R.attr.colorOnSurface);
+        int colorPrimary = ThemeUtils.color(this, androidx.appcompat.R.attr.colorPrimary);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF202020);
+        root.setBackgroundColor(colorSurface);
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             int top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
             int bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
@@ -52,30 +78,30 @@ public final class TextEditorActivity extends AppCompatActivity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(24, 16, 16, 16);
-        header.setBackgroundColor(0xFF050505);
+        header.setPadding(dp(24), dp(12), dp(8), dp(12));
+        header.setBackgroundColor(colorSurfaceContainer);
 
         TextView title = new TextView(this);
         title.setText(path.toString());
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        title.setTextColor(0xFFE0E0E0);
+        title.setTextColor(colorOnSurface);
         title.setTextSize(16);
-        title.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        title.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         header.addView(title);
 
         save = new TextView(this);
         save.setText(R.string.action_save);
-        save.setTextColor(0xFF03A9F4);
+        save.setTextColor(colorPrimary);
         save.setTextSize(16);
         save.setGravity(Gravity.CENTER);
-        save.setPadding(24, 8, 8, 8);
+        save.setPadding(dp(16), dp(8), dp(8), dp(8));
         save.setOnClickListener(v -> save());
         header.addView(save);
         root.addView(header);
 
         editor = new CodeEditor(this);
-        editor.setBackgroundColor(0xFF1E1E1E);
         editor.setTextSize(14);
         editor.setColorScheme(new SchemeDarcula());
         editor.setEditorLanguage(new EmptyLanguage());
@@ -89,12 +115,10 @@ public final class TextEditorActivity extends AppCompatActivity {
         try {
             long size = Files.size(path);
             String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-            if (size > 1024 * 1024) {
-                editor.setText(content.substring(0, Math.min(content.length(), 1024 * 1024)));
-                editor.setEditable(false);
-                save.setEnabled(false);
-                save.setText(R.string.read_only);
-                toast("Large file opened read-only");
+            if (size > EDITOR_READ_ONLY_THRESHOLD) {
+                editor.setText(content.substring(0,
+                        Math.min(content.length(), EDITOR_READ_ONLY_THRESHOLD)));
+                lockEditor("Large file opened read-only");
                 return;
             }
             editor.setText(content);
@@ -105,10 +129,17 @@ public final class TextEditorActivity extends AppCompatActivity {
                 save.setText(R.string.read_only);
             }
         } catch (IOException | SecurityException e) {
-            editor.setEditable(false);
-            save.setEnabled(false);
-            save.setText(R.string.read_only);
+            lockEditor(null);
             editor.setText(e.getMessage() == null ? "Error reading file" : e.getMessage());
+        }
+    }
+
+    private void lockEditor(@Nullable String userMessage) {
+        editor.setEditable(false);
+        save.setEnabled(false);
+        save.setText(R.string.read_only);
+        if (userMessage != null) {
+            toast(userMessage);
         }
     }
 
@@ -120,6 +151,10 @@ public final class TextEditorActivity extends AppCompatActivity {
         } catch (IOException | SecurityException e) {
             toast(e.getMessage() == null ? getString(R.string.unavailable) : e.getMessage());
         }
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
     }
 
     private void toast(String message) {

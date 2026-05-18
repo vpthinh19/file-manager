@@ -135,9 +135,14 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         viewModel.toggleSelect(node);
     }
 
+    /**
+     * Toggles the active-pane indicator on the container's foreground. The container is the
+     * FrameLayout root of {@code fragment_pane.xml}; its foreground drawable is a state-list that
+     * paints a 2dp primary-colored border when {@code activated == true}.
+     */
     public void setPaneActivated(boolean active) {
         if (binding != null) {
-            binding.rv.setActivated(active);
+            binding.paneRoot.setActivated(active);
         }
     }
 

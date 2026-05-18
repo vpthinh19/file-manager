@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Single pane. The FrameLayout holds an active-pane indicator in its foreground (see
+  bg_pane_indicator.xml) so the border is drawn AFTER children — no clipping by items.
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pane_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:foreground="@drawable/bg_pane_indicator"
+    android:foregroundGravity="fill">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/bg_pane_indicator"
         android:clipToPadding="false" />
 
     <ProgressBar
@@ -23,7 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/empty_folder"
-        android:textColor="#D0D0D0"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="15sp"
         android:visibility="gone" />
 </FrameLayout>

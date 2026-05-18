@@ -4,14 +4,14 @@
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#303030"
+    android:background="?attr/colorSurface"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#050505"
+        android:background="?attr/colorSurfaceContainer"
         android:fitsSystemWindows="true"
         app:elevation="0dp">
 
@@ -19,14 +19,15 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#050505"
+            android:background="?attr/colorSurfaceContainer"
             android:minHeight="64dp"
             app:contentInsetStartWithNavigation="0dp"
             app:navigationContentDescription="@string/menu_open_drawer"
             app:navigationIcon="@drawable/ic_menu"
-            app:subtitleTextColor="#BDBDBD"
+            app:navigationIconTint="?attr/colorOnSurface"
+            app:subtitleTextColor="?attr/colorOnSurfaceVariant"
             app:title=" "
-            app:titleTextColor="#F2F2F2" />
+            app:titleTextColor="?attr/colorOnSurface" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <LinearLayout
@@ -45,7 +46,7 @@
             android:id="@+id/divider_panes"
             android:layout_width="1dp"
             android:layout_height="match_parent"
-            android:background="#171717" />
+            android:background="?attr/colorOutlineVariant" />
 
         <FrameLayout
             android:id="@+id/pane_right_container"
@@ -57,13 +58,13 @@
     <FrameLayout
         android:id="@+id/bottom_container"
         android:layout_width="match_parent"
-        android:layout_height="64dp">
+        android:layout_height="64dp"
+        android:background="?attr/colorSurfaceContainer">
 
         <LinearLayout
             android:id="@+id/bottom_bar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@drawable/bg_bottom_bar"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -90,7 +91,6 @@
             android:id="@+id/selection_bar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@drawable/bg_bottom_bar"
             android:gravity="center"
             android:orientation="horizontal"
             android:visibility="gone">

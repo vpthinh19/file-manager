@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rounded-square badge background. White fill on purpose so View#setBackgroundTintList can paint it
+  to the per-category color at runtime. Corner radius matches the previous bg_icon_* drawables to
+  keep visual continuity.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/white" />
+    <corners android:radius="7dp" />
+</shape>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Row background. Selected state uses a tinted overlay over the surface color.
+  Picked via View#setSelected(boolean) from FileViewHolder.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true">
+        <color android:color="@color/row_selected_bg" />
+    </item>
+    <item>
+        <color android:color="?attr/colorSurface" />
+    </item>
+</selector>
