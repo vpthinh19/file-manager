@@ -25,10 +25,44 @@
             app:contentInsetStartWithNavigation="0dp"
             app:navigationContentDescription="@string/menu_open_drawer"
             app:navigationIcon="@drawable/ic_menu"
-            app:navigationIconTint="@color/md_chrome_on_bg"
-            app:subtitleTextColor="@color/md_chrome_on_bg_variant"
-            app:title=" "
-            app:titleTextColor="@color/md_chrome_on_bg" />
+            app:navigationIconTint="@color/md_chrome_on_bg">
+
+            <!--
+              Custom title block: we replace MaterialToolbar's built-in title TextView so we can
+              tune font size + ellipsize=start. With ellipsize=start the leading characters drop to
+              "..." and the meaningful end of the path stays visible at the right edge
+              (e.g. "...mulated/0/Download/hehe"). Toolbar accepts arbitrary children via
+              Toolbar.LayoutParams.
+            -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_toolbar_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="start"
+                    android:includeFontPadding="false"
+                    android:singleLine="true"
+                    android:textColor="@color/md_chrome_on_bg"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_toolbar_subtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
+                    android:paddingTop="2dp"
+                    android:singleLine="true"
+                    android:textColor="@color/md_chrome_on_bg_variant"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
     <LinearLayout

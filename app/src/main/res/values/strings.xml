@@ -59,4 +59,10 @@
     <string name="properties_type_file">File</string>
     <string name="properties_calculating">Calculating…</string>
     <string name="properties_unavailable">Unavailable</string>
+
+    <!-- Drawer + nav -->
+    <string name="drawer_subtitle">File manager</string>
+    <string name="menu_bookmarks">Bookmarks</string>
+    <string name="menu_settings">Settings</string>
+    <string name="coming_soon">Coming soon</string>
 </resources>

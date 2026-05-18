@@ -42,11 +42,13 @@ import com.vpt.filemanager.ui.browser.NodeActionsBottomSheet;
 import com.vpt.filemanager.ui.browser.OpenAsDialogFragment;
 import com.vpt.filemanager.ui.browser.PaneFragment;
 import com.vpt.filemanager.ui.browser.PaneViewModel;
+import com.vpt.filemanager.ui.drawer.DrawerActionHandler;
+import com.vpt.filemanager.ui.drawer.DrawerHost;
 import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
 import com.vpt.filemanager.ui.viewer.TextEditorActivity;
 
 @AndroidEntryPoint
-public final class DualPaneHostFragment extends Fragment implements PaneController {
+public final class DualPaneHostFragment extends Fragment implements PaneController, DrawerActionHandler {
     public static final String PANE_LEFT = "left";
     public static final String PANE_RIGHT = "right";
 
@@ -221,7 +223,28 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     private void configureToolbar() {
         MaterialToolbar toolbar = binding.toolbar;
-        toolbar.setNavigationOnClickListener(v -> toast("Drawer coming soon"));
+        toolbar.setNavigationOnClickListener(v -> {
+            if (requireActivity() instanceof DrawerHost host) {
+                host.openDrawer();
+            }
+        });
+    }
+
+    // ---------- DrawerActionHandler ----------
+
+    @Override
+    public void onTrashSelected() {
+        activeVm().openTrash();
+    }
+
+    @Override
+    public void onBookmarksSelected() {
+        toast(getString(R.string.coming_soon));
+    }
+
+    @Override
+    public void onSettingsSelected() {
+        toast(getString(R.string.coming_soon));
     }
 
     private void configureBottomBar() {
@@ -261,6 +284,12 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 new OnBackPressedCallback(true) {
                     @Override
                     public void handleOnBackPressed() {
+                        // Drawer wins: a visible drawer should always close on back, regardless
+                        // of pane / selection state.
+                        if (requireActivity() instanceof DrawerHost host && host.isDrawerOpen()) {
+                            host.closeDrawer();
+                            return;
+                        }
                         PaneViewModel vm = activeVm();
                         if (vm.isInSelectionMode()) {
                             vm.clearSelection();
@@ -324,31 +353,39 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     private void renderToolbarForState(@Nullable PaneViewModel.UiState state) {
         if (state instanceof PaneViewModel.UiState.Content content) {
-            binding.toolbar.setTitle(displayPath(content.path));
+            setTitle(displayPath(content.path));
             if (content.path.isArchive()) {
-                binding.toolbar.setSubtitle(getString(R.string.stats_archive,
+                setSubtitle(getString(R.string.stats_archive,
                         content.folderCount + content.fileCount));
             } else if (content.totalBytes > 0) {
-                binding.toolbar.setSubtitle(getString(R.string.stats_with_disk,
+                setSubtitle(getString(R.string.stats_with_disk,
                         content.folderCount, content.fileCount,
                         ByteSize.format(content.freeBytes), ByteSize.format(content.totalBytes)));
             } else {
-                binding.toolbar.setSubtitle(getString(R.string.stats_basic,
+                setSubtitle(getString(R.string.stats_basic,
                         content.folderCount, content.fileCount));
             }
         } else if (state instanceof PaneViewModel.UiState.Roots roots) {
-            binding.toolbar.setTitle(StorageScope.STORAGE_LABEL);
-            binding.toolbar.setSubtitle(getString(R.string.stats_roots, roots.roots.size()));
+            setTitle(StorageScope.ROOT_PATH);
+            setSubtitle(getString(R.string.stats_roots, roots.roots.size()));
         } else if (state instanceof PaneViewModel.UiState.Empty empty) {
-            binding.toolbar.setTitle(displayPath(empty.path));
-            binding.toolbar.setSubtitle(getString(R.string.stats_basic, 0, 0));
+            setTitle(displayPath(empty.path));
+            setSubtitle(getString(R.string.stats_basic, 0, 0));
         } else if (state instanceof PaneViewModel.UiState.Error error) {
-            binding.toolbar.setTitle(displayPath(error.path));
-            binding.toolbar.setSubtitle(R.string.error_listing_denied);
+            setTitle(displayPath(error.path));
+            setSubtitle(getString(R.string.error_listing_denied));
         } else {
-            binding.toolbar.setTitle(" ");
-            binding.toolbar.setSubtitle(null);
+            setTitle("");
+            setSubtitle("");
         }
+    }
+
+    private void setTitle(@NonNull CharSequence text) {
+        binding.tvToolbarTitle.setText(text);
+    }
+
+    private void setSubtitle(@Nullable CharSequence text) {
+        binding.tvToolbarSubtitle.setText(text == null ? "" : text);
     }
 
     private void renderBottomBars(@Nullable Set<FilePath> selection) {
@@ -356,8 +393,8 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         binding.bottomBar.setVisibility(inMode ? View.GONE : View.VISIBLE);
         binding.selectionBar.setVisibility(inMode ? View.VISIBLE : View.GONE);
         if (inMode) {
-            binding.toolbar.setTitle(getString(R.string.selected_count, selection.size()));
-            binding.toolbar.setSubtitle(null);
+            setTitle(getString(R.string.selected_count, selection.size()));
+            setSubtitle("");
         }
     }
 
@@ -608,17 +645,19 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     }
 
     /**
-     * Strip the storage-root prefix so the toolbar shows a short, user-friendly path:
-     * {@code /storage/emulated/0/Download} → {@code /Download/}. The scope root resolves to
-     * {@code "Storage"} (no trailing slash — it's a named location, not a path segment).
+     * Absolute filesystem path shown in the toolbar. The toolbar's title TextView uses
+     * {@code ellipsize="start"} + {@code singleLine="true"} so long paths get their leading
+     * segments replaced with {@code "..."} while the meaningful end stays visible:
+     * {@code /storage/emulated/0/Download/sub/file} →
+     * {@code ...mulated/0/Download/sub/file} when the available width can't fit the full string.
      */
+    @NonNull
     private static String displayPath(@NonNull FilePath path) {
         if (path.isArchive()) {
             FilePath archiveFile = FilePath.parse(path.authority());
-            return StorageScope.displayPath(archiveFile.path()) + "!" + path.path();
+            return archiveFile.path() + "!" + path.path();
         }
-        String stripped = StorageScope.displayPath(path.path());
-        return StorageScope.STORAGE_LABEL.equals(stripped) ? stripped : stripped + "/";
+        return path.path();
     }
 
     private void toast(@NonNull CharSequence message) {

@@ -15,12 +15,6 @@ import com.vpt.filemanager.domain.model.FilePath;
 public final class StorageScope {
     public static final String ROOT_PATH = "/storage/emulated/0";
 
-    /**
-     * User-facing label for the scope root. We surface "Storage" rather than "/" so the toolbar
-     * conveys "you are at the top of your storage" instead of a meaningless slash.
-     */
-    public static final String STORAGE_LABEL = "Storage";
-
     private StorageScope() {
     }
 
@@ -45,22 +39,6 @@ public final class StorageScope {
             return true;
         }
         return path.isLocal() && !ROOT_PATH.equals(path.path());
-    }
-
-    /**
-     * Strip the storage root prefix from a local path for user-friendly display.
-     * Examples: {@code /storage/emulated/0/Download} → {@code /Download};
-     * root itself → {@code /}.
-     */
-    @NonNull
-    public static String displayPath(@NonNull String localPath) {
-        if (localPath.equals(ROOT_PATH)) {
-            return STORAGE_LABEL;
-        }
-        if (localPath.startsWith(ROOT_PATH + "/")) {
-            return localPath.substring(ROOT_PATH.length());
-        }
-        return localPath;
     }
 
     /**
