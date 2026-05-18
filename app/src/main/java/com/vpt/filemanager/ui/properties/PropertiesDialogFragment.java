@@ -1,25 +1,50 @@
 package com.vpt.filemanager.ui.properties;
 
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.system.Os;
 import android.system.StructStat;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
 import java.io.File;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.Locale;
+import java.util.concurrent.Future;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
+import com.vpt.filemanager.core.concurrent.AppExecutors;
+import com.vpt.filemanager.core.io.FolderSizeCalculator;
 import com.vpt.filemanager.core.util.ByteSize;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.PosixPermission;
 import com.vpt.filemanager.ui.common.BaseDialogFragment;
 
+/**
+ * Read-only properties dialog rendered as a 2-column key/value table (MT Manager style — labels
+ * left, values right-aligned). Folder size is computed asynchronously via
+ * {@link FolderSizeCalculator} so opening Properties on a large directory doesn't block the UI.
+ */
+@AndroidEntryPoint
 public final class PropertiesDialogFragment extends BaseDialogFragment {
     private static final String ARG_PATH = "path";
+
+    @Inject FolderSizeCalculator sizeCalculator;
+    @Inject AppExecutors executors;
+
+    private TextView tvSize;
+    private Future<Long> sizeFuture;
+    private Future<?> sizeWaitFuture;
 
     public static PropertiesDialogFragment newInstance(String path) {
         PropertiesDialogFragment fragment = new PropertiesDialogFragment();
@@ -31,43 +56,96 @@ public final class PropertiesDialogFragment extends BaseDialogFragment {
 
     @NonNull
     @Override
-    public Dialog onCreateDialog(Bundle savedInstanceState) {
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         String rawPath = requireArguments().getString(ARG_PATH, "");
         FilePath path = FilePath.parse(rawPath);
         File file = new File(path.path());
-        String message = buildMessage(path, file);
+
+        View content = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_properties, null, false);
+        populate(content, path, file);
+
         return new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.properties)
-                .setMessage(message)
-                .setNeutralButton("MORE", null)
-                .setNegativeButton("CHECKSUM", null)
+                .setView(content)
                 .setPositiveButton(android.R.string.ok, null)
                 .create();
     }
 
-    private static String buildMessage(FilePath path, File file) {
-        StringBuilder out = new StringBuilder();
-        out.append("Name        ").append(file.getName().isEmpty() ? path.path() : file.getName()).append('\n');
-        out.append("Parent      ").append(file.getParent() == null ? "/" : file.getParent()).append('\n');
-        out.append("Type        ").append(file.isDirectory() ? "Folder" : "File").append('\n');
-        out.append("Size        ").append(file.isDirectory() ? "-" : ByteSize.format(file.length()) + " (" + file.length() + ")").append('\n');
-        out.append("Modified    ");
-        out.append(file.lastModified() > 0
-                ? DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(new Date(file.lastModified()))
-                : "Unavailable");
-        out.append("\n\n");
+    private void populate(View root, FilePath path, File file) {
+        ((TextView) root.findViewById(R.id.tv_name)).setText(
+                file.getName().isEmpty() ? path.path() : file.getName());
+        ((TextView) root.findViewById(R.id.tv_parent)).setText(
+                file.getParent() == null ? "/" : file.getParent());
+        ((TextView) root.findViewById(R.id.tv_type)).setText(
+                file.isDirectory()
+                        ? R.string.properties_type_folder
+                        : R.string.properties_type_file);
+
+        tvSize = root.findViewById(R.id.tv_size);
+        if (file.isDirectory()) {
+            tvSize.setText(R.string.properties_calculating);
+            scheduleFolderSize(path);
+        } else {
+            tvSize.setText(formatSize(file.length()));
+        }
+
+        TextView tvModified = root.findViewById(R.id.tv_modified);
+        tvModified.setText(file.lastModified() > 0
+                ? DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                        .format(new Date(file.lastModified()))
+                : getString(R.string.properties_unavailable));
+
+        TextView tvPermissions = root.findViewById(R.id.tv_permissions);
+        TextView tvOwner = root.findViewById(R.id.tv_owner);
+        TextView tvGroup = root.findViewById(R.id.tv_group);
         try {
             StructStat stat = Os.stat(path.path());
             PosixPermission permission = new PosixPermission(stat.st_mode);
-            out.append("Permissions ").append(permission.toRwxString()).append(" (")
-                    .append(Integer.toOctalString(stat.st_mode & 0777)).append(")\n");
-            out.append("Owner       ").append(stat.st_uid).append('\n');
-            out.append("Group       ").append(stat.st_gid);
+            tvPermissions.setText(String.format(Locale.US, "%s (%s)",
+                    permission.toRwxString(),
+                    Integer.toOctalString(stat.st_mode & 0777)));
+            tvOwner.setText(String.valueOf(stat.st_uid));
+            tvGroup.setText(String.valueOf(stat.st_gid));
         } catch (Exception e) {
-            out.append("Permissions ").append("Unavailable").append('\n');
-            out.append("Owner       ").append("Unavailable").append('\n');
-            out.append("Group       ").append("Unavailable");
+            String fallback = getString(R.string.properties_unavailable);
+            tvPermissions.setText(fallback);
+            tvOwner.setText(fallback);
+            tvGroup.setText(fallback);
         }
-        return out.toString();
+    }
+
+    /**
+     * Kick off recursive size computation on a background thread. We submit a separate io() task to
+     * await the calculator's Future so we can hop back to the main thread without blocking it; the
+     * UI shows "Calculating…" until the result arrives.
+     */
+    private void scheduleFolderSize(FilePath path) {
+        sizeFuture = sizeCalculator.compute(path);
+        sizeWaitFuture = executors.io().submit(() -> {
+            try {
+                long total = sizeFuture.get();
+                executors.main().execute(() -> {
+                    if (tvSize != null && isAdded()) {
+                        tvSize.setText(formatSize(total));
+                    }
+                });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception ignored) {
+                // Dialog dismissed or calculator failed — UI keeps "Calculating…" which is fine.
+            }
+        });
+    }
+
+    private static String formatSize(long bytes) {
+        return ByteSize.format(bytes) + " (" + bytes + ")";
+    }
+
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+        if (sizeFuture != null) sizeFuture.cancel(true);
+        if (sizeWaitFuture != null) sizeWaitFuture.cancel(true);
     }
 }
