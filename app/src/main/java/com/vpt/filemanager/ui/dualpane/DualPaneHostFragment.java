@@ -375,12 +375,49 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         }
         boolean single = selection.size() == 1;
         FilePath singlePath = single ? selection.iterator().next() : null;
-        FileNode singleNode = single ? null /* lookup in adapter only inside Pane; for now defer rename to use VM */ : null;
+        FileNode singleNode = single ? vm.findNode(singlePath) : null;
 
         NodeActionsBottomSheet sheet = NodeActionsBottomSheet
-                .newInstance(single ? singlePath.name() : selection.size() + " items");
-        sheet.setListener(action -> handleSelectionAction(action, singlePath));
+                .newInstance(single ? singlePath.name() : selection.size() + " items")
+                .setDisabledActions(computeDisabledActions(selection, singleNode))
+                .setListener(action -> handleSelectionAction(action, singlePath));
         sheet.show(getChildFragmentManager(), "selection-more");
+    }
+
+    /**
+     * Decide which actions to grey out for the current selection. Rules:
+     *   - multi-select disables single-target actions (rename, properties, open-with, bookmark)
+     *   - single folder disables open-with (no external viewer for folders)
+     *   - single file disables bookmark (v1 bookmarks are folders)
+     *   - any archive entry disables write actions (archive support is read-only in v1)
+     */
+    private EnumSet<NodeActionsBottomSheet.Action> computeDisabledActions(
+            @NonNull Set<FilePath> selection, @Nullable FileNode singleNode) {
+        EnumSet<NodeActionsBottomSheet.Action> disabled =
+                EnumSet.noneOf(NodeActionsBottomSheet.Action.class);
+        boolean multi = selection.size() > 1;
+        if (multi) {
+            disabled.add(NodeActionsBottomSheet.Action.RENAME);
+            disabled.add(NodeActionsBottomSheet.Action.PROPERTIES);
+            disabled.add(NodeActionsBottomSheet.Action.OPEN_WITH);
+            disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
+        } else if (singleNode != null) {
+            if (singleNode.isDirectory()) {
+                disabled.add(NodeActionsBottomSheet.Action.OPEN_WITH);
+            } else {
+                disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
+            }
+        }
+        for (FilePath p : selection) {
+            if (p.isArchive()) {
+                disabled.add(NodeActionsBottomSheet.Action.RENAME);
+                disabled.add(NodeActionsBottomSheet.Action.DELETE);
+                disabled.add(NodeActionsBottomSheet.Action.MOVE);
+                disabled.add(NodeActionsBottomSheet.Action.COMPRESS);
+                break;
+            }
+        }
+        return disabled;
     }
 
     private void handleSelectionAction(NodeActionsBottomSheet.Action action, @Nullable FilePath singlePath) {
@@ -502,6 +539,15 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     }
 
     private void openWithPath(@NonNull FilePath path) {
+        openWithMime(path, null);
+    }
+
+    /**
+     * Launch the system "Open with" chooser. {@code mimeOverride} forces a MIME type (used by
+     * {@link OpenAsDialogFragment} for extension-less files); pass {@code null} to auto-detect from
+     * the file name.
+     */
+    private void openWithMime(@NonNull FilePath path, @Nullable String mimeOverride) {
         if (!path.isLocal()) {
             toast(getString(R.string.unavailable));
             return;
@@ -511,8 +557,9 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                     requireContext(),
                     requireContext().getPackageName() + ".fileprovider",
                     new File(path.path()));
+            String mime = mimeOverride != null ? mimeOverride : MimeTypes.detect(path.name());
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, MimeTypes.detect(path.name()));
+            intent.setDataAndType(uri, mime);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(Intent.createChooser(intent, getString(R.string.action_open_with)));
         } catch (IllegalArgumentException | ActivityNotFoundException e) {

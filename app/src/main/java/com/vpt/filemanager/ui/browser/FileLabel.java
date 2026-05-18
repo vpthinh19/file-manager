@@ -1,41 +1,21 @@
 package com.vpt.filemanager.ui.browser;
 
 import androidx.annotation.ColorRes;
-import androidx.annotation.DrawableRes;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.domain.model.FileCategory;
 
 /**
- * UI-layer mapper from {@link FileCategory} to drawable / color resources. Pure dispatch — the
- * categorisation logic lives in {@link FileCategory#ofExtension(String)}.
+ * UI-layer mapper from {@link FileCategory} to color resources. Categorisation lives in
+ * {@link FileCategory#ofExtension(String)}; this class only routes a category to its badge color.
  *
- * <p>Kept package-private to discourage misuse outside the browser package.
+ * <p>Folder color is baked into {@code ic_folder.xml} via {@code android:tint="@color/badge_folder"}
+ * so it's not exposed here.
  */
 final class FileLabel {
     private FileLabel() {
     }
 
-    /** @return short uppercase label (e.g. {@code "PDF"}) shown on the row icon badge. */
-    static String shortLabel(String name) {
-        return FileCategory.ofExtension(name).shortLabel;
-    }
-
-    /** @return shape drawable for the file icon. Folders use {@link #folderIconRes()}. */
-    @DrawableRes
-    static int fileIconRes(FileCategory category) {
-        if (category == FileCategory.UNKNOWN) {
-            return R.drawable.ic_file_unknown;
-        }
-        return R.drawable.ic_file;
-    }
-
-    @DrawableRes
-    static int folderIconRes() {
-        return R.drawable.ic_folder;
-    }
-
-    /** @return badge tint color (file icon background + folder fill). */
     @ColorRes
     static int categoryColorRes(FileCategory category) {
         switch (category) {
@@ -50,10 +30,5 @@ final class FileLabel {
             case APK: return R.color.badge_apk;
             case UNKNOWN: default: return R.color.badge_unknown;
         }
-    }
-
-    @ColorRes
-    static int folderColorRes() {
-        return R.color.badge_folder;
     }
 }
