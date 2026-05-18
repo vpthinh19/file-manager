@@ -48,7 +48,7 @@
                     android:includeFontPadding="false"
                     android:singleLine="true"
                     android:textColor="@color/md_chrome_on_bg"
-                    android:textSize="14sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -57,10 +57,10 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:includeFontPadding="false"
-                    android:paddingTop="2dp"
+                    android:paddingTop="3dp"
                     android:singleLine="true"
                     android:textColor="@color/md_chrome_on_bg_variant"
-                    android:textSize="11sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>
@@ -95,7 +95,7 @@
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:animateLayoutChanges="true"
-        android:background="@color/md_chrome_bg">
+        android:background="?attr/colorSurface">
 
         <LinearLayout
             android:id="@+id/bottom_bar"

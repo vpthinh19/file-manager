@@ -9,7 +9,7 @@
             <solid android:color="@android:color/transparent" />
             <stroke
                 android:width="2dp"
-                android:color="?attr/colorPrimary" />
+                android:color="@color/pane_indicator_active" />
         </shape>
     </item>
     <item>

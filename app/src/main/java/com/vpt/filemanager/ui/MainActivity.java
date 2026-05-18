@@ -69,7 +69,9 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
         navView.setNavigationItemSelectedListener(item -> {
             DrawerActionHandler handler = currentDrawerHandler();
             int id = item.getItemId();
-            if (id == R.id.menu_trash) {
+            if (id == R.id.menu_storage) {
+                if (handler != null) handler.onStorageSelected();
+            } else if (id == R.id.menu_trash) {
                 if (handler != null) handler.onTrashSelected();
             } else if (id == R.id.menu_bookmarks) {
                 if (handler != null) handler.onBookmarksSelected();

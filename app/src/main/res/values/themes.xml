@@ -75,7 +75,11 @@
         <item name="android:textSize">14sp</item>
     </style>
 
-    <!-- ImageButton in the bottom / selection bars (white icons on dark chrome). -->
+    <!--
+      ImageButton in the bottom / selection bars. Bottom container now uses the pane surface
+      color (content zone, not chrome), so tint flips with the theme via colorOnSurface — dark
+      icons in light mode, light icons in dark mode.
+    -->
     <style name="BrowserBottomButton">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">match_parent</item>
@@ -83,6 +87,6 @@
         <item name="android:scaleType">center</item>
         <item name="android:padding">14dp</item>
         <item name="android:background">?attr/selectableItemBackground</item>
-        <item name="android:tint">@color/md_chrome_on_bg</item>
+        <item name="android:tint">?attr/colorOnSurface</item>
     </style>
 </resources>

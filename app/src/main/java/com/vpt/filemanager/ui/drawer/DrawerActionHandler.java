@@ -9,6 +9,9 @@ package com.vpt.filemanager.ui.drawer;
  * implementor obvious about what state changes.
  */
 public interface DrawerActionHandler {
+    /** Navigate the active pane back to the storage scope root. */
+    void onStorageSelected();
+
     void onTrashSelected();
 
     void onBookmarksSelected();

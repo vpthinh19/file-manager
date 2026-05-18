@@ -14,20 +14,27 @@
     <color name="md_secondary_container">#444559</color>
     <color name="md_on_secondary_container">#E0E1F9</color>
 
-    <!-- Dark pane surface kept near-black; neutralised (was #131318 with violet tint). -->
-    <color name="md_surface">#121212</color>
-    <color name="md_on_surface">#E4E1E9</color>
-    <color name="md_on_surface_variant">#C6C6D0</color>
+    <!--
+      Dark pane lifted to #303030 (MT-style content zone). Sits ABOVE chrome (#000000) so the
+      eye sees a clear hierarchy: pure-black chrome → lifted-gray content. Bottom bar shares
+      this surface color so the lifted zone reads as one block.
+    -->
+    <color name="md_surface">#303030</color>
+    <color name="md_on_surface">#ECECEC</color>
+    <color name="md_on_surface_variant">#B5B5B5</color>
 
-    <color name="md_surface_container_low">#1A1A1A</color>
-    <color name="md_surface_container">#1F1F1F</color>
-    <color name="md_surface_container_high">#2A2A2A</color>
-    <color name="md_surface_container_highest">#353535</color>
+    <color name="md_surface_container_low">#262626</color>
+    <color name="md_surface_container">#303030</color>
+    <color name="md_surface_container_high">#3A3A3A</color>
+    <color name="md_surface_container_highest">#454545</color>
 
-    <!-- Chrome: same dark constant as light mode (slightly different to differentiate from pane bg). -->
-    <color name="md_chrome_bg">#1A1A1A</color>
+    <!-- Chrome pure black — maximum contrast against the lifted #303030 pane. -->
+    <color name="md_chrome_bg">#000000</color>
     <color name="md_chrome_on_bg">#FFFFFF</color>
     <color name="md_chrome_on_bg_variant">#B0B0B0</color>
+
+    <!-- Active pane border in dark mode — same blue accent, slightly lighter to read on #303030. -->
+    <color name="pane_indicator_active">#64B5F6</color>
 
     <color name="md_outline">#8F909A</color>
     <color name="md_outline_variant">#45464F</color>

@@ -17,28 +17,32 @@
     <color name="md_on_secondary_container">#181A2C</color>
 
     <!--
-      Pane content surface — kept near-pure white in light mode (MT-faithful). Removed the
-      purple-tinted #FAF8FD because it muted the saturated badge colors. Container layers are
-      stepped grayscale so file rows / dividers still read.
+      Pane content surface. Pure white in light mode (no tint) so saturated brand colors stay
+      brand-accurate. Bottom bar shares this color (one content zone) — chrome lives above.
     -->
-    <color name="md_surface">#FAFAFA</color>
+    <color name="md_surface">#FFFFFF</color>
     <color name="md_on_surface">#1B1B1F</color>
-    <color name="md_on_surface_variant">#45464F</color>
+    <color name="md_on_surface_variant">#5F5F66</color>
 
-    <color name="md_surface_container_low">#F5F5F5</color>
-    <color name="md_surface_container">#EEEEEE</color>
-    <color name="md_surface_container_high">#E8E8E8</color>
-    <color name="md_surface_container_highest">#E0E0E0</color>
+    <color name="md_surface_container_low">#F8F8F8</color>
+    <color name="md_surface_container">#F2F2F2</color>
+    <color name="md_surface_container_high">#ECECEC</color>
+    <color name="md_surface_container_highest">#E4E4E4</color>
 
     <!--
-      Chrome (toolbar + bottom nav + status/nav bar) is CONSTANT-DARK regardless of theme.
-      MT keeps chrome dark in both modes as branding identity; we apply that here without
-      breaking M3 widgets (BottomSheet / Dialog still use ?attr/colorSurfaceContainer).
-      The on-bg tokens stay light so toolbar text/icons read on the dark chrome.
+      Chrome (action bar + status bar): darker than the pane so the eye can immediately read
+      "where am I". Dark gray in light mode (MT-style) — still distinct from the white pane.
+      Dark mode uses pure black (see values-night/colors.xml).
     -->
-    <color name="md_chrome_bg">#1F1F1F</color>
+    <color name="md_chrome_bg">#212121</color>
     <color name="md_chrome_on_bg">#FFFFFF</color>
-    <color name="md_chrome_on_bg_variant">#B0B0B0</color>
+    <color name="md_chrome_on_bg_variant">#B5B5B5</color>
+
+    <!--
+      Subtle active-pane border. Light-blue accent matches the "white + gray + light-blue" light
+      palette guidance — not the saturated M3 colorPrimary that read as harsh.
+    -->
+    <color name="pane_indicator_active">#42A5F5</color>
 
     <color name="md_outline">#767680</color>
     <color name="md_outline_variant">#C6C6D0</color>

@@ -233,6 +233,11 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     // ---------- DrawerActionHandler ----------
 
     @Override
+    public void onStorageSelected() {
+        activeVm().navigateTo(StorageScope.rootPath());
+    }
+
+    @Override
     public void onTrashSelected() {
         activeVm().openTrash();
     }
