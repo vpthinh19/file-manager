@@ -3,6 +3,7 @@ package com.vpt.filemanager.ui.browser;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 
 import java.util.Collections;
@@ -29,6 +30,9 @@ import com.vpt.filemanager.ui.common.LiveEvent;
 
 @HiltViewModel
 public final class PaneViewModel extends ViewModel {
+    private static final String KEY_PATH = "current_path";
+
+    private final SavedStateHandle savedState;
     private final ListDirectoryUseCase listDirectoryUseCase;
     private final CreateFileUseCase createFileUseCase;
     private final CreateFolderUseCase createFolderUseCase;
@@ -45,6 +49,7 @@ public final class PaneViewModel extends ViewModel {
 
     @Inject
     public PaneViewModel(
+            SavedStateHandle savedState,
             ListDirectoryUseCase listDirectoryUseCase,
             CreateFileUseCase createFileUseCase,
             CreateFolderUseCase createFolderUseCase,
@@ -52,6 +57,7 @@ public final class PaneViewModel extends ViewModel {
             RenameFileUseCase renameFileUseCase,
             StorageRootsProvider storageRoots,
             AppExecutors executors) {
+        this.savedState = savedState;
         this.listDirectoryUseCase = listDirectoryUseCase;
         this.createFileUseCase = createFileUseCase;
         this.createFolderUseCase = createFolderUseCase;
@@ -59,6 +65,26 @@ public final class PaneViewModel extends ViewModel {
         this.renameFileUseCase = renameFileUseCase;
         this.storageRoots = storageRoots;
         this.executors = executors;
+        restoreSavedPath();
+    }
+
+    /**
+     * Re-hydrate the pane's last location after process death so the user returns to exactly where
+     * they were (MT Manager parity). We kick off a load here too, otherwise the Fragment would see
+     * a non-null currentPath and skip its initial navigation — leaving uiState stuck at Loading.
+     * A corrupt/invalid stored path is swallowed silently; the Fragment will then navigate to root.
+     */
+    private void restoreSavedPath() {
+        String saved = savedState.get(KEY_PATH);
+        if (saved == null) {
+            return;
+        }
+        try {
+            currentPath = FilePath.parse(saved);
+            load(currentPath);
+        } catch (IllegalArgumentException ignored) {
+            savedState.remove(KEY_PATH);
+        }
     }
 
     public LiveData<UiState> uiState() {
@@ -134,6 +160,7 @@ public final class PaneViewModel extends ViewModel {
     public void navigateTo(FilePath path) {
         clearSelection();
         currentPath = path;
+        savedState.set(KEY_PATH, path.toString());
         load(path);
     }
 
@@ -217,7 +244,7 @@ public final class PaneViewModel extends ViewModel {
         if (currentPath == null || !currentPath.isLocal()) {
             return;
         }
-        navigateTo(FilePath.local(storageRootFor(currentPath.path()) + "/.AppTrash"));
+        navigateTo(FilePath.local(StorageScope.storageRootFor(currentPath.path()) + "/.AppTrash"));
     }
 
     public void onItemClicked(FileNode node) {
@@ -280,16 +307,6 @@ public final class PaneViewModel extends ViewModel {
                 events.postValue(e.getMessage());
             }
         });
-    }
-
-    private static String storageRootFor(String path) {
-        if (path.startsWith("/storage/emulated/0")) {
-            return "/storage/emulated/0";
-        }
-        if (path.startsWith("/sdcard")) {
-            return "/sdcard";
-        }
-        return "/";
     }
 
     @Override

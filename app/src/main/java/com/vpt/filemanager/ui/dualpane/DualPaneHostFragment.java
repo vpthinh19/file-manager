@@ -31,6 +31,7 @@ import java.util.Set;
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.io.FileOpener;
+import com.vpt.filemanager.core.storage.StorageScope;
 import com.vpt.filemanager.core.util.ByteSize;
 import com.vpt.filemanager.core.util.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
@@ -574,12 +575,19 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         return viewModelForPane(activePaneId);
     }
 
+    /**
+     * Strip the storage-root prefix so the toolbar shows a short, user-friendly path:
+     * {@code /storage/emulated/0/Download} → {@code /Download/}.
+     * Archive entries keep the {@code archive!inner} convention but the archive file portion
+     * is also stripped for consistency.
+     */
     private static String displayPath(@NonNull FilePath path) {
         if (path.isArchive()) {
             FilePath archiveFile = FilePath.parse(path.authority());
-            return archiveFile.path() + "!" + path.path();
+            return StorageScope.displayPath(archiveFile.path()) + "!" + path.path();
         }
-        return "/".equals(path.path()) ? "/" : path.path() + "/";
+        String stripped = StorageScope.displayPath(path.path());
+        return "/".equals(stripped) ? "/" : stripped + "/";
     }
 
     private void toast(@NonNull CharSequence message) {

@@ -93,7 +93,12 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
 
         observeViewModel();
 
-        if (savedInstanceState == null && viewModel.currentPath() == null) {
+        // After process death the Fragment receives a non-null savedInstanceState yet the freshly
+        // re-created ViewModel has no currentPath — we must still navigate, otherwise uiState stays
+        // at the initial Loading and the user sees a spinner forever. The SavedStateHandle restore
+        // path inside PaneViewModel handles MT-style "remember where I left off"; this guard only
+        // catches the cold-start case.
+        if (viewModel.currentPath() == null) {
             viewModel.navigateTo(StorageScope.rootPath());
         }
     }

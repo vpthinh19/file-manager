@@ -56,4 +56,15 @@ public final class StorageScope {
         }
         return localPath;
     }
+
+    /**
+     * Storage root that owns the given local path. v1 only allows {@link #ROOT_PATH}, so this is
+     * effectively a constant; the indirection exists so that when we add SD-card or SAF support
+     * (Phase 2D), {@code .AppTrash} placement keeps working without callers having to learn the
+     * new storage layout.
+     */
+    @NonNull
+    public static String storageRootFor(@NonNull String localPath) {
+        return ROOT_PATH;
+    }
 }
