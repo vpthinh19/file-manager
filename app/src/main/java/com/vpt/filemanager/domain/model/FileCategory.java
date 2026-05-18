@@ -3,13 +3,13 @@ package com.vpt.filemanager.domain.model;
 import java.util.Locale;
 
 /**
- * Visual category for file icons / badge labels. Distinct from {@link MimeCategory} on purpose:
- * MimeCategory drives the "open with" decision (5 broad buckets), whereas FileCategory drives the
- * row-icon rendering and therefore needs finer granularity (PDF vs DOC, APK vs ARCHIVE, CODE vs
- * TEXT).
+ * Visual + behavioral category for files. Single source of truth used by:
+ *   - {@code FileOpener.decide} → which viewer Action (text editor / image / archive / open with)
+ *   - {@code FileLabel.categoryColorRes} → which badge color
+ *   - {@code FileViewHolder} → which label text and icon variant
  *
- * <p>Pure Java, no Android imports — testable and the single source of truth for category mapping.
- * The UI layer maps each value to a drawable + color resource (see {@code FileLabel}).
+ * <p>Pure Java, no Android imports — testable with plain JUnit. Adding a new category requires
+ * touching this enum + colors.xml + FileLabel + FileOpener (compile-time check via switch).
  */
 public enum FileCategory {
     TEXT("TXT"),

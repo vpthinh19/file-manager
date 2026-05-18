@@ -1,9 +1,14 @@
 package com.vpt.filemanager.core.io;
 
-import com.vpt.filemanager.core.util.MimeTypes;
+import com.vpt.filemanager.domain.model.FileCategory;
 import com.vpt.filemanager.domain.model.FileNode;
-import com.vpt.filemanager.domain.model.MimeCategory;
 
+/**
+ * Routes a {@link FileNode} to the right viewer action by inspecting its {@link FileCategory}.
+ *
+ * <p>Categorisation lives entirely in {@link FileCategory#ofExtension(String)} — this class is a
+ * thin dispatcher so we keep a single source of truth for "what kind of file is this".
+ */
 public final class FileOpener {
     private FileOpener() {
     }
@@ -14,42 +19,24 @@ public final class FileOpener {
         if (node == null || node.isDirectory()) {
             return Action.OPEN_WITH;
         }
-        String name = node.name();
-        MimeCategory category = MimeTypes.category(null, name);
-        switch (category) {
+        switch (FileCategory.ofExtension(node.name())) {
+            case TEXT:
+            case CODE:
+                return Action.OPEN_TEXT;
             case IMAGE:
                 return Action.OPEN_IMAGE;
             case VIDEO:
                 return Action.OPEN_VIDEO;
             case AUDIO:
                 return Action.OPEN_AUDIO;
-            case TEXT:
-                return Action.OPEN_TEXT;
             case ARCHIVE:
                 return Action.OPEN_ARCHIVE;
-            case OTHER:
+            case PDF:
+            case DOC:
+            case APK:
+            case UNKNOWN:
             default:
-                if (looksLikeText(name)) {
-                    return Action.OPEN_TEXT;
-                }
                 return Action.OPEN_WITH;
         }
-    }
-
-    private static boolean looksLikeText(String name) {
-        String lower = name.toLowerCase(java.util.Locale.US);
-        String[] textExtensions = {
-                ".md", ".log", ".prop", ".cfg", ".conf", ".ini", ".sh", ".bat",
-                ".java", ".kt", ".py", ".rb", ".rs", ".go", ".c", ".cpp", ".h",
-                ".js", ".ts", ".css", ".scss", ".sql", ".yml", ".yaml", ".toml",
-                ".gradle", ".kts", ".csv", ".tsv"
-        };
-        for (String ext : textExtensions) {
-            if (lower.endsWith(ext)) {
-                return true;
-            }
-        }
-        int dot = lower.lastIndexOf('.');
-        return dot < 0;
     }
 }

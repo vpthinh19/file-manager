@@ -40,4 +40,20 @@ public final class StorageScope {
         }
         return path.isLocal() && !ROOT_PATH.equals(path.path());
     }
+
+    /**
+     * Strip the storage root prefix from a local path for user-friendly display.
+     * Examples: {@code /storage/emulated/0/Download} → {@code /Download};
+     * root itself → {@code /}.
+     */
+    @NonNull
+    public static String displayPath(@NonNull String localPath) {
+        if (localPath.equals(ROOT_PATH)) {
+            return "/";
+        }
+        if (localPath.startsWith(ROOT_PATH + "/")) {
+            return localPath.substring(ROOT_PATH.length());
+        }
+        return localPath;
+    }
 }
