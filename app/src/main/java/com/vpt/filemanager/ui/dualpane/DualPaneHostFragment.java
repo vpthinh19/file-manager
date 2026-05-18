@@ -283,8 +283,14 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             }
         });
         vm.selection().observe(getViewLifecycleOwner(), selection -> {
-            if (paneId.equals(activePaneId)) {
-                renderBottomBars(selection);
+            if (!paneId.equals(activePaneId)) {
+                return;
+            }
+            renderBottomBars(selection);
+            // Leaving selection mode must restore the path-derived toolbar title; otherwise the
+            // "N selected" string from renderBottomBars sticks even after the selection clears.
+            if (selection == null || selection.isEmpty()) {
+                renderToolbarForState(vm.uiState().getValue());
             }
         });
         vm.canGoBack().observe(getViewLifecycleOwner(), can -> {
@@ -331,7 +337,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                         content.folderCount, content.fileCount));
             }
         } else if (state instanceof PaneViewModel.UiState.Roots roots) {
-            binding.toolbar.setTitle("/");
+            binding.toolbar.setTitle(StorageScope.STORAGE_LABEL);
             binding.toolbar.setSubtitle(getString(R.string.stats_roots, roots.roots.size()));
         } else if (state instanceof PaneViewModel.UiState.Empty empty) {
             binding.toolbar.setTitle(displayPath(empty.path));
@@ -603,9 +609,8 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     /**
      * Strip the storage-root prefix so the toolbar shows a short, user-friendly path:
-     * {@code /storage/emulated/0/Download} → {@code /Download/}.
-     * Archive entries keep the {@code archive!inner} convention but the archive file portion
-     * is also stripped for consistency.
+     * {@code /storage/emulated/0/Download} → {@code /Download/}. The scope root resolves to
+     * {@code "Storage"} (no trailing slash — it's a named location, not a path segment).
      */
     private static String displayPath(@NonNull FilePath path) {
         if (path.isArchive()) {
@@ -613,7 +618,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             return StorageScope.displayPath(archiveFile.path()) + "!" + path.path();
         }
         String stripped = StorageScope.displayPath(path.path());
-        return "/".equals(stripped) ? "/" : stripped + "/";
+        return StorageScope.STORAGE_LABEL.equals(stripped) ? stripped : stripped + "/";
     }
 
     private void toast(@NonNull CharSequence message) {

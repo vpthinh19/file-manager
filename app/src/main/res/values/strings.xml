@@ -45,4 +45,18 @@
     <string name="openas_video">Video</string>
     <string name="openas_audio">Audio</string>
     <string name="openas_archive">Archive</string>
+
+    <!-- Properties dialog labels. -->
+    <string name="properties_name">Name</string>
+    <string name="properties_parent">Parent</string>
+    <string name="properties_type">Type</string>
+    <string name="properties_size">Size</string>
+    <string name="properties_modified">Modified</string>
+    <string name="properties_permissions">Permissions</string>
+    <string name="properties_owner">Owner</string>
+    <string name="properties_group">Group</string>
+    <string name="properties_type_folder">Folder</string>
+    <string name="properties_type_file">File</string>
+    <string name="properties_calculating">Calculating…</string>
+    <string name="properties_unavailable">Unavailable</string>
 </resources>

@@ -1,6 +1,5 @@
 package com.vpt.filemanager.ui;
 
-import android.content.res.Configuration;
 import android.os.Bundle;
 
 import androidx.annotation.Nullable;
@@ -13,9 +12,9 @@ import com.vpt.filemanager.R;
 import com.vpt.filemanager.ui.dualpane.DualPaneHostFragment;
 
 /**
- * Hosts the {@link DualPaneHostFragment}. The status / navigation bar colors come from the theme
- * ({@code Theme.FileManager}); this Activity only flips the system-bar icon contrast so dark icons
- * appear on a light background and vice versa.
+ * Hosts the {@link DualPaneHostFragment}. System bars match the dark chrome color
+ * ({@code md_chrome_bg}) in both light and dark themes (MT-faithful), so the bar icons must
+ * always be light — we never want dark-on-dark.
  */
 @AndroidEntryPoint
 public final class MainActivity extends AppCompatActivity {
@@ -24,7 +23,7 @@ public final class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        applySystemBarIconContrast();
+        applyDarkChromeSystemBars();
         if (savedInstanceState == null) {
             getSupportFragmentManager()
                     .beginTransaction()
@@ -33,12 +32,10 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void applySystemBarIconContrast() {
-        boolean isLight = (getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK) != Configuration.UI_MODE_NIGHT_YES;
+    private void applyDarkChromeSystemBars() {
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        controller.setAppearanceLightStatusBars(isLight);
-        controller.setAppearanceLightNavigationBars(isLight);
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(false);
     }
 }

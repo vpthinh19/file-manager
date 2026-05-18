@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -79,7 +80,15 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         adapter = new FileListAdapter(this);
         binding.rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.rv.setAdapter(adapter);
-        binding.rv.setItemAnimator(null);
+        // Tight animator: 120ms change duration — shorter than default 250ms so selection toggles
+        // feel responsive. Row height is fixed (52dp), enabling setHasFixedSize for one less pass.
+        binding.rv.setHasFixedSize(true);
+        DefaultItemAnimator animator = new DefaultItemAnimator();
+        animator.setAddDuration(120);
+        animator.setRemoveDuration(120);
+        animator.setChangeDuration(120);
+        animator.setMoveDuration(120);
+        binding.rv.setItemAnimator(animator);
         binding.rv.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull android.view.MotionEvent e) {

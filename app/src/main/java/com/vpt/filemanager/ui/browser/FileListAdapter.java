@@ -23,13 +23,27 @@ public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder>
         this.listener = listener;
     }
 
+    /**
+     * Apply a new selection set. We avoid {@code notifyDataSetChanged()} because it forces every
+     * visible row to rebind and kills the item-animator transitions; instead we walk the current
+     * list once and only invalidate rows whose selection state actually flipped.
+     */
     public void setSelection(Set<FilePath> selection) {
         Set<FilePath> next = selection == null ? Collections.emptySet() : selection;
         if (next.equals(selectedPaths)) {
             return;
         }
+        Set<FilePath> previous = this.selectedPaths;
         this.selectedPaths = next;
-        notifyDataSetChanged();
+        int count = getItemCount();
+        for (int i = 0; i < count; i++) {
+            FilePath path = getItem(i).path();
+            boolean wasSelected = previous.contains(path);
+            boolean isSelected = next.contains(path);
+            if (wasSelected != isSelected) {
+                notifyItemChanged(i);
+            }
+        }
     }
 
     @NonNull
