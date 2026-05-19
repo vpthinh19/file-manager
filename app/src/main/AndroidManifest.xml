@@ -39,18 +39,6 @@
         </activity>
 
         <activity
-            android:name=".ui.viewer.ImageViewerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.FileManager.Fullscreen" />
-        <activity
-            android:name=".ui.viewer.VideoPlayerActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:exported="false"
-            android:theme="@style/Theme.FileManager.Fullscreen" />
-        <activity
-            android:name=".ui.viewer.AudioPlayerActivity"
-            android:exported="false" />
-        <activity
             android:name=".ui.viewer.TextEditorActivity"
             android:exported="false" />
 
