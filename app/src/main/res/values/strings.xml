@@ -83,4 +83,19 @@
     <string name="dialog_binary_message">\"%1$s\" looks binary (contains non-text bytes). Open as text anyway? Content may appear garbled.</string>
     <string name="dialog_open_anyway">Open anyway</string>
     <string name="editor_size_limit_read_only">Large file opened read-only</string>
+
+    <!-- Phase 2C-8 — Toolbar overflow menu + sort. -->
+    <string name="action_search">Search</string>
+    <string name="action_sort">Sort</string>
+    <string name="action_exit">Exit</string>
+    <string name="exit_title">Exit File Manager?</string>
+    <string name="exit_message">The app will close.</string>
+    <string name="sort_title">Sort by</string>
+    <string name="sort_name_asc">Name (A–Z)</string>
+    <string name="sort_name_desc">Name (Z–A)</string>
+    <string name="sort_size_desc">Size (largest first)</string>
+    <string name="sort_size_asc">Size (smallest first)</string>
+    <string name="sort_date_desc">Date (newest first)</string>
+    <string name="sort_date_asc">Date (oldest first)</string>
+    <string name="sort_type">Type</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.vpt.filemanager.ui.browser;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
@@ -7,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,9 +19,11 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
 import com.vpt.filemanager.core.AppExecutors;
+import com.vpt.filemanager.core.Prefs;
 import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.domain.model.SortOrder;
 import com.vpt.filemanager.domain.usecase.CreateFileUseCase;
 import com.vpt.filemanager.domain.usecase.CreateFolderUseCase;
 import com.vpt.filemanager.domain.usecase.DeleteFilesUseCase;
@@ -46,6 +50,7 @@ public final class PaneViewModel extends ViewModel {
     private final DeleteFilesUseCase deleteFilesUseCase;
     private final RenameFileUseCase renameFileUseCase;
     private final AppExecutors executors;
+    private final Prefs prefs;
 
     private final MutableLiveData<UiState> uiState = new MutableLiveData<>(new UiState.Loading());
     private final MutableLiveData<Set<FilePath>> selection = new MutableLiveData<>(Collections.emptySet());
@@ -66,7 +71,8 @@ public final class PaneViewModel extends ViewModel {
             CreateFolderUseCase createFolderUseCase,
             DeleteFilesUseCase deleteFilesUseCase,
             RenameFileUseCase renameFileUseCase,
-            AppExecutors executors) {
+            AppExecutors executors,
+            Prefs prefs) {
         this.savedState = savedState;
         this.listDirectoryUseCase = listDirectoryUseCase;
         this.createFileUseCase = createFileUseCase;
@@ -74,6 +80,7 @@ public final class PaneViewModel extends ViewModel {
         this.deleteFilesUseCase = deleteFilesUseCase;
         this.renameFileUseCase = renameFileUseCase;
         this.executors = executors;
+        this.prefs = prefs;
         restoreSavedPath();
     }
 
@@ -253,6 +260,28 @@ public final class PaneViewModel extends ViewModel {
         }
     }
 
+    /**
+     * Apply a new sort order. We deliberately do NOT re-list from disk — the existing
+     * {@code lastVisibleNodes} snapshot is sorted in-memory and re-emitted as a new Content state.
+     * This keeps sort changes instantaneous regardless of folder size and avoids extra I/O.
+     * Persisted globally so the choice survives across pane / process restart.
+     */
+    public void setSort(@NonNull SortOrder order) {
+        prefs.setSortOrder(order);
+        if (lastVisibleNodes.isEmpty() || currentPath == null) {
+            return;
+        }
+        List<FileNode> sorted = new ArrayList<>(lastVisibleNodes);
+        sorted.sort(order.folderFirstComparator());
+        lastVisibleNodes = sorted;
+        uiState.setValue(new UiState.Content(currentPath, sorted));
+    }
+
+    @NonNull
+    public SortOrder sortOrder() {
+        return prefs.sortOrder();
+    }
+
     public void createFolder(String name) {
         if (!isWritableContext() || name == null || name.isBlank()) {
             return;
@@ -362,8 +391,10 @@ public final class PaneViewModel extends ViewModel {
                     lastVisibleNodes = Collections.emptyList();
                     uiState.postValue(new UiState.Empty(path));
                 } else {
-                    lastVisibleNodes = nodes;
-                    uiState.postValue(new UiState.Content(path, nodes));
+                    List<FileNode> sorted = new ArrayList<>(nodes);
+                    sorted.sort(prefs.sortOrder().folderFirstComparator());
+                    lastVisibleNodes = sorted;
+                    uiState.postValue(new UiState.Content(path, sorted));
                 }
             } catch (Throwable e) {
                 if (!path.equals(currentPath)) {

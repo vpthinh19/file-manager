@@ -237,6 +237,42 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 host.openDrawer();
             }
         });
+        toolbar.inflateMenu(R.menu.menu_dual_pane_overflow);
+        toolbar.setOnMenuItemClickListener(this::onToolbarMenuItem);
+    }
+
+    /**
+     * Overflow menu router. KISS: 5 ids, direct switch — no Command pattern. Items that aren't
+     * implemented yet show {@code coming_soon} so the menu surface is discoverable without the
+     * UI lying about completeness.
+     */
+    private boolean onToolbarMenuItem(@NonNull android.view.MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_refresh) {
+            activeVm().refresh();
+            return true;
+        }
+        if (id == R.id.action_sort) {
+            SortBottomSheet.newInstance(activeVm().sortOrder())
+                    .setListener(activeVm()::setSort)
+                    .show(getChildFragmentManager(), "sort");
+            return true;
+        }
+        if (id == R.id.action_search || id == R.id.action_settings) {
+            toast(getString(R.string.coming_soon));
+            return true;
+        }
+        if (id == R.id.action_exit) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.exit_title)
+                    .setMessage(R.string.exit_message)
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(android.R.string.ok,
+                            (d, w) -> requireActivity().finishAffinity())
+                    .show();
+            return true;
+        }
+        return false;
     }
 
     // ---------- DrawerActionHandler ----------
