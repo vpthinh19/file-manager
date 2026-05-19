@@ -25,6 +25,7 @@ import org.json.JSONObject;
 
 import dagger.hilt.android.qualifiers.ApplicationContext;
 
+import com.vpt.filemanager.core.AppExecutors;
 import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.core.error.FileSystemException;
 import com.vpt.filemanager.data.db.dao.TrashDao;
@@ -59,16 +60,23 @@ public final class TrashRepositoryImpl implements TrashRepository {
     private final FileRepository fileRepository;
     private final TrashDao dao;
     private final SharedPreferences prefs;
+    private final AppExecutors executors;
     private volatile boolean migrationChecked;
 
     @Inject
     public TrashRepositoryImpl(
             FileRepository fileRepository,
             TrashDao dao,
+            AppExecutors executors,
             @ApplicationContext Context ctx) {
         this.fileRepository = fileRepository;
         this.dao = dao;
+        this.executors = executors;
         this.prefs = ctx.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE);
+        // Eager-fire migration on io. Cheap fire-and-forget: Room LiveData will re-emit when the
+        // migration inserts finish, so any UI subscribed to entriesLive() picks up the imported
+        // rows automatically. We deliberately do NOT block entriesLive() on this.
+        executors.io().submit(this::ensureMigrated);
     }
 
     @Override
@@ -130,8 +138,9 @@ public final class TrashRepositoryImpl implements TrashRepository {
 
     @Override
     public LiveData<List<TrashEntry>> entriesLive() {
-        // Trigger migration lazily; subsequent emits come straight from Room.
-        ensureMigrated();
+        // Safe to call from the main thread — Room's observeAll() does its query off-thread, and
+        // any pending migration is already running on io from the constructor. The LiveData will
+        // re-emit once those inserts hit the table.
         return Transformations.map(dao.observeAll(), TrashRepositoryImpl::mapAll);
     }
 
