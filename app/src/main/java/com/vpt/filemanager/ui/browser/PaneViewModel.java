@@ -17,11 +17,9 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
 import com.vpt.filemanager.core.concurrent.AppExecutors;
-import com.vpt.filemanager.core.storage.StorageRootsProvider;
 import com.vpt.filemanager.core.storage.StorageScope;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
-import com.vpt.filemanager.domain.model.Result;
 import com.vpt.filemanager.domain.usecase.CreateFileUseCase;
 import com.vpt.filemanager.domain.usecase.CreateFolderUseCase;
 import com.vpt.filemanager.domain.usecase.DeleteFilesUseCase;
@@ -29,6 +27,14 @@ import com.vpt.filemanager.domain.usecase.ListDirectoryUseCase;
 import com.vpt.filemanager.domain.usecase.RenameFileUseCase;
 import com.vpt.filemanager.ui.common.LiveEvent;
 
+/**
+ * Browser pane state machine: holds the current location, the directory listing, the selection,
+ * and the back/forward stacks. Use cases are synchronous + throwing (R3 flattening); this VM owns
+ * the io scheduling so use cases stay thread-agnostic and easy to unit test.
+ *
+ * <p>The constructor restores any prior location from {@link SavedStateHandle} so process death
+ * lands the user back where they were (MT-Manager parity).
+ */
 @HiltViewModel
 public final class PaneViewModel extends ViewModel {
     private static final String KEY_PATH = "current_path";
@@ -39,8 +45,8 @@ public final class PaneViewModel extends ViewModel {
     private final CreateFolderUseCase createFolderUseCase;
     private final DeleteFilesUseCase deleteFilesUseCase;
     private final RenameFileUseCase renameFileUseCase;
-    private final StorageRootsProvider storageRoots;
     private final AppExecutors executors;
+
     private final MutableLiveData<UiState> uiState = new MutableLiveData<>(new UiState.Loading());
     private final MutableLiveData<Set<FilePath>> selection = new MutableLiveData<>(Collections.emptySet());
     private final MutableLiveData<Boolean> canGoBack = new MutableLiveData<>(false);
@@ -60,7 +66,6 @@ public final class PaneViewModel extends ViewModel {
             CreateFolderUseCase createFolderUseCase,
             DeleteFilesUseCase deleteFilesUseCase,
             RenameFileUseCase renameFileUseCase,
-            StorageRootsProvider storageRoots,
             AppExecutors executors) {
         this.savedState = savedState;
         this.listDirectoryUseCase = listDirectoryUseCase;
@@ -68,7 +73,6 @@ public final class PaneViewModel extends ViewModel {
         this.createFolderUseCase = createFolderUseCase;
         this.deleteFilesUseCase = deleteFilesUseCase;
         this.renameFileUseCase = renameFileUseCase;
-        this.storageRoots = storageRoots;
         this.executors = executors;
         restoreSavedPath();
     }
@@ -253,66 +257,54 @@ public final class PaneViewModel extends ViewModel {
         if (!isWritableContext() || name == null || name.isBlank()) {
             return;
         }
-        Future<Result<FileNode>> future = createFolderUseCase.execute(currentPath.child(name.trim()));
-        waitAndRefresh(future, "Folder created");
+        FilePath target = currentPath.child(name.trim());
+        runActionAndRefresh(() -> createFolderUseCase.execute(target), "Folder created");
     }
 
     public void createFile(String name) {
         if (!isWritableContext() || name == null || name.isBlank()) {
             return;
         }
-        Future<Result<FileNode>> future = createFileUseCase.execute(currentPath.child(name.trim()));
-        waitAndRefresh(future, "File created");
-    }
-
-    public void rename(FileNode node, String newName) {
-        if (node == null) {
-            return;
-        }
-        rename(node.path(), newName);
+        FilePath target = currentPath.child(name.trim());
+        runActionAndRefresh(() -> createFileUseCase.execute(target), "File created");
     }
 
     public void rename(FilePath path, String newName) {
         if (path == null || newName == null || newName.isBlank()) {
             return;
         }
-        Future<Result<Void>> future = renameFileUseCase.execute(path, newName.trim());
-        waitAndRefresh(future, "Renamed");
+        String trimmed = newName.trim();
+        // Drop the selection BEFORE submitting — the selected FilePath about to disappear (it'll
+        // be replaced by the new name), and DiffUtil treats that as remove+insert. Without this
+        // the UI keeps showing "1 selected" with the bottom selection bar visible against a row
+        // that no longer exists.
+        clearSelection();
+        runActionAndRefresh(() -> { renameFileUseCase.execute(path, trimmed); return null; },
+                "Renamed");
     }
 
     /**
      * Replace flow for the Phase 2C-6 create-conflict dialog: delete the colliding entry (to
-     * Trash, so the user can recover), then create the new one. Runs entirely on io() — events
-     * are posted back via the existing LiveEvent channel so the Fragment toasts the outcome.
+     * Trash, so the user can recover), then create the new one. Single io task, sequential — if
+     * delete fails the create never runs.
      */
     public void deleteThenCreate(FilePath path, boolean isFolder) {
         if (path == null) {
             return;
         }
-        java.util.concurrent.Future<Result<Void>> delFuture =
-                deleteFilesUseCase.execute(List.of(path), false);
         executors.io().submit(() -> {
             try {
-                Result<Void> delResult = delFuture.get();
-                if (!delResult.isSuccess()) {
-                    Throwable err = delResult.errorOrNull();
-                    events.postValue("Replace failed: "
-                            + (err == null ? "unknown" : err.getMessage()));
-                    return;
-                }
-                Future<Result<FileNode>> createFuture = isFolder
-                        ? createFolderUseCase.execute(path)
-                        : createFileUseCase.execute(path);
-                Result<FileNode> createResult = createFuture.get();
-                if (createResult.isSuccess()) {
-                    events.postValue(isFolder ? "Folder replaced" : "File replaced");
-                    refresh();
+                deleteFilesUseCase.execute(List.of(path), false);
+                if (isFolder) {
+                    createFolderUseCase.execute(path);
                 } else {
-                    Throwable err = createResult.errorOrNull();
-                    events.postValue(err == null ? "Create failed" : err.getMessage());
+                    createFileUseCase.execute(path);
                 }
+                events.postValue(isFolder ? "Folder replaced" : "File replaced");
+                refresh();
             } catch (Throwable e) {
-                events.postValue(e.getMessage());
+                events.postValue("Replace failed: "
+                        + (e.getMessage() == null ? "unknown" : e.getMessage()));
             }
         });
     }
@@ -321,8 +313,9 @@ public final class PaneViewModel extends ViewModel {
         if (node == null) {
             return;
         }
-        Future<Result<Void>> future = deleteFilesUseCase.execute(List.of(node.path()), false);
-        waitAndRefresh(future, "Moved to trash");
+        FilePath p = node.path();
+        runActionAndRefresh(() -> { deleteFilesUseCase.execute(List.of(p), false); return null; },
+                "Moved to trash");
     }
 
     public void deleteSelected() {
@@ -332,8 +325,8 @@ public final class PaneViewModel extends ViewModel {
         }
         List<FilePath> snapshot = List.copyOf(current);
         clearSelection();
-        Future<Result<Void>> future = deleteFilesUseCase.execute(snapshot, false);
-        waitAndRefresh(future, snapshot.size() + " moved to trash");
+        runActionAndRefresh(() -> { deleteFilesUseCase.execute(snapshot, false); return null; },
+                snapshot.size() + " moved to trash");
     }
 
     public void openTrash() {
@@ -343,66 +336,67 @@ public final class PaneViewModel extends ViewModel {
         navigateTo(FilePath.local(StorageScope.storageRootFor(currentPath.path()) + "/.AppTrash"));
     }
 
-    public void onItemClicked(FileNode node) {
-        if (node.isDirectory()) {
-            navigateTo(node.path());
-        } else {
-            events.postValue("Selected: " + node.name());
-        }
-    }
-
     private boolean isWritableContext() {
         return currentPath != null && currentPath.isLocal();
     }
 
+    /**
+     * Load the directory listing for {@code path} on io(). Cancels any prior in-flight load so a
+     * rapid sequence of taps doesn't queue stale Content emissions. The post-load state check
+     * guards against a race where a slow load finishes AFTER the user has already navigated
+     * elsewhere — we only emit Content/Empty/Error if the path we just loaded is still current.
+     */
     private void load(FilePath path) {
         if (pendingLoad != null) {
             pendingLoad.cancel(true);
             pendingLoad = null;
         }
         uiState.postValue(new UiState.Loading());
-        Future<Result<List<FileNode>>> future = listDirectoryUseCase.execute(path);
-        pendingLoad = future;
-        executors.io().submit(() -> {
+        pendingLoad = executors.io().submit(() -> {
             try {
-                Result<List<FileNode>> result = future.get();
-                if (result.isSuccess()) {
-                    List<FileNode> nodes = result.getOrNull();
-                    if (nodes == null || nodes.isEmpty()) {
-                        lastVisibleNodes = Collections.emptyList();
-                        uiState.postValue(new UiState.Empty(path));
-                    } else {
-                        lastVisibleNodes = nodes;
-                        uiState.postValue(new UiState.Content(path, nodes));
-                    }
-                } else {
+                List<FileNode> nodes = listDirectoryUseCase.execute(path);
+                if (!path.equals(currentPath)) {
+                    return; // user navigated away while we were loading
+                }
+                if (nodes == null || nodes.isEmpty()) {
                     lastVisibleNodes = Collections.emptyList();
-                    Throwable error = result.errorOrNull();
-                    uiState.postValue(new UiState.Error(path,
-                            error == null ? "Unknown error" : error.getMessage()));
+                    uiState.postValue(new UiState.Empty(path));
+                } else {
+                    lastVisibleNodes = nodes;
+                    uiState.postValue(new UiState.Content(path, nodes));
                 }
             } catch (Throwable e) {
+                if (!path.equals(currentPath)) {
+                    return;
+                }
                 lastVisibleNodes = Collections.emptyList();
-                uiState.postValue(new UiState.Error(path, e.getMessage()));
+                uiState.postValue(new UiState.Error(path,
+                        e.getMessage() == null ? "Unknown error" : e.getMessage()));
             }
         });
     }
 
-    private <T> void waitAndRefresh(Future<Result<T>> future, String successMessage) {
+    /**
+     * Run a CRUD action on io(), then refresh the pane and emit a success / failure event. Caller
+     * passes a {@link ThrowingAction} that delegates to a use case — keeps the io scheduling and
+     * error fan-out in one place instead of repeated try/catch blocks per action.
+     */
+    private void runActionAndRefresh(ThrowingAction action, String successMessage) {
         executors.io().submit(() -> {
             try {
-                Result<T> result = future.get();
-                if (result.isSuccess()) {
-                    events.postValue(successMessage);
-                    refresh();
-                } else {
-                    Throwable error = result.errorOrNull();
-                    events.postValue(error == null ? "Action failed" : error.getMessage());
-                }
+                action.run();
+                events.postValue(successMessage);
+                refresh();
             } catch (Throwable e) {
-                events.postValue(e.getMessage());
+                events.postValue(e.getMessage() == null ? "Action failed" : e.getMessage());
             }
         });
+    }
+
+    /** Functional shim for try/catch composition — use cases throw FileSystemException. */
+    @FunctionalInterface
+    private interface ThrowingAction {
+        Object run() throws Throwable;
     }
 
     @Override

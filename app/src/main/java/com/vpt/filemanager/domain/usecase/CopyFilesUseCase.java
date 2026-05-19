@@ -1,42 +1,35 @@
 package com.vpt.filemanager.domain.usecase;
 
 import java.util.List;
-import java.util.concurrent.Future;
 
 import javax.inject.Inject;
 
-import com.vpt.filemanager.core.concurrent.AppExecutors;
 import com.vpt.filemanager.core.concurrent.CancellationSignal;
 import com.vpt.filemanager.core.concurrent.ProgressReporter;
+import com.vpt.filemanager.core.error.FileSystemException;
 import com.vpt.filemanager.domain.model.ConflictPolicy;
 import com.vpt.filemanager.domain.model.FilePath;
-import com.vpt.filemanager.domain.model.Result;
 import com.vpt.filemanager.domain.repository.FileRepository;
 
+/**
+ * Copy a batch of sources into a destination directory under the given conflict policy. Long-
+ * running and cancellable: the caller passes a {@link CancellationSignal} that the repository
+ * checks between files / chunks, and a {@link ProgressReporter} for incremental UI updates.
+ */
 public final class CopyFilesUseCase {
     private final FileRepository fileRepository;
-    private final AppExecutors executors;
 
     @Inject
-    public CopyFilesUseCase(FileRepository fileRepository, AppExecutors executors) {
+    public CopyFilesUseCase(FileRepository fileRepository) {
         this.fileRepository = fileRepository;
-        this.executors = executors;
     }
 
-    public Future<Result<Void>> execute(
+    public void execute(
             List<FilePath> sources,
             FilePath dstDir,
             ConflictPolicy policy,
             ProgressReporter progress,
-            CancellationSignal cancel) {
-        return executors.io().submit(() -> {
-            try {
-                fileRepository.copyAll(sources, dstDir, policy, progress, cancel);
-                return Result.success(null);
-            } catch (Throwable e) {
-                return Result.failure(e);
-            }
-        });
+            CancellationSignal cancel) throws FileSystemException {
+        fileRepository.copyAll(sources, dstDir, policy, progress, cancel);
     }
 }
-
