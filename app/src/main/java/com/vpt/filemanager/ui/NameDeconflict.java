@@ -1,4 +1,4 @@
-package com.vpt.filemanager.ui.common;
+package com.vpt.filemanager.ui;
 
 import androidx.annotation.NonNull;
 

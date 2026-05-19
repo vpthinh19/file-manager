@@ -10,7 +10,7 @@ import java.text.DateFormat;
 import java.util.Date;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.util.ByteSize;
+import com.vpt.filemanager.core.ByteSize;
 import com.vpt.filemanager.domain.model.FileNode;
 
 /**

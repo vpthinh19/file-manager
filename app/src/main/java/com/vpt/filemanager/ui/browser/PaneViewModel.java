@@ -16,8 +16,8 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
-import com.vpt.filemanager.core.concurrent.AppExecutors;
-import com.vpt.filemanager.core.storage.StorageScope;
+import com.vpt.filemanager.core.AppExecutors;
+import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.usecase.CreateFileUseCase;
@@ -25,7 +25,7 @@ import com.vpt.filemanager.domain.usecase.CreateFolderUseCase;
 import com.vpt.filemanager.domain.usecase.DeleteFilesUseCase;
 import com.vpt.filemanager.domain.usecase.ListDirectoryUseCase;
 import com.vpt.filemanager.domain.usecase.RenameFileUseCase;
-import com.vpt.filemanager.ui.common.LiveEvent;
+import com.vpt.filemanager.ui.LiveEvent;
 
 /**
  * Browser pane state machine: holds the current location, the directory listing, the selection,

@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.io;
+package com.vpt.filemanager.core;
 
 import com.vpt.filemanager.domain.model.FileCategory;
 import com.vpt.filemanager.domain.model.FileNode;

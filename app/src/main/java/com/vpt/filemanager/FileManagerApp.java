@@ -3,7 +3,7 @@ package com.vpt.filemanager;
 import android.app.Application;
 
 import dagger.hilt.android.HiltAndroidApp;
-import com.vpt.filemanager.core.logging.TimberInitializer;
+import com.vpt.filemanager.core.TimberInit;
 
 /**
  * Application root. We intentionally do NOT call
@@ -17,7 +17,7 @@ public class FileManagerApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        TimberInitializer.init();
+        TimberInit.init();
     }
 }
 

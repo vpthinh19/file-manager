@@ -1,4 +1,4 @@
-package com.vpt.filemanager.ui.dualpane;
+package com.vpt.filemanager.ui.browser;
 
 import androidx.annotation.NonNull;
 

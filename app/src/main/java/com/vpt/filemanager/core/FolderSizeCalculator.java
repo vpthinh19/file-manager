@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.io;
+package com.vpt.filemanager.core;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -8,7 +8,7 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.core.concurrent.AppExecutors;
+import com.vpt.filemanager.core.AppExecutors;
 import com.vpt.filemanager.core.error.FileSystemException;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;

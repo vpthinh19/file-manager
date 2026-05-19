@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.util;
+package com.vpt.filemanager.core;
 
 import android.app.Activity;
 import android.content.Context;

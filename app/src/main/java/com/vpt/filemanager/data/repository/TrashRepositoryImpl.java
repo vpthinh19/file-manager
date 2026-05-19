@@ -18,7 +18,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.vpt.filemanager.core.error.FileSystemException;
-import com.vpt.filemanager.core.storage.StorageScope;
+import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.TrashEntry;
 import com.vpt.filemanager.domain.repository.FileRepository;

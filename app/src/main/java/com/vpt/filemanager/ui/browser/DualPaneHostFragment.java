@@ -1,4 +1,4 @@
-package com.vpt.filemanager.ui.dualpane;
+package com.vpt.filemanager.ui.browser;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -16,7 +16,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import com.vpt.filemanager.ui.MainActivity;
-import com.vpt.filemanager.ui.common.NameDeconflict;
+import com.vpt.filemanager.ui.NameDeconflict;
 import java.io.File;
 
 import androidx.activity.EdgeToEdge;
@@ -38,10 +38,10 @@ import java.util.Set;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.io.FileOpener;
-import com.vpt.filemanager.core.storage.StorageScope;
-import com.vpt.filemanager.core.util.ByteSize;
-import com.vpt.filemanager.core.util.MimeTypes;
+import com.vpt.filemanager.core.FileOpener;
+import com.vpt.filemanager.core.StorageScope;
+import com.vpt.filemanager.core.ByteSize;
+import com.vpt.filemanager.core.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.domain.model.FileCategory;
 import com.vpt.filemanager.domain.model.FileNode;
@@ -50,10 +50,10 @@ import com.vpt.filemanager.ui.browser.NodeActionsBottomSheet;
 import com.vpt.filemanager.ui.browser.OpenAsDialogFragment;
 import com.vpt.filemanager.ui.browser.PaneFragment;
 import com.vpt.filemanager.ui.browser.PaneViewModel;
-import com.vpt.filemanager.ui.drawer.DrawerActionHandler;
-import com.vpt.filemanager.ui.drawer.DrawerHost;
+import com.vpt.filemanager.ui.DrawerActionHandler;
+import com.vpt.filemanager.ui.DrawerHost;
 import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
-import com.vpt.filemanager.ui.viewer.TextEditorActivity;
+import com.vpt.filemanager.ui.editor.TextEditorActivity;
 
 @AndroidEntryPoint
 public final class DualPaneHostFragment extends Fragment implements PaneController, DrawerActionHandler {

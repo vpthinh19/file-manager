@@ -1,4 +1,4 @@
-package com.vpt.filemanager.ui.drawer;
+package com.vpt.filemanager.ui;
 
 /**
  * Contract implemented by the hosting Activity for the navigation drawer. Fragments use this to

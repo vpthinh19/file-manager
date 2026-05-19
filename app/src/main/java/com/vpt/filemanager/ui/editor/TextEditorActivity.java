@@ -1,4 +1,4 @@
-package com.vpt.filemanager.ui.viewer;
+package com.vpt.filemanager.ui.editor;
 
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -24,7 +24,7 @@ import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.util.ThemeUtils;
+import com.vpt.filemanager.core.ThemeUtils;
 
 /**
  * Lightweight wrapper around sora-editor's {@code CodeEditor}.

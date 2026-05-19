@@ -1,10 +1,10 @@
-package com.vpt.filemanager.core.logging;
+package com.vpt.filemanager.core;
 
 import com.vpt.filemanager.BuildConfig;
 import timber.log.Timber;
 
-public final class TimberInitializer {
-    private TimberInitializer() {
+public final class TimberInit {
+    private TimberInit() {
     }
 
     public static void init() {

@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.storage;
+package com.vpt.filemanager.core;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;

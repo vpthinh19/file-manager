@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.concurrent;
+package com.vpt.filemanager.core;
 
 import android.os.Handler;
 import android.os.Looper;

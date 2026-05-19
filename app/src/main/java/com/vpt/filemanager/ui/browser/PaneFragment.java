@@ -19,11 +19,11 @@ import java.util.List;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.storage.StorageScope;
+import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
-import com.vpt.filemanager.ui.dualpane.PaneController;
+import com.vpt.filemanager.ui.browser.PaneController;
 
 @AndroidEntryPoint
 public final class PaneFragment extends Fragment implements FileListAdapter.Listener {

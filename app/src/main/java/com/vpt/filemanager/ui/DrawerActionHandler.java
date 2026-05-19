@@ -1,4 +1,4 @@
-package com.vpt.filemanager.ui.drawer;
+package com.vpt.filemanager.ui;
 
 /**
  * Sink for drawer navigation events. Implemented by the foreground Fragment hosted in

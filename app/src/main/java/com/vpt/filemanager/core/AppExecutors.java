@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.concurrent;
+package com.vpt.filemanager.core;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;

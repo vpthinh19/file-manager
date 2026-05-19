@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.util;
+package com.vpt.filemanager.core;
 
 import java.net.URLConnection;
 

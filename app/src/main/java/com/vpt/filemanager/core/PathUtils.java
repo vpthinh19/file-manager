@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.util;
+package com.vpt.filemanager.core;
 
 public final class PathUtils {
     private PathUtils() {

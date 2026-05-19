@@ -7,7 +7,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 
-import com.vpt.filemanager.core.util.MimeTypes;
+import com.vpt.filemanager.core.MimeTypes;
 import com.vpt.filemanager.domain.model.FileMetadata;
 import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;

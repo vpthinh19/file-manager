@@ -27,9 +27,9 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.concurrent.AppExecutors;
-import com.vpt.filemanager.core.io.FolderSizeCalculator;
-import com.vpt.filemanager.core.util.ByteSize;
+import com.vpt.filemanager.core.AppExecutors;
+import com.vpt.filemanager.core.FolderSizeCalculator;
+import com.vpt.filemanager.core.ByteSize;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.PosixPermission;
 

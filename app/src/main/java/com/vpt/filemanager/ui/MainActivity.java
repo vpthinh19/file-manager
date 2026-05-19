@@ -22,9 +22,9 @@ import com.google.android.material.navigation.NavigationView;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.ui.drawer.DrawerActionHandler;
-import com.vpt.filemanager.ui.drawer.DrawerHost;
-import com.vpt.filemanager.ui.dualpane.DualPaneHostFragment;
+import com.vpt.filemanager.ui.DrawerActionHandler;
+import com.vpt.filemanager.ui.DrawerHost;
+import com.vpt.filemanager.ui.browser.DualPaneHostFragment;
 
 /**
  * Single launcher activity. Owns:
