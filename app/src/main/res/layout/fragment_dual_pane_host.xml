@@ -73,7 +73,7 @@
                     android:paddingTop="3dp"
                     android:singleLine="true"
                     android:textColor="@color/md_chrome_on_bg_variant"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
         </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>

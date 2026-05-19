@@ -49,6 +49,7 @@
         <!-- System bars match the dark chrome (toolbar + bottom nav) in BOTH modes. -->
         <item name="android:statusBarColor">@color/md_chrome_bg</item>
         <item name="android:navigationBarColor">@color/md_chrome_bg</item>
+        <item name="fontFamily">@font/font_family</item>
     </style>
 
     <style name="Theme.FileManager.NoActionBar" parent="Theme.FileManager" />

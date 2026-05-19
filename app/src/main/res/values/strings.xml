@@ -29,8 +29,8 @@
     <string name="read_only">Read-only</string>
     <string name="menu_open_drawer">Open drawer</string>
     <string name="menu_more_options">More options</string>
-    <string name="stats_basic">Folders: %1$d  Files: %2$d</string>
-    <string name="stats_with_disk">Folders: %1$d  Files: %2$d  Disk: %3$s / %4$s</string>
+    <string name="stats_basic">"Folders: %1$d  Files: %2$d"</string>
+    <string name="stats_with_disk">"Folders: %1$d  Files: %2$d  Disk: %3$s / %4$s"</string>
     <string name="stats_archive">Entries: %1$d</string>
     <string name="stats_roots">%1$d storage locations</string>
     <string name="error_listing_denied">Permission denied. You may not be allowed to list this directory.</string>
