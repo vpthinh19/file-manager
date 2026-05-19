@@ -31,16 +31,8 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
 
     private FragmentPaneBinding binding;
     private FileListAdapter adapter;
-    private DefaultItemAnimator listAnimator;
     private PaneViewModel viewModel;
     private PaneController controller;
-    /**
-     * The path the adapter is currently rendering. Drives the choice between MT-drop "navigation"
-     * animation (path-change) and a quiet incremental update (selection toggle, post-CRUD refresh).
-     * Null until the first non-Loading state arrives — that lets the first paint cascade in too.
-     */
-    @Nullable
-    private FilePath currentDisplayedPath;
 
     public static PaneFragment newInstance(@NonNull String paneId) {
         PaneFragment fragment = new PaneFragment();
@@ -92,16 +84,17 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         // Fixed-size rows let RecyclerView skip a measure pass. Row height is 46dp (see
         // row_file_node.xml) — single source of truth lives there, not in comments here.
         binding.rv.setHasFixedSize(true);
-        // Tight 120ms add/remove/change/move — used ONLY for incremental updates (selection toggle,
-        // post-CRUD refresh of the same folder). On path-change navigation the animator is swapped
-        // out for null so the old folder's rows disappear instantly (no slow fade-out preceding the
-        // MT-drop cascade), then restored once the new list commits.
-        listAnimator = new DefaultItemAnimator();
-        listAnimator.setAddDuration(120);
-        listAnimator.setRemoveDuration(120);
-        listAnimator.setChangeDuration(120);
-        listAnimator.setMoveDuration(120);
-        binding.rv.setItemAnimator(listAnimator);
+        // Tight 120ms cross-fade per item — DefaultItemAnimator runs the fade-out on rows that
+        // DiffUtil removed (folder leaving) in parallel with the fade-in on rows that DiffUtil
+        // inserted (folder arriving). No layoutAnimation, no manual RV alpha tricks: the cross-
+        // fade is synchronous with the diff commit, so we never see the old list flash back nor
+        // the new list snap to its resting position before animating.
+        DefaultItemAnimator animator = new DefaultItemAnimator();
+        animator.setAddDuration(120);
+        animator.setRemoveDuration(120);
+        animator.setChangeDuration(120);
+        animator.setMoveDuration(120);
+        binding.rv.setItemAnimator(animator);
         binding.rv.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull android.view.MotionEvent e) {
@@ -185,52 +178,13 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
                 // is in flight — feels less destructive than clearing to empty + flicker.
                 return;
             }
-
-            FilePath newPath = pathOf(state);
-            List<FileNode> newList = listFor(state);
-            boolean pathChanged = newPath != null
-                    && (currentDisplayedPath == null || !currentDisplayedPath.equals(newPath));
-            currentDisplayedPath = newPath;
-
-            if (pathChanged) {
-                // Navigation: hard-swap the list (no per-row fade-out) so the user never sees the
-                // previous folder's rows linger or animate out — then cascade the MT-drop on the
-                // new rows via scheduleLayoutAnimation.
-                binding.rv.setItemAnimator(null);
-                adapter.submitList(newList, this::onNavigationCommitted);
-            } else {
-                // Incremental update for the SAME folder (selection toggle, post-CRUD refresh).
-                // Keep the animator so add/remove flows are smooth and DO NOT re-trigger the
-                // layoutAnimation — re-running it on every selection change is the jitter the user
-                // reported, not the desired effect.
-                if (binding.rv.getItemAnimator() == null) {
-                    binding.rv.setItemAnimator(listAnimator);
-                }
-                adapter.submitList(newList);
-            }
+            // Standard ListAdapter flow: hand the new list off to AsyncListDiffer. The
+            // DefaultItemAnimator configured in onViewCreated runs synchronously with the diff
+            // notifications — removed rows fade out, inserted rows fade in, no extra
+            // RV-level alpha tricks and no layoutAnimation race.
+            adapter.submitList(listFor(state));
         });
         viewModel.selection().observe(getViewLifecycleOwner(), adapter::setSelection);
-    }
-
-    /**
-     * Commit callback for a navigation submitList: restore the item animator (disabled during the
-     * hard swap) and kick the MT-drop cascade declared in {@code fragment_pane.xml}.
-     */
-    private void onNavigationCommitted() {
-        if (binding == null) {
-            return;
-        }
-        binding.rv.setItemAnimator(listAnimator);
-        binding.rv.scheduleLayoutAnimation();
-    }
-
-    @Nullable
-    private static FilePath pathOf(@NonNull PaneViewModel.UiState state) {
-        if (state instanceof PaneViewModel.UiState.Content c) return c.path;
-        if (state instanceof PaneViewModel.UiState.Empty e) return e.path;
-        if (state instanceof PaneViewModel.UiState.Error e) return e.path;
-        if (state instanceof PaneViewModel.UiState.Roots r) return r.path;
-        return null;
     }
 
     @NonNull
