@@ -72,4 +72,15 @@
     <string name="conflict_message_format">\"%1$s\" already exists in this folder.</string>
     <string name="conflict_replace">Replace</string>
     <string name="conflict_keep_both">Keep both</string>
+
+    <!-- Phase 2C-7 — Error messages + binary open confirm. -->
+    <string name="error_archive_corrupt">Archive is corrupt or not a valid format.</string>
+    <string name="error_permission_denied">Permission denied.</string>
+    <string name="error_io">Unable to read or write the file.</string>
+    <string name="error_file_too_large">File is too large to open.</string>
+    <string name="error_unknown">An unexpected error occurred.</string>
+    <string name="dialog_binary_title">Open as text?</string>
+    <string name="dialog_binary_message">\"%1$s\" looks binary (contains non-text bytes). Open as text anyway? Content may appear garbled.</string>
+    <string name="dialog_open_anyway">Open anyway</string>
+    <string name="editor_size_limit_read_only">Large file opened read-only</string>
 </resources>

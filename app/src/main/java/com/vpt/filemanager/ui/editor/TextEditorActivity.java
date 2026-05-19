@@ -1,5 +1,6 @@
 package com.vpt.filemanager.ui.editor;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -14,7 +15,10 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,18 +29,22 @@ import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.ThemeUtils;
+import com.vpt.filemanager.ui.ErrorPresenter;
 
 /**
  * Lightweight wrapper around sora-editor's {@code CodeEditor}.
  *
- * <p>Chrome (root background, header bar, title, save action) is themed via M3 attrs and adapts to
- * light/dark automatically. The editor surface itself currently uses sora's built-in {@code
- * SchemeDarcula}; Phase 3 will plug in a theme-aware sora color scheme.
+ * <p>Load pipeline (Phase 2C-7 hardening) is a small state machine: size check → binary sniff →
+ * confirm dialog if binary → stream-decode with REPLACE policy → guarded {@code setText}. Every
+ * step funnels failures through {@link ErrorPresenter} so the UX matches the rest of the app.
  */
 public final class TextEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PATH = "com.vpt.filemanager.extra.PATH";
 
-    private static final int EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
+    private static final long EDITOR_HARD_LIMIT = 8L * 1024 * 1024;   // > this = bail, too risky
+    private static final long EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
+    private static final int SNIFF_BYTES = 4096;
+    private static final int NULL_SCAN_WINDOW = 512;
 
     private Path path;
     private CodeEditor editor;
@@ -48,11 +56,10 @@ public final class TextEditorActivity extends AppCompatActivity {
         applySystemBarIconContrast();
         path = Path.of(getIntent().getStringExtra(EXTRA_PATH));
         buildUi();
-        load();
+        startLoad();
     }
 
     private void applySystemBarIconContrast() {
-        // Chrome is constant dark in both themes — bar icons stay light.
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         controller.setAppearanceLightStatusBars(false);
@@ -110,14 +117,61 @@ public final class TextEditorActivity extends AppCompatActivity {
         setContentView(root);
     }
 
-    private void load() {
+    /**
+     * Pre-flight before reading: hard size cap + binary sniff. If the content is binary we ask
+     * the user before continuing — this is the path that previously crashed when a user renamed
+     * {@code .zip} → {@code .txt} and tried to open it.
+     */
+    private void startLoad() {
+        long size;
         try {
-            long size = Files.size(path);
-            String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+            size = Files.size(path);
+        } catch (IOException | SecurityException e) {
+            ErrorPresenter.toast(this, e);
+            finish();
+            return;
+        }
+        if (size > EDITOR_HARD_LIMIT) {
+            ErrorPresenter.toast(this, new IOException(getString(R.string.error_file_too_large)));
+            finish();
+            return;
+        }
+        boolean binary;
+        try {
+            binary = looksBinary(path);
+        } catch (IOException | SecurityException e) {
+            ErrorPresenter.toast(this, e);
+            finish();
+            return;
+        }
+        if (binary) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.dialog_binary_title)
+                    .setMessage(getString(R.string.dialog_binary_message,
+                            path.getFileName() == null ? path.toString()
+                                    : path.getFileName().toString()))
+                    .setNegativeButton(android.R.string.cancel, (d, w) -> finish())
+                    .setOnCancelListener(d -> finish())
+                    .setPositiveButton(R.string.dialog_open_anyway,
+                            (d, w) -> doLoad(size))
+                    .show();
+        } else {
+            doLoad(size);
+        }
+    }
+
+    /**
+     * Read the file as UTF-8 with a REPLACE-on-malformed decoder so binary or non-UTF-8 bytes turn
+     * into {@code �} instead of throwing. {@code setText} is wrapped in a Throwable guard
+     * because sora's text-actions pipeline has occasionally crashed on degenerate input.
+     */
+    private void doLoad(long size) {
+        try {
+            String content = readDecoded(path);
             if (size > EDITOR_READ_ONLY_THRESHOLD) {
                 editor.setText(content.substring(0,
-                        Math.min(content.length(), EDITOR_READ_ONLY_THRESHOLD)));
-                lockEditor("Large file opened read-only");
+                        Math.min(content.length(), (int) EDITOR_READ_ONLY_THRESHOLD)));
+                lockEditor(getString(R.string.editor_size_limit_read_only));
                 return;
             }
             editor.setText(content);
@@ -127,10 +181,47 @@ public final class TextEditorActivity extends AppCompatActivity {
             if (!writable) {
                 save.setText(R.string.read_only);
             }
-        } catch (IOException | SecurityException e) {
-            lockEditor(null);
-            editor.setText(e.getMessage() == null ? "Error reading file" : e.getMessage());
+        } catch (Throwable t) {
+            ErrorPresenter.toast(this, t);
+            finish();
         }
+    }
+
+    /**
+     * Scan up to {@link #SNIFF_BYTES} from the file's prefix; a null byte within the first
+     * {@link #NULL_SCAN_WINDOW} bytes is a strong binary signal (UTF-8 text never contains
+     * {@code 0x00}). Cheap heuristic — false positives for some Windows UTF-16 files, but the user
+     * can still opt in via the confirm dialog.
+     */
+    private static boolean looksBinary(Path path) throws IOException {
+        try (InputStream in = Files.newInputStream(path)) {
+            byte[] buf = new byte[SNIFF_BYTES];
+            int read = in.read(buf);
+            int scanEnd = Math.min(read, NULL_SCAN_WINDOW);
+            for (int i = 0; i < scanEnd; i++) {
+                if (buf[i] == 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static String readDecoded(Path path) throws IOException {
+        StringBuilder out = new StringBuilder();
+        char[] buf = new char[4096];
+        try (BufferedReader reader = new BufferedReader(
+                new java.io.InputStreamReader(
+                        Files.newInputStream(path),
+                        StandardCharsets.UTF_8.newDecoder()
+                                .onMalformedInput(CodingErrorAction.REPLACE)
+                                .onUnmappableCharacter(CodingErrorAction.REPLACE)))) {
+            int n;
+            while ((n = reader.read(buf)) >= 0) {
+                out.append(buf, 0, n);
+            }
+        }
+        return out.toString();
     }
 
     private void lockEditor(@Nullable String userMessage) {
@@ -148,7 +239,7 @@ public final class TextEditorActivity extends AppCompatActivity {
             Files.write(path, text.getBytes(StandardCharsets.UTF_8));
             toast("Saved");
         } catch (IOException | SecurityException e) {
-            toast(e.getMessage() == null ? getString(R.string.unavailable) : e.getMessage());
+            ErrorPresenter.toast(this, e);
         }
     }
 

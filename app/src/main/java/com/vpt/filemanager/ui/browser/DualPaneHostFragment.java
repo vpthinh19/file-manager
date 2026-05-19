@@ -401,7 +401,12 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             setSubtitle(getString(R.string.stats_basic, 0, 0));
         } else if (state instanceof PaneViewModel.UiState.Error error) {
             setTitle(displayPath(error.path));
-            setSubtitle(getString(R.string.error_listing_denied));
+            // Show the underlying cause (e.g. "Archive is corrupt", "Path not found") so the user
+            // can tell a permission failure apart from a bad-format failure. Falls back to the
+            // generic permission string only when the VM emitted no message.
+            setSubtitle(error.message == null || error.message.isEmpty()
+                    ? getString(R.string.error_listing_denied)
+                    : error.message);
         } else {
             setTitle("");
             setSubtitle("");
