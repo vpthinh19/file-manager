@@ -4,15 +4,17 @@ import dagger.Binds;
 import dagger.Module;
 import dagger.hilt.InstallIn;
 import dagger.hilt.components.SingletonComponent;
-import com.vpt.filemanager.data.repository.BookmarkRepositoryImpl;
 import com.vpt.filemanager.data.repository.FileRepositoryImpl;
-import com.vpt.filemanager.data.repository.HashRepositoryImpl;
 import com.vpt.filemanager.data.repository.TrashRepositoryImpl;
-import com.vpt.filemanager.domain.repository.BookmarkRepository;
 import com.vpt.filemanager.domain.repository.FileRepository;
-import com.vpt.filemanager.domain.repository.HashRepository;
 import com.vpt.filemanager.domain.repository.TrashRepository;
 
+/**
+ * Hilt bindings for the active repositories. {@code HashRepository} and {@code BookmarkRepository}
+ * were removed along with their unused use cases — when those features get wired we'll add
+ * concrete implementations + their {@code @Binds} entries together rather than carrying empty
+ * scaffolding indefinitely.
+ */
 @Module
 @InstallIn(SingletonComponent.class)
 public abstract class RepositoryModule {
@@ -20,12 +22,5 @@ public abstract class RepositoryModule {
     public abstract FileRepository bindFileRepository(FileRepositoryImpl repository);
 
     @Binds
-    public abstract HashRepository bindHashRepository(HashRepositoryImpl repository);
-
-    @Binds
     public abstract TrashRepository bindTrashRepository(TrashRepositoryImpl repository);
-
-    @Binds
-    public abstract BookmarkRepository bindBookmarkRepository(BookmarkRepositoryImpl repository);
 }
-
