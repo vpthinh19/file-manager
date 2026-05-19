@@ -38,10 +38,11 @@
     <color name="md_chrome_on_bg_variant">#B5B5B5</color>
 
     <!--
-      Subtle active-pane border. Light-blue accent matches the "white + gray + light-blue" light
-      palette guidance — not the saturated M3 colorPrimary that read as harsh.
+      Active-pane border = pure black in light mode (pure white in dark — see values-night). Aligns
+      the indicator with the chrome/toolbar visual hierarchy instead of competing with it via a
+      blue accent — the pane border now reads as a quiet "structural" mark, not a separate UI color.
     -->
-    <color name="pane_indicator_active">#42A5F5</color>
+    <color name="pane_indicator_active">#000000</color>
 
     <color name="md_outline">#767680</color>
     <color name="md_outline_variant">#C6C6D0</color>

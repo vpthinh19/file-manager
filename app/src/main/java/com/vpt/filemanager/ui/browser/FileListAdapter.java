@@ -49,20 +49,16 @@ public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder>
     @NonNull
     @Override
     public FileViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        // Click listeners are attached in the VH ctor (once per VH) instead of in onBindViewHolder
+        // — eliminates the per-bind lambda allocation that bloats scroll-time GC.
         return new FileViewHolder(LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.row_file_node, parent, false));
+                .inflate(R.layout.row_file_node, parent, false), listener);
     }
 
     @Override
     public void onBindViewHolder(@NonNull FileViewHolder holder, int position) {
         FileNode node = getItem(position);
-        boolean selected = selectedPaths.contains(node.path());
-        holder.bind(node, selected);
-        holder.itemView.setOnClickListener(view -> listener.onFileClicked(node));
-        holder.itemView.setOnLongClickListener(view -> {
-            listener.onFileLongClicked(node);
-            return true;
-        });
+        holder.bind(node, selectedPaths.contains(node.path()));
     }
 
     public interface Listener {

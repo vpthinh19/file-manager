@@ -33,8 +33,8 @@
     <color name="md_chrome_on_bg">#FFFFFF</color>
     <color name="md_chrome_on_bg_variant">#B0B0B0</color>
 
-    <!-- Active pane border in dark mode — same blue accent, slightly lighter to read on #303030. -->
-    <color name="pane_indicator_active">#64B5F6</color>
+    <!-- Active pane border = pure white in dark mode (pure black in light). See values/colors.xml. -->
+    <color name="pane_indicator_active">#FFFFFF</color>
 
     <color name="md_outline">#8F909A</color>
     <color name="md_outline_variant">#45464F</color>

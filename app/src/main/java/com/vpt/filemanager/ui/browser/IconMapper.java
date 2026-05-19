@@ -1,7 +1,14 @@
 package com.vpt.filemanager.ui.browser;
 
+import android.content.Context;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
+
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
+import androidx.core.content.ContextCompat;
+
+import java.util.EnumMap;
 
 import com.vpt.filemanager.R;
 
@@ -11,8 +18,17 @@ import com.vpt.filemanager.R;
  *
  * <p>Folder uses the same dispatch but with the dedicated folder badge color — keeps the rendering
  * loop uniform (every row = colored badge + white glyph).
+ *
+ * <p>{@link #badgeTint(Context, IconCategory)} memoizes {@link ColorStateList} per category so the
+ * RecyclerView binding hot path (~30 rows × 60 fps) does NOT allocate a fresh CSL per row. The
+ * cache is invalidated when the system's day/night mode flips (theme swap returns different
+ * resolved colors).
  */
 final class IconMapper {
+    private static final EnumMap<IconCategory, ColorStateList> TINT_CACHE =
+            new EnumMap<>(IconCategory.class);
+    private static int cachedNightMode = Integer.MIN_VALUE;
+
     private IconMapper() {
     }
 
@@ -50,5 +66,25 @@ final class IconMapper {
             case CODE: return R.drawable.ic_glyph_code;
             case UNKNOWN: default: return R.drawable.ic_glyph_unknown;
         }
+    }
+
+    /**
+     * Lazy-cached {@link ColorStateList} for the badge tint. Survives across RV bind calls; only
+     * rebuilds when day/night mode changes (so colors stay live across theme swaps).
+     */
+    static ColorStateList badgeTint(Context context, IconCategory category) {
+        int nightMode = context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+        if (nightMode != cachedNightMode) {
+            TINT_CACHE.clear();
+            cachedNightMode = nightMode;
+        }
+        ColorStateList tint = TINT_CACHE.get(category);
+        if (tint == null) {
+            tint = ColorStateList.valueOf(
+                    ContextCompat.getColor(context, badgeColor(category)));
+            TINT_CACHE.put(category, tint);
+        }
+        return tint;
     }
 }

@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import dagger.hilt.android.AndroidEntryPoint;
@@ -30,8 +31,16 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
 
     private FragmentPaneBinding binding;
     private FileListAdapter adapter;
+    private DefaultItemAnimator listAnimator;
     private PaneViewModel viewModel;
     private PaneController controller;
+    /**
+     * The path the adapter is currently rendering. Drives the choice between MT-drop "navigation"
+     * animation (path-change) and a quiet incremental update (selection toggle, post-CRUD refresh).
+     * Null until the first non-Loading state arrives — that lets the first paint cascade in too.
+     */
+    @Nullable
+    private FilePath currentDisplayedPath;
 
     public static PaneFragment newInstance(@NonNull String paneId) {
         PaneFragment fragment = new PaneFragment();
@@ -80,15 +89,19 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         adapter = new FileListAdapter(this);
         binding.rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.rv.setAdapter(adapter);
-        // Tight animator: 120ms change duration — shorter than default 250ms so selection toggles
-        // feel responsive. Row height is fixed (52dp), enabling setHasFixedSize for one less pass.
+        // Fixed-size rows let RecyclerView skip a measure pass. Row height is 46dp (see
+        // row_file_node.xml) — single source of truth lives there, not in comments here.
         binding.rv.setHasFixedSize(true);
-        DefaultItemAnimator animator = new DefaultItemAnimator();
-        animator.setAddDuration(120);
-        animator.setRemoveDuration(120);
-        animator.setChangeDuration(120);
-        animator.setMoveDuration(120);
-        binding.rv.setItemAnimator(animator);
+        // Tight 120ms add/remove/change/move — used ONLY for incremental updates (selection toggle,
+        // post-CRUD refresh of the same folder). On path-change navigation the animator is swapped
+        // out for null so the old folder's rows disappear instantly (no slow fade-out preceding the
+        // MT-drop cascade), then restored once the new list commits.
+        listAnimator = new DefaultItemAnimator();
+        listAnimator.setAddDuration(120);
+        listAnimator.setRemoveDuration(120);
+        listAnimator.setChangeDuration(120);
+        listAnimator.setMoveDuration(120);
+        binding.rv.setItemAnimator(listAnimator);
         binding.rv.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull android.view.MotionEvent e) {
@@ -152,7 +165,7 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
     /**
      * Toggles the active-pane indicator on the container's foreground. The container is the
      * FrameLayout root of {@code fragment_pane.xml}; its foreground drawable is a state-list that
-     * paints a 2dp primary-colored border when {@code activated == true}.
+     * paints a 2dp border when {@code activated == true} (white in dark mode, black in light).
      */
     public void setPaneActivated(boolean active) {
         if (binding != null) {
@@ -167,30 +180,74 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
             }
             boolean isLoading = state instanceof PaneViewModel.UiState.Loading;
             binding.progress.setVisibility(isLoading ? View.VISIBLE : View.GONE);
-            // Empty + Content + Error all flow through the same submit path. Empty folders render
-            // as just the ParentFileNode row (the ".." entry) — no placeholder, no extra UI; the
-            // pane simply shows "..", which is the cleanest signal that nothing else exists.
-            if (state instanceof PaneViewModel.UiState.Content content) {
-                adapter.submitList(withParent(content.path, content.nodes), this::playEnterAnimation);
-            } else if (state instanceof PaneViewModel.UiState.Roots roots) {
-                adapter.submitList(new ArrayList<>(roots.roots), this::playEnterAnimation);
-            } else if (state instanceof PaneViewModel.UiState.Empty empty) {
-                adapter.submitList(withParent(empty.path, List.of()), this::playEnterAnimation);
-            } else if (state instanceof PaneViewModel.UiState.Error error) {
-                adapter.submitList(withParent(error.path, List.of()), this::playEnterAnimation);
+            if (isLoading) {
+                // Keep the old folder's rows visible underneath the spinner while the new listing
+                // is in flight — feels less destructive than clearing to empty + flicker.
+                return;
+            }
+
+            FilePath newPath = pathOf(state);
+            List<FileNode> newList = listFor(state);
+            boolean pathChanged = newPath != null
+                    && (currentDisplayedPath == null || !currentDisplayedPath.equals(newPath));
+            currentDisplayedPath = newPath;
+
+            if (pathChanged) {
+                // Navigation: hard-swap the list (no per-row fade-out) so the user never sees the
+                // previous folder's rows linger or animate out — then cascade the MT-drop on the
+                // new rows via scheduleLayoutAnimation.
+                binding.rv.setItemAnimator(null);
+                adapter.submitList(newList, this::onNavigationCommitted);
+            } else {
+                // Incremental update for the SAME folder (selection toggle, post-CRUD refresh).
+                // Keep the animator so add/remove flows are smooth and DO NOT re-trigger the
+                // layoutAnimation — re-running it on every selection change is the jitter the user
+                // reported, not the desired effect.
+                if (binding.rv.getItemAnimator() == null) {
+                    binding.rv.setItemAnimator(listAnimator);
+                }
+                adapter.submitList(newList);
             }
         });
         viewModel.selection().observe(getViewLifecycleOwner(), adapter::setSelection);
     }
 
     /**
-     * Triggers the RecyclerView's layoutAnimation (declared in fragment_pane.xml) after the
-     * adapter commits a new list — that cascades the per-row drop-in animation instead of every
-     * row popping in at once.
+     * Commit callback for a navigation submitList: restore the item animator (disabled during the
+     * hard swap) and kick the MT-drop cascade declared in {@code fragment_pane.xml}.
      */
-    private void playEnterAnimation() {
-        if (binding == null) return;
+    private void onNavigationCommitted() {
+        if (binding == null) {
+            return;
+        }
+        binding.rv.setItemAnimator(listAnimator);
         binding.rv.scheduleLayoutAnimation();
+    }
+
+    @Nullable
+    private static FilePath pathOf(@NonNull PaneViewModel.UiState state) {
+        if (state instanceof PaneViewModel.UiState.Content c) return c.path;
+        if (state instanceof PaneViewModel.UiState.Empty e) return e.path;
+        if (state instanceof PaneViewModel.UiState.Error e) return e.path;
+        if (state instanceof PaneViewModel.UiState.Roots r) return r.path;
+        return null;
+    }
+
+    @NonNull
+    private static List<FileNode> listFor(@NonNull PaneViewModel.UiState state) {
+        if (state instanceof PaneViewModel.UiState.Content c) {
+            return withParent(c.path, c.nodes);
+        }
+        if (state instanceof PaneViewModel.UiState.Roots r) {
+            return new ArrayList<>(r.roots);
+        }
+        if (state instanceof PaneViewModel.UiState.Empty e) {
+            return withParent(e.path, List.of());
+        }
+        if (state instanceof PaneViewModel.UiState.Error e) {
+            return withParent(e.path, List.of());
+        }
+        return Collections.emptyList();
     }
 
     private static List<FileNode> withParent(FilePath path, List<FileNode> nodes) {

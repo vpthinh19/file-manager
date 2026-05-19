@@ -1,10 +1,11 @@
 package com.vpt.filemanager.ui;
 
 import android.os.Bundle;
-import android.view.Gravity;
 
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
@@ -32,6 +33,7 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         applyDarkChromeSystemBars();
@@ -48,20 +50,20 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
     @Override
     public void openDrawer() {
         if (drawerLayout != null) {
-            drawerLayout.openDrawer(Gravity.START);
+            drawerLayout.openDrawer(GravityCompat.START);
         }
     }
 
     @Override
     public void closeDrawer() {
-        if (drawerLayout != null && drawerLayout.isDrawerOpen(Gravity.START)) {
-            drawerLayout.closeDrawer(Gravity.START);
+        if (drawerLayout != null && drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            drawerLayout.closeDrawer(GravityCompat.START);
         }
     }
 
     @Override
     public boolean isDrawerOpen() {
-        return drawerLayout != null && drawerLayout.isDrawerOpen(Gravity.START);
+        return drawerLayout != null && drawerLayout.isDrawerOpen(GravityCompat.START);
     }
 
     private void wireDrawerNavigation() {
@@ -79,7 +81,7 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
                 if (handler != null) handler.onSettingsSelected();
             }
             if (drawerLayout != null) {
-                drawerLayout.closeDrawer(Gravity.START);
+                drawerLayout.closeDrawer(GravityCompat.START);
             }
             // Drawer items are stateful actions, not persistent selections — keep them unchecked
             // so the next open doesn't show a stale highlight.

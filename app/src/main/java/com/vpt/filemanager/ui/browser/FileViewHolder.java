@@ -20,20 +20,48 @@ import com.vpt.filemanager.domain.model.FileNode;
  * file rows look up an {@link IconCategory} from the file name. Selection state is propagated to
  * the itemView via {@link View#setSelected(boolean)} so {@code bg_file_row} can pick up the right
  * state-list color.
+ *
+ * <p>Perf: click listeners are attached ONCE in the constructor (they read the latest bound node
+ * via {@link #currentNode}) — previously {@code onBindViewHolder} allocated a fresh lambda per
+ * bind, churning the GC on every scroll. {@link #DATE_FMT} is a class-level static for the same
+ * reason: {@code DateFormat.getDateTimeInstance(...)} internally walks Locale / pattern data and
+ * allocates a Calendar — far too heavy for the bind hot path.
  */
 public final class FileViewHolder extends RecyclerView.ViewHolder {
+    /**
+     * Shared formatter. {@link DateFormat} is NOT thread-safe, but RV binding is always invoked on
+     * the main thread, so a single static instance is safe and avoids the per-bind allocation.
+     */
+    private static final DateFormat DATE_FMT =
+            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+
     private final FileIconView icon;
     private final TextView name;
     private final TextView meta;
+    private final Date dateBuffer = new Date();
+    private FileNode currentNode;
 
-    public FileViewHolder(@NonNull View itemView) {
+    public FileViewHolder(@NonNull View itemView, @NonNull FileListAdapter.Listener listener) {
         super(itemView);
         icon = itemView.findViewById(R.id.file_icon);
         name = itemView.findViewById(R.id.tv_name);
         meta = itemView.findViewById(R.id.tv_meta);
+        itemView.setOnClickListener(v -> {
+            if (currentNode != null) {
+                listener.onFileClicked(currentNode);
+            }
+        });
+        itemView.setOnLongClickListener(v -> {
+            if (currentNode != null) {
+                listener.onFileLongClicked(currentNode);
+                return true;
+            }
+            return false;
+        });
     }
 
     public void bind(FileNode node, boolean selected) {
+        currentNode = node;
         if (node instanceof ParentFileNode || node.isDirectory()) {
             icon.bindFolder();
         } else {
@@ -44,12 +72,16 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
         itemView.setSelected(selected);
     }
 
-    private static String formatMeta(FileNode node) {
+    private String formatMeta(FileNode node) {
+        if (node instanceof ParentFileNode) {
+            return "Parent";
+        }
         String size = node.isDirectory() ? "Folder" : ByteSize.format(node.sizeBytes());
-        String date = node.lastModifiedMillis() > 0
-                ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-                .format(new Date(node.lastModifiedMillis()))
-                : "Parent";
-        return size + " · " + date;
+        long mtime = node.lastModifiedMillis();
+        if (mtime <= 0) {
+            return size;
+        }
+        dateBuffer.setTime(mtime);
+        return size + " · " + DATE_FMT.format(dateBuffer);
     }
 }

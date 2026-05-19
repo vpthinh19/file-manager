@@ -2,6 +2,7 @@ package com.vpt.filemanager.ui.dualpane;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -14,9 +15,11 @@ import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import com.vpt.filemanager.ui.MainActivity;
 import com.vpt.filemanager.ui.common.NameDeconflict;
 import java.io.File;
 
+import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -110,6 +113,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         configureBottomBar();
         configureSelectionBar();
         applyInsets();
+        applyStatusBarInsets();
         installBackHandler();
 
         observePane(PANE_LEFT, leftVm);
@@ -287,6 +291,20 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), bottom);
             return insets;
         });
+    }
+
+    private void applyStatusBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.appbar, (v, insets) -> {
+            int statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+            binding.toolbar.setPadding(
+                    binding.toolbar.getPaddingLeft(),
+                    statusBarHeight,
+                    binding.toolbar.getPaddingRight(),
+                    binding.toolbar.getPaddingBottom()
+            );
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(binding.appbar);
     }
 
     private void installBackHandler() {
@@ -478,8 +496,11 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                     PaneViewModel vm = activeVm();
                     if (isFolder) vm.createFolder(unique); else vm.createFile(unique);
                 })
-                .setPositiveButton(R.string.conflict_replace, (d, w) -> {
-                    activeVm().deleteThenCreate(dir.child(name), isFolder);
+                .setPositiveButton(R.string.conflict_replace, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        activeVm().deleteThenCreate(dir.child(name), isFolder);
+                    }
                 })
                 .show();
     }

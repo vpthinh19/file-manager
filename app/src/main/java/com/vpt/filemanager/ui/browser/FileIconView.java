@@ -1,7 +1,6 @@
 package com.vpt.filemanager.ui.browser;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,7 +9,6 @@ import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import com.vpt.filemanager.R;
 
@@ -19,6 +17,10 @@ import com.vpt.filemanager.R;
  * folder, document, sheet, slide, pdf, archive, image, video, audio, apk, code, unknown — all 12
  * map to one badge color + one white glyph drawable through {@link IconMapper}.
  *
+ * <p>Hot-path note: {@link #bindCategory(IconCategory)} pulls a cached {@link
+ * android.content.res.ColorStateList} from {@link IconMapper#badgeTint} so the scroll-time
+ * allocation count stays flat regardless of pane density.
+ *
  * <p>Previous Option C (per-extension ext-text overlay) removed: long extensions like DOCX/PROP
  * overflowed the badge at large font scales, and per-brand colors fragmented the rail with too many
  * distinct tints. Option D collapses to one badge style with category-level color hierarchy.
@@ -26,6 +28,8 @@ import com.vpt.filemanager.R;
 public final class FileIconView extends FrameLayout {
     private final View badgeBg;
     private final ImageView glyph;
+    @Nullable
+    private IconCategory currentCategory;
 
     public FileIconView(@NonNull Context context) {
         this(context, null);
@@ -49,8 +53,13 @@ public final class FileIconView extends FrameLayout {
 
     /** Any file row — derive {@link IconCategory} via {@link IconCategory#ofFileName(String)}. */
     public void bindCategory(@NonNull IconCategory category) {
-        int bgColor = ContextCompat.getColor(getContext(), IconMapper.badgeColor(category));
-        badgeBg.setBackgroundTintList(ColorStateList.valueOf(bgColor));
+        // Cheap idempotency guard: rebinding the same category (frequent when the adapter notifies
+        // an unrelated change like selection toggle) skips the tint + drawable assignments entirely.
+        if (category == currentCategory) {
+            return;
+        }
+        currentCategory = category;
+        badgeBg.setBackgroundTintList(IconMapper.badgeTint(getContext(), category));
         glyph.setImageResource(IconMapper.glyph(category));
     }
 }
