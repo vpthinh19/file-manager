@@ -178,6 +178,12 @@
                 android:src="@drawable/ic_select_all" />
 
             <ImageButton
+                android:id="@+id/btn_sel_deselect"
+                style="@style/BrowserBottomButton"
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_deselect_all" />
+
+            <ImageButton
                 android:id="@+id/btn_sel_more"
                 style="@style/BrowserBottomButton"
                 android:contentDescription="@string/menu_more_options"

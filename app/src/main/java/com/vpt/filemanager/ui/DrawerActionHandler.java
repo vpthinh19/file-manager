@@ -15,6 +15,4 @@ public interface DrawerActionHandler {
     void onTrashSelected();
 
     void onBookmarksSelected();
-
-    void onSettingsSelected();
 }

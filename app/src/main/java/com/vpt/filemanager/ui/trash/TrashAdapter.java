@@ -75,14 +75,19 @@ public final class TrashAdapter extends ListAdapter<TrashEntry, TrashAdapter.Row
             icon.setImageResource(entry.directory
                     ? R.drawable.ic_folder
                     : R.drawable.ic_glyph_unknown);
-            String size = entry.directory || entry.sizeBytes < 0
-                    ? itemView.getContext().getString(R.string.properties_type_folder)
-                    : ByteSize.format(entry.sizeBytes);
             CharSequence when = DateUtils.getRelativeTimeSpanString(
                     entry.deletedAtMillis,
                     System.currentTimeMillis(),
                     DateUtils.MINUTE_IN_MILLIS);
-            meta.setText(itemView.getContext().getString(R.string.trash_meta_format, size, when));
+            // Folders show only the timestamp — a literal "Folder" label would be redundant
+            // alongside the folder icon. Files show "<size> · <when>" since the size is the
+            // useful extra signal.
+            if (entry.directory) {
+                meta.setText(when);
+            } else {
+                meta.setText(itemView.getContext().getString(
+                        R.string.trash_meta_format, ByteSize.format(entry.sizeBytes), when));
+            }
         }
     }
 

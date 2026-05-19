@@ -304,6 +304,10 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     private void configureSelectionBar() {
         binding.btnSelCancel.setOnClickListener(v -> activeVm().clearSelection());
         binding.btnSelAll.setOnClickListener(v -> activeVm().selectAllVisible());
+        // Deselect-all is intentionally distinct from Cancel (X): same end-state, but the icon
+        // communicates "drop the selection" while the X reads as "exit". Power users tend to look
+        // for the explicit affordance instead of guessing whether the X discards their picks.
+        binding.btnSelDeselect.setOnClickListener(v -> activeVm().clearSelection());
         binding.btnSelMore.setOnClickListener(v -> showSelectionMoreSheet());
     }
 

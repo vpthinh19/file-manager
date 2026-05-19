@@ -27,6 +27,7 @@ import com.vpt.filemanager.ui.DrawerActionHandler;
 import com.vpt.filemanager.ui.DrawerHost;
 import com.vpt.filemanager.ui.browser.DualPaneHostFragment;
 import com.vpt.filemanager.ui.trash.TrashFragment;
+import androidx.fragment.app.FragmentManager;
 
 /**
  * Single launcher activity. Owns:
@@ -104,12 +105,16 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
         applyDarkChromeSystemBars();
         drawerLayout = findViewById(R.id.drawer_layout);
         wireDrawerNavigation();
+        // Sync the drawer's checked highlight with whichever fragment ends up on screen — covers
+        // both back-stack pops (Trash → Storage) and re-entries after process death.
+        getSupportFragmentManager().addOnBackStackChangedListener(this::syncDrawerSelection);
         if (getSupportFragmentManager().findFragmentById(R.id.fragment_container) == null) {
             getSupportFragmentManager()
                     .beginTransaction()
                     .replace(R.id.fragment_container, new DualPaneHostFragment(), TAG_DUAL_PANE)
                     .commit();
         }
+        syncDrawerSelection();
     }
 
     @Override
@@ -148,17 +153,29 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
                 onTrashSelected();
             } else if (id == R.id.menu_bookmarks) {
                 onBookmarksSelected();
-            } else if (id == R.id.menu_settings) {
-                onSettingsSelected();
             }
             if (drawerLayout != null) {
                 drawerLayout.closeDrawer(GravityCompat.START);
             }
-            // Drawer items are stateful actions, not persistent selections — keep them unchecked
-            // so the next open doesn't show a stale highlight.
-            item.setChecked(false);
+            // Don't manually toggle item.setChecked here — syncDrawerSelection() updates the
+            // highlight from the fragment that actually ends up on screen.
             return true;
         });
+    }
+
+    /**
+     * Highlight the drawer entry that corresponds to the currently-hosted fragment. Wired both to
+     * the FragmentManager back-stack listener (covers back-press from Trash → Storage) and called
+     * explicitly after every drawer-driven swap.
+     */
+    private void syncDrawerSelection() {
+        NavigationView navView = findViewById(R.id.nav_view);
+        if (navView == null) {
+            return;
+        }
+        Fragment current = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        int id = current instanceof TrashFragment ? R.id.menu_trash : R.id.menu_storage;
+        navView.setCheckedItem(id);
     }
 
     // ---------- DrawerActionHandler ----------
@@ -191,11 +208,6 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
 
     @Override
     public void onBookmarksSelected() {
-        Toast.makeText(this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void onSettingsSelected() {
         Toast.makeText(this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
     }
 
