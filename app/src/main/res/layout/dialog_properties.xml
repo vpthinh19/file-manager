@@ -12,9 +12,16 @@
     android:paddingTop="16dp"
     android:paddingBottom="8dp">
 
+    <!--
+      shrinkColumns + stretchColumns on the value column: stretch absorbs free space when the
+      dialog is wider than the labels need (so values stay right-aligned), and shrink lets the
+      column give way when long paths (e.g. Parent inside /storage/emulated/0/Sub/Sub2) would
+      otherwise push the row off the dialog. Without shrinkColumns, long paths broke alignment.
+    -->
     <TableLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:shrinkColumns="1"
         android:stretchColumns="1">
 
         <TableRow android:layout_marginBottom="6dp">

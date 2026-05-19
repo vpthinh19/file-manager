@@ -280,6 +280,43 @@ public final class PaneViewModel extends ViewModel {
         waitAndRefresh(future, "Renamed");
     }
 
+    /**
+     * Replace flow for the Phase 2C-6 create-conflict dialog: delete the colliding entry (to
+     * Trash, so the user can recover), then create the new one. Runs entirely on io() — events
+     * are posted back via the existing LiveEvent channel so the Fragment toasts the outcome.
+     */
+    public void deleteThenCreate(FilePath path, boolean isFolder) {
+        if (path == null) {
+            return;
+        }
+        java.util.concurrent.Future<Result<Void>> delFuture =
+                deleteFilesUseCase.execute(List.of(path), false);
+        executors.io().submit(() -> {
+            try {
+                Result<Void> delResult = delFuture.get();
+                if (!delResult.isSuccess()) {
+                    Throwable err = delResult.errorOrNull();
+                    events.postValue("Replace failed: "
+                            + (err == null ? "unknown" : err.getMessage()));
+                    return;
+                }
+                Future<Result<FileNode>> createFuture = isFolder
+                        ? createFolderUseCase.execute(path)
+                        : createFileUseCase.execute(path);
+                Result<FileNode> createResult = createFuture.get();
+                if (createResult.isSuccess()) {
+                    events.postValue(isFolder ? "Folder replaced" : "File replaced");
+                    refresh();
+                } else {
+                    Throwable err = createResult.errorOrNull();
+                    events.postValue(err == null ? "Create failed" : err.getMessage());
+                }
+            } catch (Throwable e) {
+                events.postValue(e.getMessage());
+            }
+        });
+    }
+
     public void delete(FileNode node) {
         if (node == null) {
             return;

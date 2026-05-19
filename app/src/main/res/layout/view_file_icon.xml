@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   FileIconView contents — inflated into the FileIconView FrameLayout via <merge>.
-  Three rendering modes (mutually exclusive at runtime):
-    - folder:    v_badge_bg (neutral) + iv_glyph (white folder shape)
-    - glyph:     v_badge_bg (category color) + iv_glyph (white type glyph)
-    - ext-text:  iv_file_shape (paper, brand color tint) + tv_badge_label (ext text overlay)
+  Single rendering mode (Option D): colored badge background + white glyph stacked on top.
+  IconMapper picks the badge color + glyph for each IconCategory.
 -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -12,33 +10,12 @@
         android:id="@+id/v_badge_bg"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/bg_badge_rounded"
-        android:visibility="gone" />
+        android:background="@drawable/bg_badge_rounded" />
 
     <ImageView
         android:id="@+id/iv_glyph"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="@null"
-        android:padding="6dp"
-        android:visibility="gone" />
-
-    <ImageView
-        android:id="@+id/iv_file_shape"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:contentDescription="@null"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tv_badge_label"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:includeFontPadding="false"
-        android:paddingTop="6dp"
-        android:textColor="@color/badge_on_color"
-        android:textSize="9sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:padding="5dp" />
 </merge>

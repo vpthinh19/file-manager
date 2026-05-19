@@ -15,22 +15,13 @@
         android:id="@+id/rv"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:layoutAnimation="@anim/layout_pane_fade" />
 
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_gravity="center"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tv_empty"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="@string/empty_folder"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="15sp"
         android:visibility="gone" />
 </FrameLayout>

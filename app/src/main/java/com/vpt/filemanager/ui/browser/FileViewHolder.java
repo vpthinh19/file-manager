@@ -11,15 +11,15 @@ import java.util.Date;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.util.ByteSize;
-import com.vpt.filemanager.domain.model.FileCategory;
 import com.vpt.filemanager.domain.model.FileNode;
 
 /**
  * Renders a single {@link FileNode} row.
  *
- * <p>Icon rendering delegated to {@link FileIconView}; the holder only decides whether the node is
- * a folder, a parent marker, or a file (and in the file case which category). Selection state is
- * propagated to the itemView via {@link View#setSelected(boolean)}.
+ * <p>Icon rendering delegated to {@link FileIconView}: folder rows take the folder badge directly,
+ * file rows look up an {@link IconCategory} from the file name. Selection state is propagated to
+ * the itemView via {@link View#setSelected(boolean)} so {@code bg_file_row} can pick up the right
+ * state-list color.
  */
 public final class FileViewHolder extends RecyclerView.ViewHolder {
     private final FileIconView icon;
@@ -37,12 +37,7 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
         if (node instanceof ParentFileNode || node.isDirectory()) {
             icon.bindFolder();
         } else {
-            FileCategory category = FileCategory.ofExtension(node.name());
-            if (FileLabel.usesGlyph(category)) {
-                icon.bindGlyph(category);
-            } else {
-                icon.bindExtText(node.name());
-            }
+            icon.bindCategory(IconCategory.ofFileName(node.name()));
         }
         name.setText(node.name());
         meta.setText(formatMeta(node));

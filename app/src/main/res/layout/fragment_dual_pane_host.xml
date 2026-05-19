@@ -7,14 +7,18 @@
     android:background="?attr/colorSurface"
     android:orientation="vertical">
 
+    <!--
+      AppBarLayout NOT lifting on scroll: lift blends colorSurface overlay into the bg when content
+      scrolls under, which broke the chrome/pane separation (toolbar drifted from md_chrome_bg to
+      pane white). Locking the color keeps the toolbar identical to the status bar in both modes.
+    -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/md_chrome_bg"
-        android:fitsSystemWindows="true"
         app:elevation="0dp"
-        app:liftOnScroll="true">
+        app:liftOnScroll="false">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"

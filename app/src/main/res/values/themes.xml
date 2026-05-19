@@ -35,7 +35,16 @@
         <item name="colorOnError">@color/md_on_error</item>
 
         <item name="android:colorBackground">@color/md_surface</item>
-        <item name="android:windowBackground">@color/md_surface</item>
+        <!--
+          windowBackground = chrome color (not pane color). Reason: Android 16 (targetSdk 36) forces
+          edge-to-edge with transparent system bars; whatever sits at the windowBackground layer is
+          what shows through the status/nav bar insets. Painting it chrome eliminates the race where
+          MIUI briefly reveals the pane color in the inset region during fragment transitions or
+          theme swaps (previous attempts using DrawerLayout app:statusBarBackground were drawn LATER
+          and lost the race). Content surface is still drawn by panes/AppBarLayout above, so users
+          never see chrome color in the actual content area.
+        -->
+        <item name="android:windowBackground">@color/md_chrome_bg</item>
 
         <!-- System bars match the dark chrome (toolbar + bottom nav) in BOTH modes. -->
         <item name="android:statusBarColor">@color/md_chrome_bg</item>

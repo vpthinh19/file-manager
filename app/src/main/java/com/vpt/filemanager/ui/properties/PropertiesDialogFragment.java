@@ -5,8 +5,11 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.system.Os;
 import android.system.StructStat;
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -140,6 +143,23 @@ public final class PropertiesDialogFragment extends BaseDialogFragment {
 
     private static String formatSize(long bytes) {
         return ByteSize.format(bytes) + " (" + bytes + ")";
+    }
+
+    /**
+     * Force the dialog window to a fixed share of screen width so long Parent paths can't push the
+     * 2-column table into wrap_content mode and collapse the value column. AlertDialog's default
+     * wrap behavior produced inconsistent widths between root files and deeply-nested files.
+     */
+    @Override
+    public void onStart() {
+        super.onStart();
+        Dialog dialog = getDialog();
+        if (dialog == null) return;
+        Window window = dialog.getWindow();
+        if (window == null) return;
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int width = (int) (metrics.widthPixels * 0.92f);
+        window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
     }
 
     @Override

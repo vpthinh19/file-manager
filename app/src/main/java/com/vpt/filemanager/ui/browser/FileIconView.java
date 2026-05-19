@@ -7,36 +7,25 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.domain.model.FileCategory;
 
 /**
- * Renders a single row's icon in one of three mutually-exclusive modes.
+ * Renders a row's icon as a rounded badge + white glyph. Every row uses the same visual language:
+ * folder, document, sheet, slide, pdf, archive, image, video, audio, apk, code, unknown — all 12
+ * map to one badge color + one white glyph drawable through {@link IconMapper}.
  *
- * <p><b>Folder mode</b>: neutral dark badge + white folder glyph. MT-Manager style — folder
- * blends with theme yet the white shape stays legible.
- *
- * <p><b>Glyph mode</b> (TOP-7 categories): category-colored badge + white type glyph (PDF, image,
- * video, audio, archive, APK). Strong visual recognition for the most-common file kinds.
- *
- * <p><b>Ext-text mode</b>: paper-shape vector tinted to the per-extension brand color
- * (see {@link BrandColors}) with the uppercase extension overlaid. Scales to any extension
- * without needing a custom glyph; ideal for source code, docs, configs.
- *
- * <p>The mode dispatch lives in {@link FileViewHolder}; this view exposes one entry point per
- * mode and stays dumb on purpose.
+ * <p>Previous Option C (per-extension ext-text overlay) removed: long extensions like DOCX/PROP
+ * overflowed the badge at large font scales, and per-brand colors fragmented the rail with too many
+ * distinct tints. Option D collapses to one badge style with category-level color hierarchy.
  */
 public final class FileIconView extends FrameLayout {
     private final View badgeBg;
     private final ImageView glyph;
-    private final ImageView fileShape;
-    private final TextView label;
 
     public FileIconView(@NonNull Context context) {
         this(context, null);
@@ -51,39 +40,17 @@ public final class FileIconView extends FrameLayout {
         LayoutInflater.from(context).inflate(R.layout.view_file_icon, this, true);
         badgeBg = findViewById(R.id.v_badge_bg);
         glyph = findViewById(R.id.iv_glyph);
-        fileShape = findViewById(R.id.iv_file_shape);
-        label = findViewById(R.id.tv_badge_label);
     }
 
-    /** Folder + parent-marker rows. Always uses the neutral folder badge color. */
+    /** Folder + parent-marker rows. */
     public void bindFolder() {
-        showBadgeWithGlyph(R.color.badge_folder, R.drawable.ic_folder);
+        bindCategory(IconCategory.FOLDER);
     }
 
-    /** TOP-7 file categories — colored badge + white type glyph. */
-    public void bindGlyph(@NonNull FileCategory category) {
-        showBadgeWithGlyph(FileLabel.categoryColorRes(category), FileLabel.glyphIconRes(category));
-    }
-
-    /** Non-TOP-7 files (TEXT/CODE/DOC/UNKNOWN) — paper shape with brand color + ext label. */
-    public void bindExtText(@NonNull String fileName) {
-        badgeBg.setVisibility(GONE);
-        glyph.setVisibility(GONE);
-        fileShape.setVisibility(VISIBLE);
-        label.setVisibility(VISIBLE);
-        fileShape.setImageResource(R.drawable.ic_file_shape);
-        int tint = ContextCompat.getColor(getContext(), BrandColors.colorFor(fileName));
-        fileShape.setImageTintList(ColorStateList.valueOf(tint));
-        label.setText(BrandColors.label(fileName));
-    }
-
-    private void showBadgeWithGlyph(int badgeColorRes, int glyphDrawableRes) {
-        fileShape.setVisibility(GONE);
-        label.setVisibility(GONE);
-        badgeBg.setVisibility(VISIBLE);
-        glyph.setVisibility(VISIBLE);
-        int bgColor = ContextCompat.getColor(getContext(), badgeColorRes);
+    /** Any file row — derive {@link IconCategory} via {@link IconCategory#ofFileName(String)}. */
+    public void bindCategory(@NonNull IconCategory category) {
+        int bgColor = ContextCompat.getColor(getContext(), IconMapper.badgeColor(category));
         badgeBg.setBackgroundTintList(ColorStateList.valueOf(bgColor));
-        glyph.setImageResource(glyphDrawableRes);
+        glyph.setImageResource(IconMapper.glyph(category));
     }
 }

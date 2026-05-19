@@ -165,19 +165,32 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
             if (binding == null) {
                 return;
             }
-            binding.progress.setVisibility(state instanceof PaneViewModel.UiState.Loading ? View.VISIBLE : View.GONE);
-            binding.tvEmpty.setVisibility(state instanceof PaneViewModel.UiState.Empty ? View.VISIBLE : View.GONE);
+            boolean isLoading = state instanceof PaneViewModel.UiState.Loading;
+            binding.progress.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            // Empty + Content + Error all flow through the same submit path. Empty folders render
+            // as just the ParentFileNode row (the ".." entry) — no placeholder, no extra UI; the
+            // pane simply shows "..", which is the cleanest signal that nothing else exists.
             if (state instanceof PaneViewModel.UiState.Content content) {
-                adapter.submitList(withParent(content.path, content.nodes));
+                adapter.submitList(withParent(content.path, content.nodes), this::playEnterAnimation);
             } else if (state instanceof PaneViewModel.UiState.Roots roots) {
-                adapter.submitList(new ArrayList<>(roots.roots));
+                adapter.submitList(new ArrayList<>(roots.roots), this::playEnterAnimation);
             } else if (state instanceof PaneViewModel.UiState.Empty empty) {
-                adapter.submitList(withParent(empty.path, List.of()));
+                adapter.submitList(withParent(empty.path, List.of()), this::playEnterAnimation);
             } else if (state instanceof PaneViewModel.UiState.Error error) {
-                adapter.submitList(withParent(error.path, List.of()));
+                adapter.submitList(withParent(error.path, List.of()), this::playEnterAnimation);
             }
         });
         viewModel.selection().observe(getViewLifecycleOwner(), adapter::setSelection);
+    }
+
+    /**
+     * Triggers the RecyclerView's layoutAnimation (declared in fragment_pane.xml) after the
+     * adapter commits a new list — that cascades the per-row drop-in animation instead of every
+     * row popping in at once.
+     */
+    private void playEnterAnimation() {
+        if (binding == null) return;
+        binding.rv.scheduleLayoutAnimation();
     }
 
     private static List<FileNode> withParent(FilePath path, List<FileNode> nodes) {

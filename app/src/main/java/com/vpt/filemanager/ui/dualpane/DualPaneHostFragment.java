@@ -8,9 +8,14 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
-import android.widget.RadioButton;
 import android.widget.Toast;
+
+import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+
+import com.vpt.filemanager.ui.common.NameDeconflict;
+import java.io.File;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -419,25 +424,62 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     // ---------- Action menus ----------
 
     private void showCreateDialog() {
-        PaneViewModel vm = activeVm();
         View view = LayoutInflater.from(requireContext())
                 .inflate(R.layout.dialog_create_item, null, false);
-        EditText nameField = view.findViewById(R.id.et_name);
-        RadioButton rbFolder = view.findViewById(R.id.rb_folder);
+        TextInputEditText nameField = view.findViewById(R.id.et_name);
+        MaterialButtonToggleGroup toggle = view.findViewById(R.id.toggle_type);
+        // Default to Folder — MaterialButtonToggleGroup ignores XML "checked" on children, so we
+        // wire the initial state here.
+        toggle.check(R.id.btn_type_folder);
         new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.action_create)
                 .setView(view)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.action_create, (dialog, which) -> {
-                    String name = nameField.getText().toString().trim();
+                    String name = nameField.getText() == null
+                            ? "" : nameField.getText().toString().trim();
                     if (name.isEmpty()) {
                         return;
                     }
-                    if (rbFolder.isChecked()) {
-                        vm.createFolder(name);
-                    } else {
-                        vm.createFile(name);
-                    }
+                    boolean isFolder = toggle.getCheckedButtonId() == R.id.btn_type_folder;
+                    attemptCreate(isFolder, name);
+                })
+                .show();
+    }
+
+    /**
+     * Pre-check whether {@code name} already exists in the active pane's current dir. If clean,
+     * fire the underlying use case. If it collides, show the Phase 2C-6 KISS conflict dialog
+     * (Replace / Keep both / Cancel) so the user picks how to resolve before any FS mutation.
+     */
+    private void attemptCreate(boolean isFolder, @NonNull String name) {
+        PaneViewModel vm = activeVm();
+        FilePath current = vm.currentPath();
+        if (current == null || !current.isLocal()) {
+            return;
+        }
+        File target = new File(current.path(), name);
+        if (!target.exists()) {
+            if (isFolder) vm.createFolder(name); else vm.createFile(name);
+            return;
+        }
+        showCreateConflictDialog(isFolder, name, current);
+    }
+
+    private void showCreateConflictDialog(boolean isFolder, @NonNull String name,
+                                          @NonNull FilePath dir) {
+        File dirFile = new File(dir.path());
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.conflict_title)
+                .setMessage(getString(R.string.conflict_message_format, name))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setNeutralButton(R.string.conflict_keep_both, (d, w) -> {
+                    String unique = NameDeconflict.unique(dirFile, name);
+                    PaneViewModel vm = activeVm();
+                    if (isFolder) vm.createFolder(unique); else vm.createFile(unique);
+                })
+                .setPositiveButton(R.string.conflict_replace, (d, w) -> {
+                    activeVm().deleteThenCreate(dir.child(name), isFolder);
                 })
                 .show();
     }
@@ -597,15 +639,18 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     }
 
     private void showNameDialog(int titleRes, int hintRes, NameCallback callback) {
-        EditText input = new EditText(requireContext());
-        input.setSingleLine(true);
-        input.setHint(hintRes);
+        View view = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_name_input, null, false);
+        TextInputLayout til = view.findViewById(R.id.til_name);
+        TextInputEditText input = view.findViewById(R.id.et_name);
+        til.setHint(hintRes);
         new AlertDialog.Builder(requireContext())
                 .setTitle(titleRes)
-                .setView(input)
+                .setView(view)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.action_create,
-                        (dialog, which) -> callback.onName(input.getText().toString()))
+                .setPositiveButton(R.string.action_save,
+                        (dialog, which) -> callback.onName(
+                                input.getText() == null ? "" : input.getText().toString()))
                 .show();
     }
 
