@@ -358,13 +358,6 @@ public final class PaneViewModel extends ViewModel {
                 snapshot.size() + " moved to trash");
     }
 
-    public void openTrash() {
-        if (currentPath == null || !currentPath.isLocal()) {
-            return;
-        }
-        navigateTo(FilePath.local(StorageScope.storageRootFor(currentPath.path()) + "/.AppTrash"));
-    }
-
     private boolean isWritableContext() {
         return currentPath != null && currentPath.isLocal();
     }

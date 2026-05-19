@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +19,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.core.error.FileSystemException;
+import com.vpt.filemanager.data.db.dao.TrashDao;
+import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
 import com.vpt.filemanager.data.fs.DeleteOptions;
 import com.vpt.filemanager.data.fs.FileSystemProvider;
 import com.vpt.filemanager.data.fs.ListOptions;
@@ -30,8 +31,11 @@ import com.vpt.filemanager.domain.model.FilePath;
 
 @Singleton
 public final class LocalFileSystemProvider implements FileSystemProvider {
+    private final TrashDao trashDao;
+
     @Inject
-    public LocalFileSystemProvider() {
+    public LocalFileSystemProvider(TrashDao trashDao) {
+        this.trashDao = trashDao;
     }
 
     @Override
@@ -155,6 +159,49 @@ public final class LocalFileSystemProvider implements FileSystemProvider {
         }
     }
 
+    /**
+     * Move {@code source} into the per-storage trash dir and record a Room entry. Replaces the
+     * old JSON-sidecar approach — Room is now the single source of truth for trash metadata.
+     * Legacy JSONs left over from older installs are migrated on first read in
+     * {@code TrashRepositoryImpl}.
+     */
+    private void moveToTrash(Path source) throws IOException {
+        if (!Files.exists(source)) {
+            return;
+        }
+        Path storageRoot = storageRootFor(source);
+        String id = UUID.randomUUID().toString();
+        String originalName = source.getFileName().toString();
+        Path trashRoot = storageRoot.resolve(".AppTrash");
+        Path trashFileDir = trashRoot.resolve("files").resolve(id);
+        Files.createDirectories(trashFileDir);
+        Path trashPath = trashFileDir.resolve(originalName);
+        boolean directory = Files.isDirectory(source);
+        long sizeBytes = directory ? -1L : safeFileSize(source);
+        try {
+            Files.move(source, trashPath, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException atomicFailure) {
+            Files.move(source, trashPath);
+        }
+        TrashEntryEntity entity = new TrashEntryEntity();
+        entity.id = id;
+        entity.originalPath = source.toString();
+        entity.trashPath = trashPath.toString();
+        entity.displayName = originalName;
+        entity.deletedAtMillis = System.currentTimeMillis();
+        entity.sizeBytes = sizeBytes;
+        entity.directory = directory;
+        trashDao.insert(entity);
+    }
+
+    private static long safeFileSize(Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException e) {
+            return 0L;
+        }
+    }
+
     @Override
     public boolean isSameVolume(FilePath a, FilePath b) {
         return a.isLocal() && b.isLocal() && toNioPath(a).getRoot().equals(toNioPath(b).getRoot());
@@ -191,35 +238,6 @@ public final class LocalFileSystemProvider implements FileSystemProvider {
         Files.deleteIfExists(path);
     }
 
-    private static void moveToTrash(Path source) throws IOException {
-        if (!Files.exists(source)) {
-            return;
-        }
-        Path storageRoot = storageRootFor(source);
-        String id = UUID.randomUUID().toString();
-        String originalName = source.getFileName().toString();
-        Path trashRoot = storageRoot.resolve(".AppTrash");
-        Path trashFileDir = trashRoot.resolve("files").resolve(id);
-        Path trashInfoDir = trashRoot.resolve("info");
-        Files.createDirectories(trashFileDir);
-        Files.createDirectories(trashInfoDir);
-        Path trashPath = trashFileDir.resolve(originalName);
-        try {
-            Files.move(source, trashPath, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException atomicFailure) {
-            Files.move(source, trashPath);
-        }
-        String json = "{\n"
-                + "  \"id\": \"" + escapeJson(id) + "\",\n"
-                + "  \"originalPath\": \"" + escapeJson(source.toString()) + "\",\n"
-                + "  \"trashPath\": \"" + escapeJson(trashPath.toString()) + "\",\n"
-                + "  \"displayName\": \"" + escapeJson(originalName) + "\",\n"
-                + "  \"deletedAt\": " + System.currentTimeMillis() + "\n"
-                + "}\n";
-        Files.write(trashInfoDir.resolve(id + ".json"), json.getBytes(StandardCharsets.UTF_8),
-                StandardOpenOption.CREATE_NEW);
-    }
-
     private static Path storageRootFor(Path source) {
         Path normalized = source.toAbsolutePath().normalize();
         String path = normalized.toString().replace('\\', '/');
@@ -231,10 +249,6 @@ public final class LocalFileSystemProvider implements FileSystemProvider {
         }
         Path root = normalized.getRoot();
         return root == null ? normalized.getParent() : root;
-    }
-
-    private static String escapeJson(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static void requireLocal(FilePath path) throws FileSystemException {

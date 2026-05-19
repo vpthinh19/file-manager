@@ -22,9 +22,11 @@ import com.google.android.material.navigation.NavigationView;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
+import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.ui.DrawerActionHandler;
 import com.vpt.filemanager.ui.DrawerHost;
 import com.vpt.filemanager.ui.browser.DualPaneHostFragment;
+import com.vpt.filemanager.ui.trash.TrashFragment;
 
 /**
  * Single launcher activity. Owns:
@@ -40,7 +42,10 @@ import com.vpt.filemanager.ui.browser.DualPaneHostFragment;
  * {@link #applyDarkChromeSystemBars()}.
  */
 @AndroidEntryPoint
-public final class MainActivity extends AppCompatActivity implements DrawerHost {
+public final class MainActivity extends AppCompatActivity implements DrawerHost, DrawerActionHandler {
+    private static final String TAG_DUAL_PANE = "dual-pane";
+    private static final String TAG_TRASH = "trash";
+
     private DrawerLayout drawerLayout;
     /**
      * Tracks whether {@link #installContent()} has run for the current activity instance. Used to
@@ -102,7 +107,7 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
         if (getSupportFragmentManager().findFragmentById(R.id.fragment_container) == null) {
             getSupportFragmentManager()
                     .beginTransaction()
-                    .replace(R.id.fragment_container, new DualPaneHostFragment())
+                    .replace(R.id.fragment_container, new DualPaneHostFragment(), TAG_DUAL_PANE)
                     .commit();
         }
     }
@@ -126,19 +131,25 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
         return drawerLayout != null && drawerLayout.isDrawerOpen(GravityCompat.START);
     }
 
+    /**
+     * Drawer routing lives at the Activity layer — the Activity owns the {@code fragment_container}
+     * and is therefore the right level to decide which fragment to show. Previously the routing
+     * delegated to whichever fragment was currently hosted, which leaked drawer knowledge into
+     * fragments that had no business knowing about peer items (a TrashFragment shouldn't have to
+     * implement {@code onStorageSelected}).
+     */
     private void wireDrawerNavigation() {
         NavigationView navView = findViewById(R.id.nav_view);
         navView.setNavigationItemSelectedListener(item -> {
-            DrawerActionHandler handler = currentDrawerHandler();
             int id = item.getItemId();
             if (id == R.id.menu_storage) {
-                if (handler != null) handler.onStorageSelected();
+                onStorageSelected();
             } else if (id == R.id.menu_trash) {
-                if (handler != null) handler.onTrashSelected();
+                onTrashSelected();
             } else if (id == R.id.menu_bookmarks) {
-                if (handler != null) handler.onBookmarksSelected();
+                onBookmarksSelected();
             } else if (id == R.id.menu_settings) {
-                if (handler != null) handler.onSettingsSelected();
+                onSettingsSelected();
             }
             if (drawerLayout != null) {
                 drawerLayout.closeDrawer(GravityCompat.START);
@@ -150,10 +161,42 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost 
         });
     }
 
-    @Nullable
-    private DrawerActionHandler currentDrawerHandler() {
+    // ---------- DrawerActionHandler ----------
+
+    @Override
+    public void onStorageSelected() {
+        // Pop trash off the back stack if present, then ask the host pane to jump to root. Using
+        // popBackStackImmediate keeps the navigation deterministic (no async race).
+        getSupportFragmentManager().popBackStackImmediate(TAG_TRASH,
+                androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
         Fragment hosted = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-        return hosted instanceof DrawerActionHandler ? (DrawerActionHandler) hosted : null;
+        if (hosted instanceof DualPaneHostFragment dual) {
+            dual.navigateActivePaneTo(StorageScope.rootPath());
+        }
+    }
+
+    @Override
+    public void onTrashSelected() {
+        // Avoid stacking two TrashFragments if the user re-taps Trash from the drawer.
+        Fragment existing = getSupportFragmentManager().findFragmentByTag(TAG_TRASH);
+        if (existing != null && existing.isVisible()) {
+            return;
+        }
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragment_container, new TrashFragment(), TAG_TRASH)
+                .addToBackStack(TAG_TRASH)
+                .commit();
+    }
+
+    @Override
+    public void onBookmarksSelected() {
+        Toast.makeText(this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onSettingsSelected() {
+        Toast.makeText(this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
     }
 
     private void applyDarkChromeSystemBars() {

@@ -98,4 +98,13 @@
     <string name="sort_date_desc">Date (newest first)</string>
     <string name="sort_date_asc">Date (oldest first)</string>
     <string name="sort_type">Type</string>
+
+    <!-- Phase 2C-5c — Trash. -->
+    <string name="action_restore">Restore</string>
+    <string name="action_empty_trash">Empty trash</string>
+    <string name="trash_empty_title">Empty trash?</string>
+    <string name="trash_empty_message">All items in the trash will be permanently deleted.</string>
+    <string name="trash_empty_placeholder">Trash is empty</string>
+    <string name="trash_restore_confirm">Restore \"%1$s\" to its original location?</string>
+    <string name="trash_meta_format">%1$s · %2$s</string>
 </resources>

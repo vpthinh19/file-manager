@@ -50,13 +50,12 @@ import com.vpt.filemanager.ui.browser.NodeActionsBottomSheet;
 import com.vpt.filemanager.ui.browser.OpenAsDialogFragment;
 import com.vpt.filemanager.ui.browser.PaneFragment;
 import com.vpt.filemanager.ui.browser.PaneViewModel;
-import com.vpt.filemanager.ui.DrawerActionHandler;
 import com.vpt.filemanager.ui.DrawerHost;
 import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
 import com.vpt.filemanager.ui.editor.TextEditorActivity;
 
 @AndroidEntryPoint
-public final class DualPaneHostFragment extends Fragment implements PaneController, DrawerActionHandler {
+public final class DualPaneHostFragment extends Fragment implements PaneController {
     public static final String PANE_LEFT = "left";
     public static final String PANE_RIGHT = "right";
 
@@ -275,26 +274,13 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         return false;
     }
 
-    // ---------- DrawerActionHandler ----------
-
-    @Override
-    public void onStorageSelected() {
-        activeVm().navigateTo(StorageScope.rootPath());
-    }
-
-    @Override
-    public void onTrashSelected() {
-        activeVm().openTrash();
-    }
-
-    @Override
-    public void onBookmarksSelected() {
-        toast(getString(R.string.coming_soon));
-    }
-
-    @Override
-    public void onSettingsSelected() {
-        toast(getString(R.string.coming_soon));
+    /**
+     * Public entry point used by {@code MainActivity} to drive the active pane from drawer-level
+     * actions (e.g. drawer Storage taps). Keeps the host fragment as the only thing that needs to
+     * know about active-pane semantics.
+     */
+    public void navigateActivePaneTo(@NonNull FilePath path) {
+        activeVm().navigateTo(path);
     }
 
     private void configureBottomBar() {

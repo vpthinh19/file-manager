@@ -1,5 +1,7 @@
 package com.vpt.filemanager.domain.repository;
 
+import androidx.lifecycle.LiveData;
+
 import java.util.List;
 
 import com.vpt.filemanager.core.error.FileSystemException;
@@ -16,6 +18,9 @@ public interface TrashRepository {
     /** Permanently delete every trashed item across all storage roots. */
     void empty() throws FileSystemException;
 
-    /** Snapshot of every trashed item; newest first. */
+    /** Synchronous snapshot of every trashed item (newest first). For non-reactive callers. */
     List<TrashEntry> entries() throws FileSystemException;
+
+    /** Reactive snapshot — Room emits whenever the underlying table changes. */
+    LiveData<List<TrashEntry>> entriesLive();
 }
