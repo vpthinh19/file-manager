@@ -15,6 +15,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.DialogFragment;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -31,7 +32,6 @@ import com.vpt.filemanager.core.io.FolderSizeCalculator;
 import com.vpt.filemanager.core.util.ByteSize;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.PosixPermission;
-import com.vpt.filemanager.ui.common.BaseDialogFragment;
 
 /**
  * Read-only properties dialog rendered as a 2-column key/value table (MT Manager style — labels
@@ -39,7 +39,7 @@ import com.vpt.filemanager.ui.common.BaseDialogFragment;
  * {@link FolderSizeCalculator} so opening Properties on a large directory doesn't block the UI.
  */
 @AndroidEntryPoint
-public final class PropertiesDialogFragment extends BaseDialogFragment {
+public final class PropertiesDialogFragment extends DialogFragment {
     private static final String ARG_PATH = "path";
 
     @Inject FolderSizeCalculator sizeCalculator;

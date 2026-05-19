@@ -58,13 +58,6 @@
         <item name="android:windowActionBar">false</item>
     </style>
 
-    <style name="Theme.FileManager.Translucent" parent="Theme.FileManager">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-    </style>
-
     <!-- Properties dialog 2-column row styles (MT-aligned: label left, value right). -->
     <style name="PropertiesLabel">
         <item name="android:layout_width">wrap_content</item>
