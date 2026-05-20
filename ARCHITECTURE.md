@@ -209,7 +209,7 @@ KHÔNG làm (overengineer): SoA (Struct of Arrays), Paging 3, Flyweight pool, na
 |---|---|---|
 | R-1 | Skeleton `node/` (VirtualNode + NodeSource + NodeException) — không xóa code cũ | **DONE** |
 | R-2 | LocalSource + ArchiveSource + NodeFactory impl (UI wire deferred to R-5) | **DONE** |
-| R-3 | `opener/` package + 6 FileOpener impl | pending |
+| R-3 | `opener/` package + 3 FileOpener (Text/Archive/External); Image/Video/Audio defer Phase 2D | **DONE** |
 | R-4 | `operations/` package — FileOps + TrashOps + BookmarkOps | pending |
 | R-5 | Split `DualPaneHostFragment` → BrowserFragment + Controllers + Actions | pending |
 | R-6 | Drop legacy FileSystemProvider / Registry / Repository / use cases | pending |
