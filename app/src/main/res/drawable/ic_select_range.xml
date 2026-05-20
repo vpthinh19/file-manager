@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Range-select glyph: 2 filled bars ở endpoints + 1 dimmed bar ở giữa = "fill range giữa 2
+    selected items". 24dp Material standard. Tint qua ImageButton style.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="?attr/colorOnSurface"
+        android:pathData="M4,4h16v3H4z" />
+    <path
+        android:alpha="0.45"
+        android:fillColor="?attr/colorOnSurface"
+        android:pathData="M4,10.5h16v3H4z" />
+    <path
+        android:fillColor="?attr/colorOnSurface"
+        android:pathData="M4,17h16v3H4z" />
+</vector>

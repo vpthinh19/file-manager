@@ -156,7 +156,9 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         if (node.isParent()) {
             return;
         }
-        viewModel.toggleSelect(node);
+        // Long-press = entry point vào selection mode. Phase R-7a: dùng dedicated method để
+        // VM bật flag selectionMode trước khi add. Subsequent taps đi qua toggleSelect (đã gated).
+        viewModel.enterSelectionAndToggle(node);
     }
 
     /**

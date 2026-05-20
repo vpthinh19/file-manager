@@ -157,6 +157,12 @@
                 android:src="@drawable/ic_arrow_up" />
         </LinearLayout>
 
+        <!--
+          Phase R-7a: 5 nút theo thứ tự select_all | deselect (keep mode) | X (center exit) |
+          range | more. X ở center vì là affordance "exit hẳn" — vị trí trung tâm dễ tap nhanh.
+          Deselect ≠ X: deselect clear items nhưng giữ mode active (user vẫn ở bar, có thể
+          tap items để re-select); X exit hẳn về normal browser mode.
+        -->
         <LinearLayout
             android:id="@+id/selection_bar"
             android:layout_width="match_parent"
@@ -164,12 +170,6 @@
             android:gravity="center"
             android:orientation="horizontal"
             android:visibility="gone">
-
-            <ImageButton
-                android:id="@+id/btn_sel_cancel"
-                style="@style/BrowserBottomButton"
-                android:contentDescription="@string/menu_more_options"
-                android:src="@drawable/ic_close" />
 
             <ImageButton
                 android:id="@+id/btn_sel_all"
@@ -182,6 +182,18 @@
                 style="@style/BrowserBottomButton"
                 android:contentDescription="@string/menu_more_options"
                 android:src="@drawable/ic_deselect_all" />
+
+            <ImageButton
+                android:id="@+id/btn_sel_cancel"
+                style="@style/BrowserBottomButton"
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_close" />
+
+            <ImageButton
+                android:id="@+id/btn_sel_range"
+                style="@style/BrowserBottomButton"
+                android:contentDescription="@string/menu_more_options"
+                android:src="@drawable/ic_select_range" />
 
             <ImageButton
                 android:id="@+id/btn_sel_more"

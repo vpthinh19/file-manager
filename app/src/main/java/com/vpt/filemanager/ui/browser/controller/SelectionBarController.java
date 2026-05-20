@@ -44,27 +44,44 @@ public final class SelectionBarController {
         this.shareAction = shareAction;
     }
 
+    private static final float DISABLED_ALPHA = 0.38f;
+
     public void attach() {
-        binding.btnSelCancel.setOnClickListener(v -> host.activeVm().clearSelection());
+        // Phase R-7a: 5-button layout với mode-aware semantics.
+        // X = exit mode hẳn (clear items + tắt flag). Deselect = clear items NHƯNG giữ mode.
         binding.btnSelAll.setOnClickListener(v -> host.activeVm().selectAllVisible());
-        // Deselect-all = same end-state as Cancel (X), nhưng icon truyền tải "drop selection"
-        // rõ hơn — power users tìm explicit affordance thay vì đoán X = "exit" hay "discard".
         binding.btnSelDeselect.setOnClickListener(v -> host.activeVm().clearSelection());
+        binding.btnSelCancel.setOnClickListener(v -> host.activeVm().exitSelectionMode());
+        binding.btnSelRange.setOnClickListener(v -> host.activeVm().selectRange());
         binding.btnSelMore.setOnClickListener(v -> showMoreSheet());
     }
 
     /**
-     * Toggle bottom bar visibility theo selection state. Khi vào selection mode, toolbar title
-     * cũng đổi sang "N selected" — caller (DualPaneHostFragment) gọi {@link ToolbarController#setTitle}
-     * sau renderBars để hiển thị count.
+     * Render selection bar visibility + button enabled state theo (mode, selection count).
+     *
+     * <p>Phase R-7a: signature thêm {@code inMode} param — visibility giờ drive by flag (không
+     * derived từ "selection non-empty"). Cho phép "0 selected" state hiển thị selection bar khi
+     * user deselect-all nhưng chưa exit mode.
+     *
+     * <p>Range button enabled chỉ khi {@code selection.size() >= 2} — defensive (logic cũng có
+     * trong VM.selectRange()).
      */
-    public void renderBars(@Nullable Set<FilePath> selection, ToolbarController toolbarCtrl) {
-        boolean inMode = selection != null && !selection.isEmpty();
-        binding.bottomBar.setVisibility(inMode ? View.GONE : View.VISIBLE);
-        binding.selectionBar.setVisibility(inMode ? View.VISIBLE : View.GONE);
-        if (inMode) {
-            toolbarCtrl.setTitle(host.getString(R.string.selected_count, selection.size()));
+    public void renderBars(@Nullable Boolean inMode, @Nullable Set<FilePath> selection,
+                            ToolbarController toolbarCtrl) {
+        boolean modeActive = Boolean.TRUE.equals(inMode);
+        binding.bottomBar.setVisibility(modeActive ? View.GONE : View.VISIBLE);
+        binding.selectionBar.setVisibility(modeActive ? View.VISIBLE : View.GONE);
+        int count = selection == null ? 0 : selection.size();
+        if (modeActive) {
+            toolbarCtrl.setTitle(host.getString(R.string.selected_count, count));
             toolbarCtrl.setSubtitle("");
+            boolean canRange = count >= 2;
+            binding.btnSelRange.setEnabled(canRange);
+            binding.btnSelRange.setAlpha(canRange ? 1f : DISABLED_ALPHA);
+            // Deselect chỉ làm gì khi có items — disable khi count==0 cho feedback rõ.
+            boolean canDeselect = count > 0;
+            binding.btnSelDeselect.setEnabled(canDeselect);
+            binding.btnSelDeselect.setAlpha(canDeselect ? 1f : DISABLED_ALPHA);
         }
     }
 

@@ -276,13 +276,16 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 toolbarCtrl.renderState(state);
             }
         });
-        vm.selection().observe(getViewLifecycleOwner(), selection -> {
-            if (!paneId.equals(activePaneId) || selectionBarCtrl == null) {
-                return;
+        // Phase R-7a: observe selectionMode + selection riêng. EITHER fire → re-render bars.
+        // selectionMode controls visibility; selection controls count + range enabled.
+        vm.selectionMode().observe(getViewLifecycleOwner(), mode -> {
+            if (paneId.equals(activePaneId)) {
+                renderActiveBars(vm);
             }
-            selectionBarCtrl.renderBars(selection, toolbarCtrl);
-            if (selection == null || selection.isEmpty()) {
-                toolbarCtrl.renderState(vm.uiState().getValue());
+        });
+        vm.selection().observe(getViewLifecycleOwner(), selection -> {
+            if (paneId.equals(activePaneId)) {
+                renderActiveBars(vm);
             }
         });
         vm.canGoBack().observe(getViewLifecycleOwner(), can -> {
@@ -300,18 +303,28 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         vm.events().observe(getViewLifecycleOwner(), this::toast);
     }
 
+    /**
+     * Re-render selection bar + toolbar khi selectionMode hoặc selection thay đổi. Khi không
+     * trong mode, restore toolbar về path-state.
+     */
+    private void renderActiveBars(@NonNull PaneViewModel vm) {
+        if (selectionBarCtrl == null || toolbarCtrl == null) {
+            return;
+        }
+        Boolean mode = vm.selectionMode().getValue();
+        Set<FilePath> sel = vm.selection().getValue();
+        selectionBarCtrl.renderBars(mode, sel, toolbarCtrl);
+        if (!Boolean.TRUE.equals(mode)) {
+            toolbarCtrl.renderState(vm.uiState().getValue());
+        }
+    }
+
     private void syncFromActive() {
         if (toolbarCtrl == null || selectionBarCtrl == null || bottomBarCtrl == null) {
             return;
         }
         PaneViewModel vm = activeVm();
-        Set<FilePath> selection = vm.selection().getValue();
-        if (selection != null && !selection.isEmpty()) {
-            selectionBarCtrl.renderBars(selection, toolbarCtrl);
-        } else {
-            selectionBarCtrl.renderBars(null, toolbarCtrl);
-            toolbarCtrl.renderState(vm.uiState().getValue());
-        }
+        renderActiveBars(vm);
         bottomBarCtrl.applyNavButtonState(
                 Boolean.TRUE.equals(vm.canGoBack().getValue()),
                 Boolean.TRUE.equals(vm.canGoForward().getValue()));

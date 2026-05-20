@@ -56,6 +56,13 @@ public final class PaneViewModel extends ViewModel {
 
     private final MutableLiveData<UiState> uiState = new MutableLiveData<>(new UiState.Loading());
     private final MutableLiveData<Set<FilePath>> selection = new MutableLiveData<>(Collections.emptySet());
+    /**
+     * Selection-mode flag, OBSERVABLE separately từ selection set. Phase R-7a: split để
+     * "Deselect all" button có thể clear items mà KHÔNG exit mode (X button mới exit).
+     *
+     * <p>Trước R-7a: {@code isInSelectionMode = !selection.isEmpty()} → derived. Sau: explicit flag.
+     */
+    private final MutableLiveData<Boolean> selectionMode = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> canGoBack = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> canGoForward = new MutableLiveData<>(false);
     private final LiveEvent<String> events = new LiveEvent<>();
@@ -108,6 +115,10 @@ public final class PaneViewModel extends ViewModel {
         return selection;
     }
 
+    public LiveData<Boolean> selectionMode() {
+        return selectionMode;
+    }
+
     public LiveData<String> events() {
         return events;
     }
@@ -125,8 +136,7 @@ public final class PaneViewModel extends ViewModel {
     }
 
     public boolean isInSelectionMode() {
-        Set<FilePath> current = selection.getValue();
-        return current != null && !current.isEmpty();
+        return Boolean.TRUE.equals(selectionMode.getValue());
     }
 
     /**
@@ -146,9 +156,33 @@ public final class PaneViewModel extends ViewModel {
         return null;
     }
 
+    /**
+     * Toggle 1 node trong selection set. No-op khi không trong mode — caller phải gọi
+     * {@link #enterSelectionAndToggle(VirtualNode)} từ long-press entry point trước.
+     */
     public void toggleSelect(VirtualNode node) {
+        if (node.isParent() || !isInSelectionMode()) {
+            return;
+        }
+        Set<FilePath> current = selection.getValue();
+        LinkedHashSet<FilePath> next = current == null
+                ? new LinkedHashSet<>() : new LinkedHashSet<>(current);
+        if (!next.add(node.path())) {
+            next.remove(node.path());
+        }
+        selection.setValue(Collections.unmodifiableSet(next));
+    }
+
+    /**
+     * Entry point khi long-press: bật mode + add node. Nếu đã trong mode, hành xử như
+     * toggleSelect (cho phép long-press toggle 1 item bất kỳ thời điểm nào).
+     */
+    public void enterSelectionAndToggle(VirtualNode node) {
         if (node.isParent()) {
             return;
+        }
+        if (!isInSelectionMode()) {
+            selectionMode.setValue(true);
         }
         Set<FilePath> current = selection.getValue();
         LinkedHashSet<FilePath> next = current == null
@@ -169,14 +203,68 @@ public final class PaneViewModel extends ViewModel {
                 next.add(node.path());
             }
         }
+        if (!isInSelectionMode()) {
+            selectionMode.setValue(true);
+        }
         selection.setValue(Collections.unmodifiableSet(next));
     }
 
+    /**
+     * "Deselect all" button: clear items, GIỮ mode active (user vẫn ở selection bar, có thể
+     * tap items để select lại). Khác với {@link #exitSelectionMode()} = X button = thoát hẳn.
+     */
     public void clearSelection() {
-        if (!isInSelectionMode()) {
+        Set<FilePath> current = selection.getValue();
+        if (current == null || current.isEmpty()) {
             return;
         }
         selection.setValue(Collections.emptySet());
+    }
+
+    /** X button: clear items + tắt mode. Cũng gọi tự động khi switchPath (navigate đổi folder). */
+    public void exitSelectionMode() {
+        if (selection.getValue() != null && !selection.getValue().isEmpty()) {
+            selection.setValue(Collections.emptySet());
+        }
+        if (isInSelectionMode()) {
+            selectionMode.setValue(false);
+        }
+    }
+
+    /**
+     * Select range button: chọn TẤT CẢ items giữa min/max index của các items đang selected.
+     * Yêu cầu ít nhất 2 items selected. No-op nếu &lt; 2.
+     *
+     * <p>Edge cases:
+     * <ul>
+     *   <li>0/1 selected → no-op (button disabled ở UI, đây là defensive)</li>
+     *   <li>2 selected contiguous → already a "range" → no-op effective (set unchanged)</li>
+     *   <li>2+ selected scattered → fill gap (convex hull theo index)</li>
+     *   <li>Parent ".." marker — không có trong {@link #lastVisibleNodes} (chỉ adapter-side),
+     *       safe không skip</li>
+     * </ul>
+     */
+    public void selectRange() {
+        Set<FilePath> current = selection.getValue();
+        if (current == null || current.size() < 2 || lastVisibleNodes.isEmpty()) {
+            return;
+        }
+        int minIdx = Integer.MAX_VALUE;
+        int maxIdx = -1;
+        for (int i = 0; i < lastVisibleNodes.size(); i++) {
+            if (current.contains(lastVisibleNodes.get(i).path())) {
+                if (i < minIdx) minIdx = i;
+                if (i > maxIdx) maxIdx = i;
+            }
+        }
+        if (minIdx >= maxIdx) {
+            return;
+        }
+        LinkedHashSet<FilePath> next = new LinkedHashSet<>(current);
+        for (int i = minIdx; i <= maxIdx; i++) {
+            next.add(lastVisibleNodes.get(i).path());
+        }
+        selection.setValue(Collections.unmodifiableSet(next));
     }
 
     public void navigateTo(FilePath path) {
@@ -215,7 +303,8 @@ public final class PaneViewModel extends ViewModel {
     }
 
     private void switchPath(FilePath path) {
-        clearSelection();
+        // Navigate đổi folder → selection của folder cũ không còn hợp lý → exit mode hẳn.
+        exitSelectionMode();
         currentPath = path;
         savedState.set(KEY_PATH, path.toString());
         load(path);
@@ -299,9 +388,9 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         String trimmed = newName.trim();
-        // Drop selection trước submit — selected FilePath sắp disappear (replaced bởi name mới),
-        // DiffUtil treat = remove+insert. Không clear thì UI giữ "1 selected" trên row đã chết.
-        clearSelection();
+        // Exit mode trước submit — single-target action xong, selected FilePath cũng sắp
+        // disappear (replaced bởi name mới); DiffUtil treat = remove+insert.
+        exitSelectionMode();
         runActionAndRefresh(() -> {
             VirtualNode node = nodeFactory.fromPath(path);
             return fileOps.rename(node, trimmed);
@@ -349,7 +438,8 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         List<FilePath> snapshot = List.copyOf(current);
-        clearSelection();
+        // Destructive batch xong → items gone → exit mode hẳn (không thể act tiếp).
+        exitSelectionMode();
         runActionAndRefresh(() -> {
             for (FilePath p : snapshot) {
                 VirtualNode n = nodeFactory.fromPath(p);

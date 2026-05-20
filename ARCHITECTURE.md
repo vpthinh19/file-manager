@@ -214,7 +214,9 @@ KHÔNG làm (overengineer): SoA (Struct of Arrays), Paging 3, Flyweight pool, na
 | R-5a | Split `DualPaneHostFragment` → 5 Controllers + 2 Actions + 3 Dialogs (keep FileNode) | **DONE** |
 | R-5b | Migrate `PaneViewModel` + Adapter → VirtualNode + Opener + Ops (FileNode unused now) | **DONE** |
 | R-6 | Drop legacy: 26 files purged (FileNode/Provider/Repository/UseCase/FileOpener enum/Modules) | **DONE** |
-| R-7 | Feature-first repackage + flatten `support/` | pending |
+| R-7a | Selection mode redesign — 5 buttons (X centered) + selectRange + mode flag separated from set | **DONE** |
+| R-7b | Trash + Bookmark via pane (delete TrashFragment legacy) + restore button in selection | pending |
+| R-8 | Syntax highlight (TextMate) + cosmetic feature-first repackage | pending |
 | R-8 | Bookmark UI + Syntax highlight wire + node-aware polish | pending |
 
 Mỗi phase = 1 commit, BUILD SUCCESSFUL + smoke test bắt buộc. Bisectable.
