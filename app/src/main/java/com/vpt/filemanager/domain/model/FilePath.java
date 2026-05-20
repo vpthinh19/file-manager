@@ -44,14 +44,29 @@ public final class FilePath {
             return local(decode(raw.substring("file://".length())));
         }
         if (raw.startsWith("archive://")) {
-            String rest = raw.substring("archive://".length());
-            int slash = rest.indexOf('/');
-            if (slash < 0) {
-                return new FilePath(SCHEME_ARCHIVE, decode(rest), "/");
-            }
-            return new FilePath(SCHEME_ARCHIVE, decode(rest.substring(0, slash)), "/" + decode(rest.substring(slash + 1)));
+            return parseSchemeWithAuthority(SCHEME_ARCHIVE, raw.substring("archive://".length()));
+        }
+        if (raw.startsWith("trash://")) {
+            return parseSchemeWithAuthority(SCHEME_TRASH, raw.substring("trash://".length()));
+        }
+        if (raw.startsWith("bookmark://")) {
+            return parseSchemeWithAuthority(SCHEME_BOOKMARK, raw.substring("bookmark://".length()));
         }
         return local(raw);
+    }
+
+    /**
+     * Common parser cho mọi scheme dạng {@code scheme://encodedAuthority/encodedPath}. Authority có
+     * thể rỗng (vd virtual roots {@code trash:///}, {@code bookmark:///}); path luôn bắt đầu bằng
+     * {@code /}. Tách archive/trash/bookmark cùng pattern thay vì lặp 3 lần.
+     */
+    private static FilePath parseSchemeWithAuthority(String scheme, String rest) {
+        int slash = rest.indexOf('/');
+        if (slash < 0) {
+            return new FilePath(scheme, decode(rest), "/");
+        }
+        return new FilePath(scheme, decode(rest.substring(0, slash)),
+                "/" + decode(rest.substring(slash + 1)));
     }
 
     public boolean isLocal() {

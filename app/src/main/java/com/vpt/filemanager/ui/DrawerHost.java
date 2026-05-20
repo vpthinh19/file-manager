@@ -12,4 +12,11 @@ public interface DrawerHost {
     void closeDrawer();
 
     boolean isDrawerOpen();
+
+    /**
+     * Đồng bộ highlight drawer theo trạng thái active pane hiện tại. Phase R-7b: Trash + Bookmark
+     * giờ navigate qua pane (không còn Fragment riêng) → host Fragment phải kích hoạt sync khi
+     * active pane đổi path hoặc khi user swap pane left↔right.
+     */
+    void syncDrawerSelection();
 }

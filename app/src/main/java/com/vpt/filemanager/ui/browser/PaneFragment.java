@@ -141,6 +141,14 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
             viewModel.navigateTo(node.path());
             return;
         }
+        // Phase R-7b: trash entry không openable (không có file backend) — tap = enter selection
+        // semantic. Bookmark children scheme=file → click chuẩn (passthrough). Trash pane phải
+        // detect qua currentPath, KHÔNG qua node.path().scheme() vì node có thể là parent marker.
+        FilePath current = viewModel.currentPath();
+        if (current != null && current.isTrash()) {
+            viewModel.enterSelectionAndToggle(node);
+            return;
+        }
         if (node.isFolder()) {
             viewModel.navigateTo(node.path());
         } else if (controller != null) {

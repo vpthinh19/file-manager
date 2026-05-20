@@ -23,11 +23,8 @@ import com.google.android.material.navigation.NavigationView;
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.StorageScope;
-import com.vpt.filemanager.ui.DrawerActionHandler;
-import com.vpt.filemanager.ui.DrawerHost;
+import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.ui.browser.DualPaneHostFragment;
-import com.vpt.filemanager.ui.trash.TrashFragment;
-import androidx.fragment.app.FragmentManager;
 
 /**
  * Single launcher activity. Owns:
@@ -39,13 +36,16 @@ import androidx.fragment.app.FragmentManager;
  *   <li>and the {@link DualPaneHostFragment} content frame.</li>
  * </ul>
  *
+ * <p>Phase R-7b: Trash + Bookmark giờ render qua pane (xem [[project-dom-virtual-concept]]) — drawer
+ * routing đẩy active pane navigate tới virtual root tương ứng, không còn fragment swap. Drawer
+ * highlight detect qua scheme của active pane currentPath.
+ *
  * <p>System bars stay dark (chrome) in both light and dark themes — see
  * {@link #applyDarkChromeSystemBars()}.
  */
 @AndroidEntryPoint
 public final class MainActivity extends AppCompatActivity implements DrawerHost, DrawerActionHandler {
     private static final String TAG_DUAL_PANE = "dual-pane";
-    private static final String TAG_TRASH = "trash";
 
     private DrawerLayout drawerLayout;
     /**
@@ -105,9 +105,6 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
         applyDarkChromeSystemBars();
         drawerLayout = findViewById(R.id.drawer_layout);
         wireDrawerNavigation();
-        // Sync the drawer's checked highlight with whichever fragment ends up on screen — covers
-        // both back-stack pops (Trash → Storage) and re-entries after process death.
-        getSupportFragmentManager().addOnBackStackChangedListener(this::syncDrawerSelection);
         if (getSupportFragmentManager().findFragmentById(R.id.fragment_container) == null) {
             getSupportFragmentManager()
                     .beginTransaction()
@@ -138,10 +135,9 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
 
     /**
      * Drawer routing lives at the Activity layer — the Activity owns the {@code fragment_container}
-     * and is therefore the right level to decide which fragment to show. Previously the routing
-     * delegated to whichever fragment was currently hosted, which leaked drawer knowledge into
-     * fragments that had no business knowing about peer items (a TrashFragment shouldn't have to
-     * implement {@code onStorageSelected}).
+     * and is therefore the right level to decide which navigation to trigger. Phase R-7b: thay vì
+     * swap fragment, ta đẩy active pane navigate tới virtual root (TRASH_ROOT / BOOKMARK_ROOT) hoặc
+     * storage root.
      */
     private void wireDrawerNavigation() {
         NavigationView navView = findViewById(R.id.nav_view);
@@ -157,58 +153,66 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
             if (drawerLayout != null) {
                 drawerLayout.closeDrawer(GravityCompat.START);
             }
-            // Don't manually toggle item.setChecked here — syncDrawerSelection() updates the
-            // highlight from the fragment that actually ends up on screen.
+            // syncDrawerSelection() được DualPaneHostFragment kích hoạt sau khi pane đổi path
+            // — không setChecked tay tránh race với observer-driven highlight.
             return true;
         });
     }
 
     /**
-     * Highlight the drawer entry that corresponds to the currently-hosted fragment. Wired both to
-     * the FragmentManager back-stack listener (covers back-press from Trash → Storage) and called
-     * explicitly after every drawer-driven swap.
+     * Highlight drawer entry theo scheme của active pane. Gọi bởi {@link DualPaneHostFragment} khi
+     * active pane đổi path hoặc khi user swap pane left↔right; cũng được gọi 1 lần ngay sau
+     * {@link #installContent()} để cover cold-start.
      */
-    private void syncDrawerSelection() {
+    @Override
+    public void syncDrawerSelection() {
         NavigationView navView = findViewById(R.id.nav_view);
         if (navView == null) {
             return;
         }
-        Fragment current = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-        int id = current instanceof TrashFragment ? R.id.menu_trash : R.id.menu_storage;
-        navView.setCheckedItem(id);
+        navView.setCheckedItem(activeDrawerItemId());
+    }
+
+    private int activeDrawerItemId() {
+        Fragment hosted = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        if (hosted instanceof DualPaneHostFragment dual) {
+            FilePath path = dual.activeVm().currentPath();
+            if (path != null) {
+                if (path.isTrash()) {
+                    return R.id.menu_trash;
+                }
+                if (path.isBookmark()) {
+                    return R.id.menu_bookmarks;
+                }
+            }
+        }
+        return R.id.menu_storage;
     }
 
     // ---------- DrawerActionHandler ----------
 
     @Override
     public void onStorageSelected() {
-        // Pop trash off the back stack if present, then ask the host pane to jump to root. Using
-        // popBackStackImmediate keeps the navigation deterministic (no async race).
-        getSupportFragmentManager().popBackStackImmediate(TAG_TRASH,
-                androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
-        Fragment hosted = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-        if (hosted instanceof DualPaneHostFragment dual) {
-            dual.navigateActivePaneTo(StorageScope.rootPath());
-        }
+        navigateActiveIfHosted(StorageScope.rootPath());
     }
 
     @Override
     public void onTrashSelected() {
-        // Avoid stacking two TrashFragments if the user re-taps Trash from the drawer.
-        Fragment existing = getSupportFragmentManager().findFragmentByTag(TAG_TRASH);
-        if (existing != null && existing.isVisible()) {
-            return;
-        }
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragment_container, new TrashFragment(), TAG_TRASH)
-                .addToBackStack(TAG_TRASH)
-                .commit();
+        navigateActiveIfHosted(FilePath.TRASH_ROOT);
     }
 
     @Override
     public void onBookmarksSelected() {
-        Toast.makeText(this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
+        navigateActiveIfHosted(FilePath.BOOKMARK_ROOT);
+    }
+
+    private void navigateActiveIfHosted(FilePath target) {
+        Fragment hosted = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        if (hosted instanceof DualPaneHostFragment dual) {
+            // Idempotent: tránh navigate-no-op khi user re-tap drawer cùng item (cách khác là check
+            // path.equals(target) nhưng PaneViewModel.navigateTo đã guard nội bộ).
+            dual.navigateActivePaneTo(target);
+        }
     }
 
     private void applyDarkChromeSystemBars() {

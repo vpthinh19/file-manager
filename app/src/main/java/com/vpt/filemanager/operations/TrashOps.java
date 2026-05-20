@@ -126,6 +126,29 @@ public final class TrashOps {
         dao.deleteAll();
     }
 
+    /**
+     * Xóa vĩnh viễn 1 trash entry (KHÔNG khôi phục): FS delete blob {@code trashPath} (folder
+     * đệ quy) + xóa Room row. Dọn folder UUID rỗng còn lại để {@code .AppTrash/files/} không
+     * tích tụ thư mục rác. No-op nếu entry không tồn tại (idempotent).
+     *
+     * <p>v1 chỉ Empty Trash gọi qua nhiều entry; per-item DELETE_FOREVER chưa có UI (defer v2).
+     * API public sẵn để v2 wire vào selection bar / swipe.
+     */
+    public void deleteForever(String entryId) throws NodeException {
+        TrashEntryEntity entity = dao.findById(entryId);
+        if (entity == null) {
+            return;
+        }
+        Path trashPath = Path.of(entity.trashPath);
+        try {
+            deleteRecursively(trashPath);
+            deleteIfEmpty(trashPath.getParent());
+        } catch (IOException e) {
+            throw new NodeException("Delete forever failed: " + entity.displayName, e);
+        }
+        dao.deleteById(entryId);
+    }
+
     private static Path trashRoot() {
         return Path.of(StorageScope.storageRootFor(StorageScope.ROOT_PATH), TRASH_DIR);
     }

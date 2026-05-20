@@ -5,8 +5,10 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.node.source.ArchiveSource;
+import com.vpt.filemanager.node.source.BookmarkSource;
 import com.vpt.filemanager.node.source.LocalSource;
 import com.vpt.filemanager.node.source.NodeSource;
+import com.vpt.filemanager.node.source.TrashSource;
 
 /**
  * Điểm vào duy nhất để khởi tạo {@link VirtualNode} từ một {@link FilePath}. Dispatch sang đúng
@@ -16,22 +18,29 @@ import com.vpt.filemanager.node.source.NodeSource;
  * SavedStateHandle, back/forward stack pop). Khi navigation đi qua parent listing thì child node
  * được build trực tiếp trong {@code source.list()} — không qua factory.
  *
- * <p>Phase R-4 sẽ thêm {@code TrashSource} và {@code BookmarkSource} vào danh sách dispatch. Hiện
- * tại các scheme đó throw {@link NodeException} (chưa wired UI nên không reach).
+ * <p>Phase R-7b mở rộng dispatch sang {@link TrashSource} và {@link BookmarkSource} — drawer
+ * Trash/Bookmarks giờ navigate qua pane (không còn fragment riêng).
  *
- * <p>Phase R-3 sẽ thêm helper {@code asArchiveRoot(VirtualNode zipFileNode)} cho ArchiveOpener:
- * khi user click file .zip, opener cần re-wrap node thành VirtualNode với {@code source =
- * ArchiveSource} thay vì LocalSource — đó là logic "mở archive như folder".
+ * <p>Helper {@code asArchiveRoot(VirtualNode zipFileNode)} cho {@code ArchiveOpener}: khi user
+ * click file .zip, opener cần re-wrap node thành VirtualNode với {@code source = ArchiveSource}
+ * thay vì LocalSource — đó là logic "mở archive như folder".
  */
 @Singleton
 public final class NodeFactory {
     private final LocalSource localSource;
     private final ArchiveSource archiveSource;
+    private final TrashSource trashSource;
+    private final BookmarkSource bookmarkSource;
 
     @Inject
-    public NodeFactory(LocalSource localSource, ArchiveSource archiveSource) {
+    public NodeFactory(LocalSource localSource,
+                       ArchiveSource archiveSource,
+                       TrashSource trashSource,
+                       BookmarkSource bookmarkSource) {
         this.localSource = localSource;
         this.archiveSource = archiveSource;
+        this.trashSource = trashSource;
+        this.bookmarkSource = bookmarkSource;
     }
 
     /**
@@ -46,7 +55,12 @@ public final class NodeFactory {
         if (path.isArchive()) {
             return archiveSource.resolve(path);
         }
-        // Phase R-4: SCHEME_TRASH + SCHEME_BOOKMARK sẽ wire ở đây
+        if (path.isTrash()) {
+            return trashSource.resolve(path);
+        }
+        if (path.isBookmark()) {
+            return bookmarkSource.resolve(path);
+        }
         throw new NodeException("Unsupported scheme: " + path.scheme());
     }
 

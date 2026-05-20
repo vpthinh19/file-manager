@@ -54,6 +54,23 @@ public final class ToolbarController {
                     .show(host.getChildFragmentManager(), "sort");
             return true;
         }
+        if (id == R.id.action_empty_trash) {
+            // Defensive (Codex review): guard against stale menu visibility — nếu pane đã rời
+            // Trash trong khi overflow menu vẫn còn cache item visible, no-op để tránh empty
+            // trash bị invoke từ pane Storage/Bookmark.
+            FilePath currentPath = host.activeVm().currentPath();
+            if (currentPath == null || !currentPath.isTrash()) {
+                return true;
+            }
+            new AlertDialog.Builder(host.requireContext())
+                    .setTitle(R.string.trash_empty_title)
+                    .setMessage(R.string.trash_empty_message)
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(android.R.string.ok,
+                            (d, w) -> host.activeVm().emptyTrash())
+                    .show();
+            return true;
+        }
         if (id == R.id.action_search || id == R.id.action_settings) {
             host.toast(host.getString(R.string.coming_soon));
             return true;
@@ -72,6 +89,7 @@ public final class ToolbarController {
     }
 
     public void renderState(@Nullable PaneViewModel.UiState state) {
+        applyContextualOverflow(state);
         if (state instanceof PaneViewModel.UiState.Content content) {
             setTitle(displayPath(content.path));
             if (content.path.isArchive()) {
@@ -110,13 +128,49 @@ public final class ToolbarController {
         binding.tvToolbarSubtitle.setText(text == null ? "" : text);
     }
 
-    /** archive://...!/inner path UX-friendly: show {@code archiveFile + "!" + innerPath}. */
+    /**
+     * UX-friendly path label per scheme:
+     * <ul>
+     *   <li>archive: {@code archiveFile!/innerPath}</li>
+     *   <li>trash: i18n label "Trash" (path không có nghĩa với user)</li>
+     *   <li>bookmark: i18n label "Bookmarks"</li>
+     *   <li>file: raw path</li>
+     * </ul>
+     */
     @NonNull
-    private static String displayPath(@NonNull FilePath path) {
+    private String displayPath(@NonNull FilePath path) {
         if (path.isArchive()) {
             FilePath archiveFile = FilePath.parse(path.authority());
             return archiveFile.path() + "!" + path.path();
         }
+        if (path.isTrash()) {
+            return host.getString(R.string.action_trash);
+        }
+        if (path.isBookmark()) {
+            return host.getString(R.string.menu_bookmarks);
+        }
         return path.path();
+    }
+
+    /**
+     * R-7b: toggle visible cho {@code action_empty_trash} theo scheme của path hiện tại. Item
+     * sống chung trong {@code menu_dual_pane_overflow} (default invisible) → đỡ phải swap menu
+     * resource. Visibility update là 1 syscall {@code MenuItem.setVisible}, cheap.
+     */
+    private void applyContextualOverflow(@Nullable PaneViewModel.UiState state) {
+        FilePath path = pathOf(state);
+        MenuItem emptyTrash = binding.toolbar.getMenu().findItem(R.id.action_empty_trash);
+        if (emptyTrash != null) {
+            emptyTrash.setVisible(path != null && path.isTrash());
+        }
+    }
+
+    @Nullable
+    private static FilePath pathOf(@Nullable PaneViewModel.UiState state) {
+        if (state instanceof PaneViewModel.UiState.Content c) return c.path;
+        if (state instanceof PaneViewModel.UiState.Empty e) return e.path;
+        if (state instanceof PaneViewModel.UiState.Error e) return e.path;
+        if (state instanceof PaneViewModel.UiState.Roots r) return r.path;
+        return null;
     }
 }

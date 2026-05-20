@@ -10,6 +10,7 @@ import androidx.lifecycle.LiveData;
 
 import com.vpt.filemanager.data.db.dao.BookmarkDao;
 import com.vpt.filemanager.data.db.entity.BookmarkEntryEntity;
+import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -57,6 +58,18 @@ public final class BookmarkOps {
     /** Xóa bookmark theo path. No-op nếu không có (idempotent). */
     public void remove(VirtualNode node) {
         dao.deleteByPath(node.path().path());
+    }
+
+    /**
+     * Xóa bookmark theo local path string trực tiếp. Dùng khi caller chỉ có {@link FilePath}
+     * mà target file có thể đã bị xóa khỏi disk — tránh phải resolve VirtualNode (sẽ fail) chỉ
+     * để remove row. No-op nếu path không có bookmark.
+     */
+    public void removeByPath(FilePath path) {
+        if (!path.isLocal()) {
+            return;
+        }
+        dao.deleteByPath(path.path());
     }
 
     public boolean isBookmarked(VirtualNode node) {

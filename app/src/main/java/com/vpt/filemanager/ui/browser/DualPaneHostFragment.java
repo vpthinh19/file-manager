@@ -33,6 +33,7 @@ import com.vpt.filemanager.opener.FileOpener;
 import com.vpt.filemanager.opener.OpenContext;
 import com.vpt.filemanager.opener.OpenerRegistry;
 import com.vpt.filemanager.opener.PaneNavigator;
+import com.vpt.filemanager.ui.DrawerHost;
 import com.vpt.filemanager.ui.browser.action.CreateAction;
 import com.vpt.filemanager.ui.browser.action.ShareAction;
 import com.vpt.filemanager.ui.browser.controller.BackPressController;
@@ -164,6 +165,10 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         activePaneId = paneId;
         applyActivePaneVisual();
         syncFromActive();
+        // R-7b: pane swap có thể đổi scheme (vd left=trash, right=storage) → drawer highlight
+        // phải re-sync. uiState observer cũng emit khi pane reload, nhưng pane swap không trigger
+        // load mới → cần notify explicit ở đây.
+        notifyDrawerHost();
     }
 
     @Override
@@ -272,9 +277,15 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     private void observePane(@NonNull String paneId, @NonNull PaneViewModel vm) {
         vm.uiState().observe(getViewLifecycleOwner(), state -> {
-            if (paneId.equals(activePaneId) && !vm.isInSelectionMode() && toolbarCtrl != null) {
+            if (!paneId.equals(activePaneId)) {
+                return;
+            }
+            if (!vm.isInSelectionMode() && toolbarCtrl != null) {
                 toolbarCtrl.renderState(state);
             }
+            // Phase R-7b: active pane đổi path → drawer highlight phải re-sync (Storage/Trash/
+            // Bookmarks). uiState là tín hiệu reliable vì mọi navigate đều emit Loading→Content.
+            notifyDrawerHost();
         });
         // Phase R-7a: observe selectionMode + selection riêng. EITHER fire → re-render bars.
         // selectionMode controls visibility; selection controls count + range enabled.
@@ -355,5 +366,16 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     public void toast(@NonNull CharSequence message) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Notify drawer host (Activity) refresh highlight theo active pane path. KISS — không cache
+     * scheme, Activity tự đọc {@link #activeVm()} mỗi lần. Gọi sau mọi event làm path đổi
+     * (uiState navigate / pane swap).
+     */
+    private void notifyDrawerHost() {
+        if (requireActivity() instanceof DrawerHost dh) {
+            dh.syncDrawerSelection();
+        }
     }
 }

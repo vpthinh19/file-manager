@@ -23,8 +23,10 @@ import com.vpt.filemanager.core.Prefs;
 import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.SortOrder;
+import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.operations.BookmarkOps;
 import com.vpt.filemanager.operations.FileOps;
 import com.vpt.filemanager.operations.TrashOps;
 import com.vpt.filemanager.ui.LiveEvent;
@@ -51,6 +53,7 @@ public final class PaneViewModel extends ViewModel {
     private final NodeFactory nodeFactory;
     private final FileOps fileOps;
     private final TrashOps trashOps;
+    private final BookmarkOps bookmarkOps;
     private final AppExecutors executors;
     private final Prefs prefs;
 
@@ -78,12 +81,14 @@ public final class PaneViewModel extends ViewModel {
             NodeFactory nodeFactory,
             FileOps fileOps,
             TrashOps trashOps,
+            BookmarkOps bookmarkOps,
             AppExecutors executors,
             Prefs prefs) {
         this.savedState = savedState;
         this.nodeFactory = nodeFactory;
         this.fileOps = fileOps;
         this.trashOps = trashOps;
+        this.bookmarkOps = bookmarkOps;
         this.executors = executors;
         this.prefs = prefs;
         restoreSavedPath();
@@ -448,6 +453,95 @@ public final class PaneViewModel extends ViewModel {
             return null;
         }, snapshot.size() + " moved to trash");
     }
+
+    // ─────────────────────── Phase R-7b: trash + bookmark actions ───────────────────────
+
+    /**
+     * Restore tất cả selected trash entries. Gọi khi pane scheme=trash + selection bar "restore"
+     * button. Mỗi entry được {@link TrashOps#restore} — fail 1 entry không stop loop khác.
+     * Path authority = UUID entry, không phải file path.
+     *
+     * <p>Per-entry error: log qua {@link Timber} + giữ message gần nhất để post snapshot tổng.
+     */
+    public void restoreSelected() {
+        Set<FilePath> current = selection.getValue();
+        if (current == null || current.isEmpty()) {
+            return;
+        }
+        List<FilePath> snapshot = List.copyOf(current);
+        exitSelectionMode();
+        executors.io().submit(() -> {
+            int ok = 0;
+            int failed = 0;
+            String lastError = null;
+            for (FilePath p : snapshot) {
+                try {
+                    trashOps.restore(p.authority());
+                    ok++;
+                } catch (NodeException e) {
+                    failed++;
+                    lastError = e.getMessage();
+                    timber.log.Timber.w(e, "Restore failed for entry: %s", p.authority());
+                }
+            }
+            events.postValue(formatBatchResult(ok, failed, "restored", lastError));
+            refresh();
+        });
+    }
+
+    /**
+     * Xóa hết trash (FS blob + Room rows). Gọi từ overflow menu "Empty Trash" khi pane=trash root.
+     */
+    public void emptyTrash() {
+        runActionAndRefresh(() -> { trashOps.emptyAll(); return null; }, "Trash emptied");
+    }
+
+    /**
+     * Remove bookmark cho các path selected khi pane=bookmark. Children của BookmarkSource đã có
+     * scheme=file (passthrough), nên dùng {@link BookmarkOps#removeByPath} path-only — không cần
+     * resolve VirtualNode (target có thể đã bị xóa khỏi disk giữa list-time và click).
+     *
+     * <p>Per-entry error: log + đếm fail riêng để post snapshot trung thực.
+     */
+    public void removeBookmarksSelected() {
+        Set<FilePath> current = selection.getValue();
+        if (current == null || current.isEmpty()) {
+            return;
+        }
+        List<FilePath> snapshot = List.copyOf(current);
+        exitSelectionMode();
+        executors.io().submit(() -> {
+            int ok = 0;
+            int failed = 0;
+            String lastError = null;
+            for (FilePath p : snapshot) {
+                try {
+                    bookmarkOps.removeByPath(p);
+                    ok++;
+                } catch (RuntimeException e) {
+                    failed++;
+                    lastError = e.getMessage();
+                    timber.log.Timber.w(e, "Bookmark remove failed: %s", p);
+                }
+            }
+            events.postValue(formatBatchResult(ok, failed, "bookmark removed", lastError));
+            refresh();
+        });
+    }
+
+    /** Format chung cho batch action: "{ok} {verb}, {failed} failed: {lastError}" — compact. */
+    private static String formatBatchResult(int ok, int failed, String verb, String lastError) {
+        if (failed == 0) {
+            return ok + " " + verb;
+        }
+        if (ok == 0) {
+            return verb.substring(0, 1).toUpperCase() + verb.substring(1)
+                    + " failed: " + (lastError == null ? "unknown" : lastError);
+        }
+        return ok + " " + verb + ", " + failed + " failed: "
+                + (lastError == null ? "unknown" : lastError);
+    }
+
 
     private boolean isWritableContext() {
         return currentPath != null && currentPath.isLocal();

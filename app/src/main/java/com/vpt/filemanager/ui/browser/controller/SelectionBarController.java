@@ -20,10 +20,20 @@ import com.vpt.filemanager.ui.browser.dialog.NameInputDialog;
 import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
 
 /**
- * Quản lý selection mode UI: 4-button selection bar (cancel / select-all / deselect / more),
+ * Quản lý selection mode UI: 5-button selection bar (select_all / deselect / X / range / more),
  * "More" bottom sheet với 10 actions, disable rules per selection state, action handlers.
  *
- * <p>Disable rules (xem {@link #computeDisabledActions}):
+ * <p>Phase R-7b: 5-th button context-aware theo scheme của active pane:
+ * <ul>
+ *   <li>Default (file/archive): icon {@code ic_more}, click mở More sheet</li>
+ *   <li>Trash (scheme=trash): icon {@code ic_restore}, click restore selected entries trực tiếp
+ *       — không qua sheet (1 action duy nhất hợp lý ở Trash; DELETE_FOREVER per-item defer v2,
+ *       Empty Trash ở overflow toolbar)</li>
+ *   <li>Bookmark (scheme=bookmark): icon {@code ic_bookmark_remove}, click remove selected
+ *       bookmarks trực tiếp</li>
+ * </ul>
+ *
+ * <p>Disable rules cho More sheet (xem {@link #computeDisabledActions}):
  * <ul>
  *   <li>multi-select → disable RENAME/PROPERTIES/OPEN_WITH/BOOKMARK (single-target only)</li>
  *   <li>single folder → disable OPEN_WITH (no external viewer for folders)</li>
@@ -53,7 +63,23 @@ public final class SelectionBarController {
         binding.btnSelDeselect.setOnClickListener(v -> host.activeVm().clearSelection());
         binding.btnSelCancel.setOnClickListener(v -> host.activeVm().exitSelectionMode());
         binding.btnSelRange.setOnClickListener(v -> host.activeVm().selectRange());
-        binding.btnSelMore.setOnClickListener(v -> showMoreSheet());
+        // R-7b: dispatch theo pane scheme lúc click thay vì re-set listener mỗi render →
+        // single click handler, branch ngắn, icon update riêng trong renderBars.
+        binding.btnSelMore.setOnClickListener(v -> onMoreOrContextAction());
+    }
+
+    private void onMoreOrContextAction() {
+        PaneViewModel vm = host.activeVm();
+        FilePath current = vm.currentPath();
+        if (current != null && current.isTrash()) {
+            vm.restoreSelected();
+            return;
+        }
+        if (current != null && current.isBookmark()) {
+            vm.removeBookmarksSelected();
+            return;
+        }
+        showMoreSheet();
     }
 
     /**
@@ -82,7 +108,29 @@ public final class SelectionBarController {
             boolean canDeselect = count > 0;
             binding.btnSelDeselect.setEnabled(canDeselect);
             binding.btnSelDeselect.setAlpha(canDeselect ? 1f : DISABLED_ALPHA);
+            applyContextualMoreIcon();
+            // "More" button enabled chỉ khi có selection (mọi context — restore/remove/sheet đều
+            // cần items). Mirror Deselect alpha rule.
+            binding.btnSelMore.setEnabled(canDeselect);
+            binding.btnSelMore.setAlpha(canDeselect ? 1f : DISABLED_ALPHA);
         }
+    }
+
+    /**
+     * Swap btn_sel_more icon theo scheme active pane. Gọi trong {@link #renderBars} mỗi lần
+     * mode/selection thay đổi — render là idempotent setImageResource nên không tốn.
+     */
+    private void applyContextualMoreIcon() {
+        FilePath current = host.activeVm().currentPath();
+        int iconRes;
+        if (current != null && current.isTrash()) {
+            iconRes = R.drawable.ic_restore;
+        } else if (current != null && current.isBookmark()) {
+            iconRes = R.drawable.ic_bookmark_remove;
+        } else {
+            iconRes = R.drawable.ic_more;
+        }
+        binding.btnSelMore.setImageResource(iconRes);
     }
 
     private void showMoreSheet() {
