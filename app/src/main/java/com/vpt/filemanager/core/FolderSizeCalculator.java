@@ -8,74 +8,75 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.core.AppExecutors;
-import com.vpt.filemanager.core.error.FileSystemException;
-import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
-import com.vpt.filemanager.domain.repository.FileRepository;
+import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.NodeFactory;
+import com.vpt.filemanager.node.VirtualNode;
 
 /**
- * Walks the file tree under a path and sums every leaf's size. This is a Visitor over the Composite
- * {@link FileNode} tree — leaves contribute their own byte count, composites (folders) delegate to
- * their children. The traversal lives in this service (not on FileNode itself) because our
- * composite is lazy: subtrees are loaded on demand via {@link FileRepository#list}, and we want to
- * keep the domain layer free of I/O.
+ * Walk cây node + sum tổng size từng leaf. Visitor over Composite {@link VirtualNode} tree —
+ * leaves contribute byte count, folders delegate xuống children. Traversal sống ở service (không
+ * trên VirtualNode) vì composite lazy: subtrees fetch on-demand qua {@link VirtualNode#children()};
+ * giữ model layer free of I/O scheduling.
  *
- * <p>Implementation uses an iterative depth-first walk with an explicit deque so deeply nested
- * directories don't blow the call stack. Unreadable subtrees (permission denied) are skipped
- * silently — partial size is more useful than an outright failure.
+ * <p>Iterative depth-first walk với explicit deque → deeply nested directories không blow call
+ * stack. Subtree không đọc được (permission denied / archive corrupt) silently skip — partial
+ * size useful hơn outright failure.
+ *
+ * <p>Phase R-6: migrated từ {@code FileRepository} → {@link NodeFactory}. Walk identical, chỉ
+ * underlying API thay đổi.
  */
 @Singleton
 public final class FolderSizeCalculator {
-    private final FileRepository fileRepository;
+    private final NodeFactory nodeFactory;
     private final AppExecutors executors;
 
     @Inject
-    public FolderSizeCalculator(FileRepository fileRepository, AppExecutors executors) {
-        this.fileRepository = fileRepository;
+    public FolderSizeCalculator(NodeFactory nodeFactory, AppExecutors executors) {
+        this.nodeFactory = nodeFactory;
         this.executors = executors;
     }
 
     /**
-     * Compute recursive size on a background thread.
+     * Compute recursive size trên computation pool.
      *
-     * @param start root of the walk (file or folder)
-     * @return future resolving to total bytes; a file resolves to its own length; an unreadable
-     *         start resolves to {@code 0}
+     * @param start root walk (file or folder)
+     * @return future trả về total bytes; file → own length; unreadable start → {@code 0}
      */
     public Future<Long> compute(FilePath start) {
         return executors.computation().submit(() -> walk(start));
     }
 
     private long walk(FilePath start) {
+        VirtualNode root;
         try {
-            FileNode root = fileRepository.resolve(start);
-            if (!root.isDirectory()) {
-                long size = root.sizeBytes();
-                return size > 0 ? size : 0;
-            }
-        } catch (FileSystemException e) {
+            root = nodeFactory.fromPath(start);
+        } catch (NodeException e) {
             return 0;
         }
+        if (!root.isFolder()) {
+            long size = root.size();
+            return size > 0 ? size : 0;
+        }
         long total = 0;
-        Deque<FilePath> pending = new ArrayDeque<>();
-        pending.push(start);
+        Deque<VirtualNode> pending = new ArrayDeque<>();
+        pending.push(root);
         while (!pending.isEmpty()) {
-            FilePath dir = pending.pop();
+            VirtualNode dir = pending.pop();
             try {
-                List<FileNode> children = fileRepository.list(dir);
-                for (FileNode child : children) {
-                    if (child.isDirectory()) {
-                        pending.push(child.path());
+                List<VirtualNode> children = dir.children();
+                for (VirtualNode child : children) {
+                    if (child.isFolder()) {
+                        pending.push(child);
                     } else {
-                        long size = child.sizeBytes();
+                        long size = child.size();
                         if (size > 0) {
                             total += size;
                         }
                     }
                 }
-            } catch (FileSystemException ignored) {
-                // Skip subtree we can't read; the partial total is still useful.
+            } catch (NodeException ignored) {
+                // Skip subtree không đọc được; partial total vẫn useful.
             }
         }
         return total;

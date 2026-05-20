@@ -95,7 +95,7 @@ public final class TrashFragment extends Fragment {
         return false;
     }
 
-    private void confirmRestore(@NonNull com.vpt.filemanager.domain.model.TrashEntry entry) {
+    private void confirmRestore(@NonNull com.vpt.filemanager.data.db.entity.TrashEntryEntity entry) {
         new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.action_restore)
                 .setMessage(getString(R.string.trash_restore_confirm, entry.displayName))

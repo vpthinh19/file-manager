@@ -14,16 +14,17 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.ByteSize;
-import com.vpt.filemanager.domain.model.TrashEntry;
+import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
 
 /**
- * RecyclerView adapter for the trash screen. Pure view-binding — selection / restore semantics are
- * routed back to the fragment via {@link Listener}. DiffUtil keys off {@link TrashEntry#id}, which
- * is the Room primary key, so updates are stable across re-emits.
+ * RecyclerView adapter cho trash screen. Phase R-6: consume {@link TrashEntryEntity} trực tiếp —
+ * domain TrashEntry POJO bị xóa. Entity vẫn là Java POJO + Room annotation, ok cho UI consume.
+ *
+ * <p>DiffUtil key off {@link TrashEntryEntity#id} (Room PK) — updates stable across re-emits.
  */
-public final class TrashAdapter extends ListAdapter<TrashEntry, TrashAdapter.Row> {
+public final class TrashAdapter extends ListAdapter<TrashEntryEntity, TrashAdapter.Row> {
     public interface Listener {
-        void onEntryClicked(@NonNull TrashEntry entry);
+        void onEntryClicked(@NonNull TrashEntryEntity entry);
     }
 
     private final Listener listener;
@@ -52,7 +53,7 @@ public final class TrashAdapter extends ListAdapter<TrashEntry, TrashAdapter.Row
         private final TextView original;
         private final TextView meta;
         private final Listener listener;
-        private TrashEntry current;
+        private TrashEntryEntity current;
 
         Row(@NonNull View itemView, @NonNull Listener listener) {
             super(itemView);
@@ -68,7 +69,7 @@ public final class TrashAdapter extends ListAdapter<TrashEntry, TrashAdapter.Row
             });
         }
 
-        void bind(@NonNull TrashEntry entry) {
+        void bind(@NonNull TrashEntryEntity entry) {
             current = entry;
             name.setText(entry.displayName);
             original.setText(entry.originalPath);
@@ -79,9 +80,8 @@ public final class TrashAdapter extends ListAdapter<TrashEntry, TrashAdapter.Row
                     entry.deletedAtMillis,
                     System.currentTimeMillis(),
                     DateUtils.MINUTE_IN_MILLIS);
-            // Folders show only the timestamp — a literal "Folder" label would be redundant
-            // alongside the folder icon. Files show "<size> · <when>" since the size is the
-            // useful extra signal.
+            // Folders show only timestamp — "Folder" label redundant alongside folder icon.
+            // Files show "<size> · <when>" — size is the useful extra signal.
             if (entry.directory) {
                 meta.setText(when);
             } else {
@@ -91,14 +91,14 @@ public final class TrashAdapter extends ListAdapter<TrashEntry, TrashAdapter.Row
         }
     }
 
-    private static final DiffUtil.ItemCallback<TrashEntry> DIFF = new DiffUtil.ItemCallback<>() {
+    private static final DiffUtil.ItemCallback<TrashEntryEntity> DIFF = new DiffUtil.ItemCallback<>() {
         @Override
-        public boolean areItemsTheSame(@NonNull TrashEntry oldItem, @NonNull TrashEntry newItem) {
+        public boolean areItemsTheSame(@NonNull TrashEntryEntity oldItem, @NonNull TrashEntryEntity newItem) {
             return oldItem.id.equals(newItem.id);
         }
 
         @Override
-        public boolean areContentsTheSame(@NonNull TrashEntry oldItem, @NonNull TrashEntry newItem) {
+        public boolean areContentsTheSame(@NonNull TrashEntryEntity oldItem, @NonNull TrashEntryEntity newItem) {
             return oldItem.id.equals(newItem.id)
                     && oldItem.deletedAtMillis == newItem.deletedAtMillis
                     && oldItem.sizeBytes == newItem.sizeBytes
