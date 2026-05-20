@@ -11,26 +11,25 @@ import java.util.Date;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.ByteSize;
-import com.vpt.filemanager.domain.model.FileNode;
+import com.vpt.filemanager.node.VirtualNode;
 
 /**
- * Renders a single {@link FileNode} row.
+ * Render 1 {@link VirtualNode} row. Phase R-5b: migrated từ FileNode → VirtualNode + dùng
+ * {@link VirtualNode#isParent()} thay {@code instanceof ParentFileNode}.
  *
- * <p>Icon rendering delegated to {@link FileIconView}: folder rows take the folder badge directly,
- * file rows look up an {@link IconCategory} from the file name. Selection state is propagated to
- * the itemView via {@link View#setSelected(boolean)} so {@code bg_file_row} can pick up the right
+ * <p>Folder rows lấy folder badge; file rows lookup {@link IconCategory#ofFileName(String)}.
+ * Selection state propagate qua {@link View#setSelected(boolean)} → {@code bg_file_row} pick
  * state-list color.
  *
- * <p>Perf: click listeners are attached ONCE in the constructor (they read the latest bound node
- * via {@link #currentNode}) — previously {@code onBindViewHolder} allocated a fresh lambda per
- * bind, churning the GC on every scroll. {@link #DATE_FMT} is a class-level static for the same
- * reason: {@code DateFormat.getDateTimeInstance(...)} internally walks Locale / pattern data and
- * allocates a Calendar — far too heavy for the bind hot path.
+ * <p>Perf: click listeners attach 1 lần trong ctor (read latest bound node qua {@link #currentNode});
+ * trước đây {@code onBindViewHolder} alloc lambda mỗi bind, churn GC khi scroll.
+ * {@link #DATE_FMT} là class-level static — {@code DateFormat.getDateTimeInstance(...)} internally
+ * walk Locale + alloc Calendar, quá nặng cho bind hot path.
  */
 public final class FileViewHolder extends RecyclerView.ViewHolder {
     /**
-     * Shared formatter. {@link DateFormat} is NOT thread-safe, but RV binding is always invoked on
-     * the main thread, so a single static instance is safe and avoids the per-bind allocation.
+     * Shared formatter. {@link DateFormat} KHÔNG thread-safe nhưng RV bind luôn trên main thread,
+     * nên 1 static instance an toàn + tránh per-bind allocation.
      */
     private static final DateFormat DATE_FMT =
             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
@@ -39,7 +38,7 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
     private final TextView name;
     private final TextView meta;
     private final Date dateBuffer = new Date();
-    private FileNode currentNode;
+    private VirtualNode currentNode;
 
     public FileViewHolder(@NonNull View itemView, @NonNull FileListAdapter.Listener listener) {
         super(itemView);
@@ -60,24 +59,25 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
         });
     }
 
-    public void bind(FileNode node, boolean selected) {
+    public void bind(VirtualNode node, boolean selected) {
         currentNode = node;
-        if (node instanceof ParentFileNode || node.isDirectory()) {
+        if (node.isParent() || node.isFolder()) {
             icon.bindFolder();
         } else {
             icon.bindCategory(IconCategory.ofFileName(node.name()));
         }
-        name.setText(node.name());
+        // Parent marker hiển thị ".." thay vì path.name() (vì path.name() = tên folder thật của parent).
+        name.setText(node.isParent() ? ".." : node.name());
         meta.setText(formatMeta(node));
         itemView.setSelected(selected);
     }
 
-    private String formatMeta(FileNode node) {
-        if (node instanceof ParentFileNode) {
+    private String formatMeta(VirtualNode node) {
+        if (node.isParent()) {
             return "Parent";
         }
-        String size = node.isDirectory() ? "Folder" : ByteSize.format(node.sizeBytes());
-        long mtime = node.lastModifiedMillis();
+        String size = node.isFolder() ? "Folder" : ByteSize.format(node.size());
+        long mtime = node.modifiedAt();
         if (mtime <= 0) {
             return size;
         }

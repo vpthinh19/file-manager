@@ -18,15 +18,21 @@ import androidx.lifecycle.ViewModelProvider;
 import java.io.File;
 import java.util.Set;
 
+import javax.inject.Inject;
+
 import dagger.hilt.android.AndroidEntryPoint;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.FileOpener;
 import com.vpt.filemanager.core.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.domain.model.FileCategory;
-import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.opener.FileOpener;
+import com.vpt.filemanager.opener.OpenContext;
+import com.vpt.filemanager.opener.OpenerRegistry;
+import com.vpt.filemanager.opener.PaneNavigator;
 import com.vpt.filemanager.ui.browser.action.CreateAction;
 import com.vpt.filemanager.ui.browser.action.ShareAction;
 import com.vpt.filemanager.ui.browser.controller.BackPressController;
@@ -37,13 +43,11 @@ import com.vpt.filemanager.ui.browser.controller.ToolbarController;
 import com.vpt.filemanager.ui.editor.TextEditorActivity;
 
 /**
- * Host của 2 PaneFragment + bottom toolbar + selection bar. Sau Phase R-5a, fragment chỉ còn
- * lifecycle + PaneController callback impl + click flow tạm thời (sẽ chuyển sang OpenerRegistry
- * ở Phase R-5b). UI orchestration phân tán xuống Controllers + Actions trong sub-packages
- * (controller/, action/, dialog/).
+ * Host của 2 PaneFragment + bottom toolbar + selection bar. Phase R-5b: click flow migrated sang
+ * {@link OpenerRegistry} (Strategy-per-file-type). UNKNOWN category vẫn fallback OpenAs dialog
+ * cho parity với UX hiện tại. UI orchestration phân tán xuống Controllers + Actions từ R-5a.
  *
- * <p>Pattern controller lifecycle: plain Java + manual release. {@code onViewCreated} new() +
- * attach() từng controller; {@code onDestroyView} nullify references để GC.
+ * <p>Pattern controller lifecycle: plain Java + manual release.
  */
 @AndroidEntryPoint
 public final class DualPaneHostFragment extends Fragment implements PaneController {
@@ -54,12 +58,14 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     private static final String TAG_PANE_RIGHT = "pane_right";
     private static final String STATE_ACTIVE_PANE = "active_pane";
 
+    @Inject
+    OpenerRegistry openerRegistry;
+
     private FragmentDualPaneHostBinding binding;
     private PaneViewModel leftVm;
     private PaneViewModel rightVm;
     private String activePaneId = PANE_LEFT;
 
-    // Controllers + Actions (lifecycle aligned với view, nullify trong onDestroyView)
     private ToolbarController toolbarCtrl;
     private BottomBarController bottomBarCtrl;
     private SelectionBarController selectionBarCtrl;
@@ -108,8 +114,6 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                     .commitNow();
         }
 
-        // Order matters: Actions ctor first (Controllers reference them), Controllers second,
-        // attach() last (calls binding listeners — all refs ready).
         createAction = new CreateAction(this);
         shareAction = new ShareAction(this);
         toolbarCtrl = new ToolbarController(this, binding);
@@ -163,49 +167,37 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     }
 
     @Override
-    public void onOpenFile(@NonNull String paneId, @NonNull FileNode node) {
+    public void onOpenFile(@NonNull String paneId, @NonNull VirtualNode node) {
         if (!paneId.equals(activePaneId)) {
             activePaneId = paneId;
             applyActivePaneVisual();
             syncFromActive();
         }
-        PaneViewModel vm = viewModelForPane(paneId);
-
-        if (!node.isDirectory()
-                && FileCategory.ofExtension(node.name()) == FileCategory.UNKNOWN) {
+        // UNKNOWN category → OpenAs dialog (parity với UX hiện tại). Phase 2D có thể tích hợp
+        // OpenAs vào OpenerRegistry khi Image/Video/AudioOpener wire xong.
+        if (FileCategory.ofExtension(node.name()) == FileCategory.UNKNOWN) {
             showOpenAsDialog(node);
             return;
         }
-
-        FileOpener.Action action = FileOpener.decide(node);
-        switch (action) {
-            case OPEN_TEXT:
-                openAsText(node.path());
-                break;
-            case OPEN_ARCHIVE:
-                if (node.path().isLocal()) {
-                    vm.openArchive(node.path());
-                } else {
-                    toast("Nested archive: coming in Phase 2C");
-                }
-                break;
-            case OPEN_IMAGE:
-            case OPEN_VIDEO:
-            case OPEN_AUDIO:
-            case OPEN_WITH:
-            default:
-                if (node.path().isLocal()) {
-                    openWith(node);
-                } else {
-                    toast("Opening files inside archive: coming in Phase 2C");
-                }
-                break;
+        FileOpener opener = openerRegistry.openerFor(node);
+        if (opener == null) {
+            // Archive entry không có in-app opener — toast graceful.
+            toast(getString(R.string.unavailable));
+            return;
+        }
+        PaneViewModel vm = viewModelForPane(paneId);
+        PaneNavigator nav = vm::navigateTo;
+        OpenContext ctx = new OpenContext(requireContext(), getChildFragmentManager(), nav);
+        try {
+            opener.onOpen(node, ctx);
+        } catch (NodeException e) {
+            toast(e.getMessage() == null ? getString(R.string.unavailable) : e.getMessage());
         }
     }
 
-    // ───────────── Click flow (R-5b sẽ chuyển sang OpenerRegistry) ─────────────
+    // ───────────── OpenAs dialog (legacy UNKNOWN-extension fallback) ─────────────
 
-    private void showOpenAsDialog(@NonNull FileNode node) {
+    private void showOpenAsDialog(@NonNull VirtualNode node) {
         if (!node.path().isLocal()) {
             toast("Opening files inside archive: coming in Phase 2C");
             return;
@@ -215,7 +207,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 .show(getChildFragmentManager(), "open-as");
     }
 
-    private void handleOpenAs(@NonNull FileNode node, @NonNull OpenAsDialogFragment.OpenAs choice) {
+    private void handleOpenAs(@NonNull VirtualNode node, @NonNull OpenAsDialogFragment.OpenAs choice) {
         switch (choice) {
             case TEXT:
                 openAsText(node.path());
@@ -245,19 +237,11 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         startActivity(intent);
     }
 
-    private void openWith(@NonNull FileNode node) {
-        openWithPath(node.path());
-    }
-
     /** Public — gọi từ {@link SelectionBarController} (sub-package) cho OPEN_WITH action. */
     public void openWithPath(@NonNull FilePath path) {
         openWithMime(path, null);
     }
 
-    /**
-     * System "Open with" chooser. {@code mimeOverride} force MIME (dùng bởi OpenAsDialog cho file
-     * extension-less); {@code null} = auto-detect từ tên file.
-     */
     private void openWithMime(@NonNull FilePath path, @Nullable String mimeOverride) {
         if (!path.isLocal()) {
             toast(getString(R.string.unavailable));
@@ -280,10 +264,6 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     // ───────────── Drawer-driven entry point ─────────────
 
-    /**
-     * Gọi từ MainActivity khi drawer Storage/Trash/... item được chọn — drive active pane
-     * navigate sang path mới. Phase R-5b sẽ thay {@link FilePath} bằng {@code VirtualNode}.
-     */
     public void navigateActivePaneTo(@NonNull FilePath path) {
         activeVm().navigateTo(path);
     }
@@ -301,8 +281,6 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                 return;
             }
             selectionBarCtrl.renderBars(selection, toolbarCtrl);
-            // Leaving selection mode phải restore path-derived toolbar title; nếu không
-            // string "N selected" stuck sau khi selection clear.
             if (selection == null || selection.isEmpty()) {
                 toolbarCtrl.renderState(vm.uiState().getValue());
             }
@@ -350,21 +328,18 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         }
     }
 
-    // ───────────── Package-private host accessors (cho controllers/actions) ─────────────
+    // ───────────── Package-public host accessors (cho controllers/actions sub-packages) ─────────────
 
-    /** Active PaneViewModel — Controllers/Actions gọi để route action. */
     @NonNull
     public PaneViewModel activeVm() {
         return viewModelForPane(activePaneId);
     }
 
-    /** Active pane id — BottomBarController dùng để toggle swap. */
     @NonNull
     public String activePaneId() {
         return activePaneId;
     }
 
-    /** Toast helper — Controllers/Actions (sub-package) show error/info qua đây. */
     public void toast(@NonNull CharSequence message) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
     }

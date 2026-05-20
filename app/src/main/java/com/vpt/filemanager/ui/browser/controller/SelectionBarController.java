@@ -10,8 +10,8 @@ import androidx.annotation.Nullable;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
-import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.ui.browser.DualPaneHostFragment;
 import com.vpt.filemanager.ui.browser.NodeActionsBottomSheet;
 import com.vpt.filemanager.ui.browser.PaneViewModel;
@@ -76,7 +76,7 @@ public final class SelectionBarController {
         }
         boolean single = selection.size() == 1;
         FilePath singlePath = single ? selection.iterator().next() : null;
-        FileNode singleNode = single ? vm.findNode(singlePath) : null;
+        VirtualNode singleNode = single ? vm.findNode(singlePath) : null;
 
         NodeActionsBottomSheet sheet = NodeActionsBottomSheet
                 .newInstance(single ? singlePath.name() : selection.size() + " items")
@@ -86,7 +86,7 @@ public final class SelectionBarController {
     }
 
     private EnumSet<NodeActionsBottomSheet.Action> computeDisabledActions(
-            Set<FilePath> selection, @Nullable FileNode singleNode) {
+            Set<FilePath> selection, @Nullable VirtualNode singleNode) {
         EnumSet<NodeActionsBottomSheet.Action> disabled =
                 EnumSet.noneOf(NodeActionsBottomSheet.Action.class);
         boolean multi = selection.size() > 1;
@@ -96,7 +96,7 @@ public final class SelectionBarController {
             disabled.add(NodeActionsBottomSheet.Action.OPEN_WITH);
             disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
         } else if (singleNode != null) {
-            if (singleNode.isDirectory()) {
+            if (singleNode.isFolder()) {
                 disabled.add(NodeActionsBottomSheet.Action.OPEN_WITH);
             } else {
                 disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);

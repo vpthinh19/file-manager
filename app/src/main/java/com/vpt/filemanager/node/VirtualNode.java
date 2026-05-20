@@ -47,6 +47,23 @@ public final class VirtualNode {
         this.source = Objects.requireNonNull(source, "source");
     }
 
+    /**
+     * Factory cho synthetic ".." parent marker row. {@link #path()} trỏ tới parent path; click
+     * marker → caller navigate đến path đó. Source là {@link ParentSource} singleton; mọi attempt
+     * children/read/write trên marker đều throw — caller phải check {@link #isParent()} trước.
+     */
+    public static VirtualNode parent(FilePath parentPath) {
+        return new VirtualNode(parentPath, true, -1L, -1L, ParentSource.INSTANCE);
+    }
+
+    /**
+     * {@code true} nếu node này là synthetic parent marker (".." row). Adapter / ViewHolder dùng
+     * để render tên "..", PaneViewModel dùng để skip trong selection.
+     */
+    public boolean isParent() {
+        return source instanceof ParentSource;
+    }
+
     public FilePath path() {
         return path;
     }

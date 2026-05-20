@@ -21,10 +21,17 @@ import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
-import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
-import com.vpt.filemanager.ui.browser.PaneController;
+import com.vpt.filemanager.node.VirtualNode;
 
+/**
+ * 1 pane trong dual-pane host. Hiển thị {@link RecyclerView} các {@link VirtualNode} children
+ * của currentPath. Phase R-5b: migrated FileNode → VirtualNode; click flow giữ parity nhưng dispatch
+ * qua {@link VirtualNode#isParent()} / {@code isFolder()} thay vì {@code instanceof ParentFileNode}.
+ *
+ * <p>Parent ".." row được wrapped trong {@link #withParent(FilePath, List)} — PaneViewModel emit
+ * children pure (không có parent), Fragment add marker tại UI layer.
+ */
 @AndroidEntryPoint
 public final class PaneFragment extends Fragment implements FileListAdapter.Listener {
     public static final String ARG_PANE_ID = "pane_id";
@@ -81,14 +88,11 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         adapter = new FileListAdapter(this);
         binding.rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.rv.setAdapter(adapter);
-        // Fixed-size rows let RecyclerView skip a measure pass. Row height is 46dp (see
-        // row_file_node.xml) — single source of truth lives there, not in comments here.
+        // Fixed-size rows let RV skip a measure pass. Row height = 46dp (row_file_node.xml).
         binding.rv.setHasFixedSize(true);
-        // Tight 120ms cross-fade per item — DefaultItemAnimator runs the fade-out on rows that
-        // DiffUtil removed (folder leaving) in parallel with the fade-in on rows that DiffUtil
-        // inserted (folder arriving). No layoutAnimation, no manual RV alpha tricks: the cross-
-        // fade is synchronous with the diff commit, so we never see the old list flash back nor
-        // the new list snap to its resting position before animating.
+        // Tight 120ms cross-fade per item — DefaultItemAnimator fade-out rows DiffUtil removed
+        // (folder leaving) song song fade-in rows DiffUtil inserted. KHÔNG layoutAnimation,
+        // KHÔNG manual RV alpha trick: cross-fade sync với diff commit.
         DefaultItemAnimator animator = new DefaultItemAnimator();
         animator.setAddDuration(120);
         animator.setRemoveDuration(120);
@@ -97,7 +101,8 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         binding.rv.setItemAnimator(animator);
         binding.rv.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
             @Override
-            public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull android.view.MotionEvent e) {
+            public boolean onInterceptTouchEvent(@NonNull RecyclerView rv,
+                                                 @NonNull android.view.MotionEvent e) {
                 if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN
                         && controller != null) {
                     controller.onPaneActivated(paneId());
@@ -108,11 +113,9 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
 
         observeViewModel();
 
-        // After process death the Fragment receives a non-null savedInstanceState yet the freshly
-        // re-created ViewModel has no currentPath — we must still navigate, otherwise uiState stays
-        // at the initial Loading and the user sees a spinner forever. The SavedStateHandle restore
-        // path inside PaneViewModel handles MT-style "remember where I left off"; this guard only
-        // catches the cold-start case.
+        // Sau process death Fragment receive savedInstanceState non-null nhưng VM freshly created
+        // chưa có currentPath — phải navigate, else uiState stuck Loading. PaneViewModel restore
+        // path từ SavedStateHandle bên trong; guard này catch cold-start.
         if (viewModel.currentPath() == null) {
             viewModel.navigateTo(StorageScope.rootPath());
         }
@@ -125,7 +128,7 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
     }
 
     @Override
-    public void onFileClicked(@NonNull FileNode node) {
+    public void onFileClicked(@NonNull VirtualNode node) {
         if (controller != null) {
             controller.onPaneActivated(paneId());
         }
@@ -133,11 +136,12 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
             viewModel.toggleSelect(node);
             return;
         }
-        if (node instanceof ParentFileNode) {
+        if (node.isParent()) {
+            // Parent marker path = parent's path. navigateTo handles it.
             viewModel.navigateTo(node.path());
             return;
         }
-        if (node.isDirectory()) {
+        if (node.isFolder()) {
             viewModel.navigateTo(node.path());
         } else if (controller != null) {
             controller.onOpenFile(paneId(), node);
@@ -145,20 +149,19 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
     }
 
     @Override
-    public void onFileLongClicked(@NonNull FileNode node) {
+    public void onFileLongClicked(@NonNull VirtualNode node) {
         if (controller != null) {
             controller.onPaneActivated(paneId());
         }
-        if (node instanceof ParentFileNode) {
+        if (node.isParent()) {
             return;
         }
         viewModel.toggleSelect(node);
     }
 
     /**
-     * Toggles the active-pane indicator on the container's foreground. The container is the
-     * FrameLayout root of {@code fragment_pane.xml}; its foreground drawable is a state-list that
-     * paints a 2dp border when {@code activated == true} (white in dark mode, black in light).
+     * Toggle active-pane indicator trên container foreground. Container là FrameLayout root
+     * của fragment_pane.xml; foreground drawable = state-list paint 2dp border khi activated.
      */
     public void setPaneActivated(boolean active) {
         if (binding != null) {
@@ -174,21 +177,16 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
             boolean isLoading = state instanceof PaneViewModel.UiState.Loading;
             binding.progress.setVisibility(isLoading ? View.VISIBLE : View.GONE);
             if (isLoading) {
-                // Keep the old folder's rows visible underneath the spinner while the new listing
-                // is in flight — feels less destructive than clearing to empty + flicker.
+                // Keep old folder rows visible underneath spinner — less destructive than flicker.
                 return;
             }
-            // Standard ListAdapter flow: hand the new list off to AsyncListDiffer. The
-            // DefaultItemAnimator configured in onViewCreated runs synchronously with the diff
-            // notifications — removed rows fade out, inserted rows fade in, no extra
-            // RV-level alpha tricks and no layoutAnimation race.
             adapter.submitList(listFor(state));
         });
         viewModel.selection().observe(getViewLifecycleOwner(), adapter::setSelection);
     }
 
     @NonNull
-    private static List<FileNode> listFor(@NonNull PaneViewModel.UiState state) {
+    private static List<VirtualNode> listFor(@NonNull PaneViewModel.UiState state) {
         if (state instanceof PaneViewModel.UiState.Content c) {
             return withParent(c.path, c.nodes);
         }
@@ -204,10 +202,10 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         return Collections.emptyList();
     }
 
-    private static List<FileNode> withParent(FilePath path, List<FileNode> nodes) {
-        List<FileNode> out = new ArrayList<>(nodes.size() + 1);
+    private static List<VirtualNode> withParent(FilePath path, List<VirtualNode> nodes) {
+        List<VirtualNode> out = new ArrayList<>(nodes.size() + 1);
         if (StorageScope.canGoUp(path)) {
-            out.add(new ParentFileNode(parentFor(path)));
+            out.add(VirtualNode.parent(parentFor(path)));
         }
         out.addAll(nodes);
         return out;

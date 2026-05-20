@@ -11,10 +11,21 @@ import java.util.Collections;
 import java.util.Set;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.VirtualNode;
 
-public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder> {
+/**
+ * ListAdapter cho {@link VirtualNode} rows. Phase R-5b migrated từ FileNode → VirtualNode.
+ * Selection tracked qua {@code Set<FilePath>} — path là identity, không phải node instance, nên
+ * back/forward stack hoặc refresh không invalidate selection (path-based comparison).
+ *
+ * <p>DiffUtil compare:
+ * <ul>
+ *   <li>{@code areItemsTheSame}: same path → same row identity</li>
+ *   <li>{@code areContentsTheSame}: name + size + modifiedAt + isFolder identical → no rebind</li>
+ * </ul>
+ */
+public final class FileListAdapter extends ListAdapter<VirtualNode, FileViewHolder> {
     private final Listener listener;
     private Set<FilePath> selectedPaths = Collections.emptySet();
 
@@ -24,9 +35,9 @@ public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder>
     }
 
     /**
-     * Apply a new selection set. We avoid {@code notifyDataSetChanged()} because it forces every
-     * visible row to rebind and kills the item-animator transitions; instead we walk the current
-     * list once and only invalidate rows whose selection state actually flipped.
+     * Apply new selection set. Avoid {@code notifyDataSetChanged} — forces every visible row
+     * rebind + kills item animator. Instead walk current list once, only invalidate rows whose
+     * selection state flipped.
      */
     public void setSelection(Set<FilePath> selection) {
         Set<FilePath> next = selection == null ? Collections.emptySet() : selection;
@@ -49,36 +60,36 @@ public final class FileListAdapter extends ListAdapter<FileNode, FileViewHolder>
     @NonNull
     @Override
     public FileViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Click listeners are attached in the VH ctor (once per VH) instead of in onBindViewHolder
-        // — eliminates the per-bind lambda allocation that bloats scroll-time GC.
+        // Click listeners attach trong VH ctor (1 lần per VH) thay vì onBindViewHolder — bỏ
+        // per-bind lambda allocation churn GC khi scroll.
         return new FileViewHolder(LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.row_file_node, parent, false), listener);
     }
 
     @Override
     public void onBindViewHolder(@NonNull FileViewHolder holder, int position) {
-        FileNode node = getItem(position);
+        VirtualNode node = getItem(position);
         holder.bind(node, selectedPaths.contains(node.path()));
     }
 
     public interface Listener {
-        void onFileClicked(@NonNull FileNode node);
+        void onFileClicked(@NonNull VirtualNode node);
 
-        void onFileLongClicked(@NonNull FileNode node);
+        void onFileLongClicked(@NonNull VirtualNode node);
     }
 
-    private static final DiffUtil.ItemCallback<FileNode> DIFF = new DiffUtil.ItemCallback<>() {
+    private static final DiffUtil.ItemCallback<VirtualNode> DIFF = new DiffUtil.ItemCallback<>() {
         @Override
-        public boolean areItemsTheSame(@NonNull FileNode oldItem, @NonNull FileNode newItem) {
+        public boolean areItemsTheSame(@NonNull VirtualNode oldItem, @NonNull VirtualNode newItem) {
             return oldItem.path().equals(newItem.path());
         }
 
         @Override
-        public boolean areContentsTheSame(@NonNull FileNode oldItem, @NonNull FileNode newItem) {
+        public boolean areContentsTheSame(@NonNull VirtualNode oldItem, @NonNull VirtualNode newItem) {
             return oldItem.name().equals(newItem.name())
-                    && oldItem.sizeBytes() == newItem.sizeBytes()
-                    && oldItem.lastModifiedMillis() == newItem.lastModifiedMillis()
-                    && oldItem.isDirectory() == newItem.isDirectory();
+                    && oldItem.size() == newItem.size()
+                    && oldItem.modifiedAt() == newItem.modifiedAt()
+                    && oldItem.isFolder() == newItem.isFolder();
         }
     };
 }

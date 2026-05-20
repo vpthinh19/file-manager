@@ -48,6 +48,8 @@ public final class ArchiveOpener implements FileOpener {
     @Override
     public void onOpen(VirtualNode node, OpenContext ctx) throws NodeException {
         VirtualNode archiveRoot = nodeFactory.asArchiveRoot(node);
-        ctx.pane().navigateTo(archiveRoot);
+        // PaneNavigator takes FilePath — caller PaneViewModel re-resolves qua NodeFactory.
+        // Identity stays consistent; archiveRoot instance discarded after this call.
+        ctx.pane().navigateTo(archiveRoot.path());
     }
 }

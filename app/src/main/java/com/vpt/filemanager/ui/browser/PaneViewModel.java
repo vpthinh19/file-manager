@@ -21,34 +21,36 @@ import dagger.hilt.android.lifecycle.HiltViewModel;
 import com.vpt.filemanager.core.AppExecutors;
 import com.vpt.filemanager.core.Prefs;
 import com.vpt.filemanager.core.StorageScope;
-import com.vpt.filemanager.domain.model.FileNode;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.domain.model.SortOrder;
-import com.vpt.filemanager.domain.usecase.CreateFileUseCase;
-import com.vpt.filemanager.domain.usecase.CreateFolderUseCase;
-import com.vpt.filemanager.domain.usecase.DeleteFilesUseCase;
-import com.vpt.filemanager.domain.usecase.ListDirectoryUseCase;
-import com.vpt.filemanager.domain.usecase.RenameFileUseCase;
+import com.vpt.filemanager.node.NodeFactory;
+import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.operations.FileOps;
+import com.vpt.filemanager.operations.TrashOps;
 import com.vpt.filemanager.ui.LiveEvent;
 
 /**
- * Browser pane state machine: holds the current location, the directory listing, the selection,
- * and the back/forward stacks. Use cases are synchronous + throwing (R3 flattening); this VM owns
- * the io scheduling so use cases stay thread-agnostic and easy to unit test.
+ * Browser pane state machine — holds current location, listing, selection, back/forward stacks.
  *
- * <p>The constructor restores any prior location from {@link SavedStateHandle} so process death
- * lands the user back where they were (MT-Manager parity).
+ * <p>Phase R-5b: migrated từ {@code FileNode} + {@code listDirectoryUseCase} + 4 other use cases
+ * sang DOM ảo concept: {@link NodeFactory} resolve paths, {@link VirtualNode#children()} list
+ * directly, {@link FileOps} + {@link TrashOps} cho CRUD. Use case layer xóa.
+ *
+ * <p>Backbone API contract giữ nguyên cho controllers/actions: {@code navigateTo(FilePath)},
+ * {@code rename(FilePath, String)}, {@code createFolder(String)}, etc. — chỉ implementation thay
+ * đổi. Selection vẫn {@code Set<FilePath>} (identity stays).
+ *
+ * <p>Process-death restore: {@link SavedStateHandle} lưu currentPath string. Restore kick off
+ * load() ngay trong constructor để Fragment không phải re-init.
  */
 @HiltViewModel
 public final class PaneViewModel extends ViewModel {
     private static final String KEY_PATH = "current_path";
 
     private final SavedStateHandle savedState;
-    private final ListDirectoryUseCase listDirectoryUseCase;
-    private final CreateFileUseCase createFileUseCase;
-    private final CreateFolderUseCase createFolderUseCase;
-    private final DeleteFilesUseCase deleteFilesUseCase;
-    private final RenameFileUseCase renameFileUseCase;
+    private final NodeFactory nodeFactory;
+    private final FileOps fileOps;
+    private final TrashOps trashOps;
     private final AppExecutors executors;
     private final Prefs prefs;
 
@@ -60,35 +62,30 @@ public final class PaneViewModel extends ViewModel {
     private final ArrayDeque<FilePath> backStack = new ArrayDeque<>();
     private final ArrayDeque<FilePath> forwardStack = new ArrayDeque<>();
     private FilePath currentPath;
-    private List<FileNode> lastVisibleNodes = Collections.emptyList();
+    private List<VirtualNode> lastVisibleNodes = Collections.emptyList();
     private Future<?> pendingLoad;
 
     @Inject
     public PaneViewModel(
             SavedStateHandle savedState,
-            ListDirectoryUseCase listDirectoryUseCase,
-            CreateFileUseCase createFileUseCase,
-            CreateFolderUseCase createFolderUseCase,
-            DeleteFilesUseCase deleteFilesUseCase,
-            RenameFileUseCase renameFileUseCase,
+            NodeFactory nodeFactory,
+            FileOps fileOps,
+            TrashOps trashOps,
             AppExecutors executors,
             Prefs prefs) {
         this.savedState = savedState;
-        this.listDirectoryUseCase = listDirectoryUseCase;
-        this.createFileUseCase = createFileUseCase;
-        this.createFolderUseCase = createFolderUseCase;
-        this.deleteFilesUseCase = deleteFilesUseCase;
-        this.renameFileUseCase = renameFileUseCase;
+        this.nodeFactory = nodeFactory;
+        this.fileOps = fileOps;
+        this.trashOps = trashOps;
         this.executors = executors;
         this.prefs = prefs;
         restoreSavedPath();
     }
 
     /**
-     * Re-hydrate the pane's last location after process death so the user returns to exactly where
-     * they were (MT Manager parity). We kick off a load here too, otherwise the Fragment would see
-     * a non-null currentPath and skip its initial navigation — leaving uiState stuck at Loading.
-     * A corrupt/invalid stored path is swallowed silently; the Fragment will then navigate to root.
+     * Re-hydrate pane's last location sau process death (MT Manager parity). Kick off load too
+     * — otherwise Fragment thấy currentPath non-null nên skip initial navigation → uiState stuck
+     * Loading. Corrupt path swallow silently; Fragment navigates về root.
      */
     private void restoreSavedPath() {
         String saved = savedState.get(KEY_PATH);
@@ -133,15 +130,15 @@ public final class PaneViewModel extends ViewModel {
     }
 
     /**
-     * Look up the currently-visible node for a path. Used by the host fragment when computing
-     * action availability (e.g. is the selected path a folder?) without re-walking the file system.
+     * Lookup node hiện đang hiển thị theo path. Dùng bởi SelectionBarController khi tính disable
+     * rules cho bottom sheet (cần biết single selection là file hay folder).
      */
     @Nullable
-    public FileNode findNode(@Nullable FilePath path) {
+    public VirtualNode findNode(@Nullable FilePath path) {
         if (path == null) {
             return null;
         }
-        for (FileNode node : lastVisibleNodes) {
+        for (VirtualNode node : lastVisibleNodes) {
             if (path.equals(node.path())) {
                 return node;
             }
@@ -149,12 +146,13 @@ public final class PaneViewModel extends ViewModel {
         return null;
     }
 
-    public void toggleSelect(FileNode node) {
-        if (node instanceof ParentFileNode) {
+    public void toggleSelect(VirtualNode node) {
+        if (node.isParent()) {
             return;
         }
         Set<FilePath> current = selection.getValue();
-        LinkedHashSet<FilePath> next = current == null ? new LinkedHashSet<>() : new LinkedHashSet<>(current);
+        LinkedHashSet<FilePath> next = current == null
+                ? new LinkedHashSet<>() : new LinkedHashSet<>(current);
         if (!next.add(node.path())) {
             next.remove(node.path());
         }
@@ -166,8 +164,8 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         LinkedHashSet<FilePath> next = new LinkedHashSet<>();
-        for (FileNode node : lastVisibleNodes) {
-            if (!(node instanceof ParentFileNode)) {
+        for (VirtualNode node : lastVisibleNodes) {
+            if (!node.isParent()) {
                 next.add(node.path());
             }
         }
@@ -190,11 +188,6 @@ public final class PaneViewModel extends ViewModel {
         switchPath(path);
     }
 
-    /**
-     * Pop one entry from the back stack. Symmetric with {@link #forward()} — the leaving location
-     * is pushed onto the forward stack so the user can ping-pong. Returns {@code false} when no
-     * history exists (so the bar button stays disabled).
-     */
     public boolean back() {
         if (backStack.isEmpty()) {
             return false;
@@ -221,7 +214,6 @@ public final class PaneViewModel extends ViewModel {
         return true;
     }
 
-    /** Apply a new currentPath without touching the back/forward stacks (used by back/forward). */
     private void switchPath(FilePath path) {
         clearSelection();
         currentPath = path;
@@ -261,17 +253,15 @@ public final class PaneViewModel extends ViewModel {
     }
 
     /**
-     * Apply a new sort order. We deliberately do NOT re-list from disk — the existing
-     * {@code lastVisibleNodes} snapshot is sorted in-memory and re-emitted as a new Content state.
-     * This keeps sort changes instantaneous regardless of folder size and avoids extra I/O.
-     * Persisted globally so the choice survives across pane / process restart.
+     * Apply sort order. KHÔNG re-list từ disk — sort {@code lastVisibleNodes} snapshot in-memory
+     * + re-emit Content. Sort instant bất kể folder size, không tốn IO. Persist global qua Prefs.
      */
     public void setSort(@NonNull SortOrder order) {
         prefs.setSortOrder(order);
         if (lastVisibleNodes.isEmpty() || currentPath == null) {
             return;
         }
-        List<FileNode> sorted = new ArrayList<>(lastVisibleNodes);
+        List<VirtualNode> sorted = new ArrayList<>(lastVisibleNodes);
         sorted.sort(order.folderFirstComparator());
         lastVisibleNodes = sorted;
         uiState.setValue(new UiState.Content(currentPath, sorted));
@@ -286,16 +276,22 @@ public final class PaneViewModel extends ViewModel {
         if (!isWritableContext() || name == null || name.isBlank()) {
             return;
         }
-        FilePath target = currentPath.child(name.trim());
-        runActionAndRefresh(() -> createFolderUseCase.execute(target), "Folder created");
+        String trimmed = name.trim();
+        runActionAndRefresh(() -> {
+            VirtualNode parent = nodeFactory.fromPath(currentPath);
+            return fileOps.createFolder(parent, trimmed);
+        }, "Folder created");
     }
 
     public void createFile(String name) {
         if (!isWritableContext() || name == null || name.isBlank()) {
             return;
         }
-        FilePath target = currentPath.child(name.trim());
-        runActionAndRefresh(() -> createFileUseCase.execute(target), "File created");
+        String trimmed = name.trim();
+        runActionAndRefresh(() -> {
+            VirtualNode parent = nodeFactory.fromPath(currentPath);
+            return fileOps.createFile(parent, trimmed);
+        }, "File created");
     }
 
     public void rename(FilePath path, String newName) {
@@ -303,19 +299,18 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         String trimmed = newName.trim();
-        // Drop the selection BEFORE submitting — the selected FilePath about to disappear (it'll
-        // be replaced by the new name), and DiffUtil treats that as remove+insert. Without this
-        // the UI keeps showing "1 selected" with the bottom selection bar visible against a row
-        // that no longer exists.
+        // Drop selection trước submit — selected FilePath sắp disappear (replaced bởi name mới),
+        // DiffUtil treat = remove+insert. Không clear thì UI giữ "1 selected" trên row đã chết.
         clearSelection();
-        runActionAndRefresh(() -> { renameFileUseCase.execute(path, trimmed); return null; },
-                "Renamed");
+        runActionAndRefresh(() -> {
+            VirtualNode node = nodeFactory.fromPath(path);
+            return fileOps.rename(node, trimmed);
+        }, "Renamed");
     }
 
     /**
-     * Replace flow for the Phase 2C-6 create-conflict dialog: delete the colliding entry (to
-     * Trash, so the user can recover), then create the new one. Single io task, sequential — if
-     * delete fails the create never runs.
+     * Phase 2C-6 create-conflict "Replace": move existing entry vào Trash (recoverable) → tạo
+     * entry mới. Sequential single io task — delete fail → create never runs.
      */
     public void deleteThenCreate(FilePath path, boolean isFolder) {
         if (path == null) {
@@ -323,11 +318,13 @@ public final class PaneViewModel extends ViewModel {
         }
         executors.io().submit(() -> {
             try {
-                deleteFilesUseCase.execute(List.of(path), false);
+                VirtualNode existing = nodeFactory.fromPath(path);
+                trashOps.moveToTrash(existing);
+                VirtualNode parent = nodeFactory.fromPath(path.parent());
                 if (isFolder) {
-                    createFolderUseCase.execute(path);
+                    fileOps.createFolder(parent, path.name());
                 } else {
-                    createFileUseCase.execute(path);
+                    fileOps.createFile(parent, path.name());
                 }
                 events.postValue(isFolder ? "Folder replaced" : "File replaced");
                 refresh();
@@ -338,12 +335,11 @@ public final class PaneViewModel extends ViewModel {
         });
     }
 
-    public void delete(FileNode node) {
+    public void delete(VirtualNode node) {
         if (node == null) {
             return;
         }
-        FilePath p = node.path();
-        runActionAndRefresh(() -> { deleteFilesUseCase.execute(List.of(p), false); return null; },
+        runActionAndRefresh(() -> { trashOps.moveToTrash(node); return null; },
                 "Moved to trash");
     }
 
@@ -354,8 +350,13 @@ public final class PaneViewModel extends ViewModel {
         }
         List<FilePath> snapshot = List.copyOf(current);
         clearSelection();
-        runActionAndRefresh(() -> { deleteFilesUseCase.execute(snapshot, false); return null; },
-                snapshot.size() + " moved to trash");
+        runActionAndRefresh(() -> {
+            for (FilePath p : snapshot) {
+                VirtualNode n = nodeFactory.fromPath(p);
+                trashOps.moveToTrash(n);
+            }
+            return null;
+        }, snapshot.size() + " moved to trash");
     }
 
     private boolean isWritableContext() {
@@ -363,10 +364,9 @@ public final class PaneViewModel extends ViewModel {
     }
 
     /**
-     * Load the directory listing for {@code path} on io(). Cancels any prior in-flight load so a
-     * rapid sequence of taps doesn't queue stale Content emissions. The post-load state check
-     * guards against a race where a slow load finishes AFTER the user has already navigated
-     * elsewhere — we only emit Content/Empty/Error if the path we just loaded is still current.
+     * Load directory listing on io(). Cancel any prior in-flight load để rapid taps không queue
+     * stale Content emissions. Post-load state check guards race: slow load finish SAU khi user
+     * đã navigate elsewhere → only emit nếu path vừa load === currentPath.
      */
     private void load(FilePath path) {
         if (pendingLoad != null) {
@@ -376,15 +376,16 @@ public final class PaneViewModel extends ViewModel {
         uiState.postValue(new UiState.Loading());
         pendingLoad = executors.io().submit(() -> {
             try {
-                List<FileNode> nodes = listDirectoryUseCase.execute(path);
+                VirtualNode currentNode = nodeFactory.fromPath(path);
+                List<VirtualNode> nodes = currentNode.children();
                 if (!path.equals(currentPath)) {
-                    return; // user navigated away while we were loading
+                    return;
                 }
                 if (nodes == null || nodes.isEmpty()) {
                     lastVisibleNodes = Collections.emptyList();
                     uiState.postValue(new UiState.Empty(path));
                 } else {
-                    List<FileNode> sorted = new ArrayList<>(nodes);
+                    List<VirtualNode> sorted = new ArrayList<>(nodes);
                     sorted.sort(prefs.sortOrder().folderFirstComparator());
                     lastVisibleNodes = sorted;
                     uiState.postValue(new UiState.Content(path, sorted));
@@ -400,11 +401,6 @@ public final class PaneViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Run a CRUD action on io(), then refresh the pane and emit a success / failure event. Caller
-     * passes a {@link ThrowingAction} that delegates to a use case — keeps the io scheduling and
-     * error fan-out in one place instead of repeated try/catch blocks per action.
-     */
     private void runActionAndRefresh(ThrowingAction action, String successMessage) {
         executors.io().submit(() -> {
             try {
@@ -417,7 +413,6 @@ public final class PaneViewModel extends ViewModel {
         });
     }
 
-    /** Functional shim for try/catch composition — use cases throw FileSystemException. */
     @FunctionalInterface
     private interface ThrowingAction {
         Object run() throws Throwable;
@@ -436,19 +431,19 @@ public final class PaneViewModel extends ViewModel {
 
         public static final class Content extends UiState {
             public final FilePath path;
-            public final List<FileNode> nodes;
+            public final List<VirtualNode> nodes;
             public final int folderCount;
             public final int fileCount;
             public final long freeBytes;
             public final long totalBytes;
 
-            public Content(FilePath path, List<FileNode> nodes) {
+            public Content(FilePath path, List<VirtualNode> nodes) {
                 this.path = path;
                 this.nodes = List.copyOf(nodes);
                 int folders = 0;
                 int files = 0;
-                for (FileNode node : nodes) {
-                    if (node.isDirectory()) {
+                for (VirtualNode node : nodes) {
+                    if (node.isFolder()) {
                         folders++;
                     } else {
                         files++;
@@ -484,9 +479,9 @@ public final class PaneViewModel extends ViewModel {
 
         public static final class Roots extends UiState {
             public final FilePath path;
-            public final List<FileNode> roots;
+            public final List<VirtualNode> roots;
 
-            public Roots(FilePath path, List<FileNode> roots) {
+            public Roots(FilePath path, List<VirtualNode> roots) {
                 this.path = path;
                 this.roots = List.copyOf(roots);
             }
