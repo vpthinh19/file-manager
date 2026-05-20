@@ -99,6 +99,35 @@ public final class ArchiveSource implements NodeSource {
         }
     }
 
+    // ─────────────── Write API: archive v1 read-only ───────────────
+    // Phase 3 sẽ wire libarchive native cho write support nếu khả thi. ZipFile java.util.zip
+    // không support modify in-place — phải write toàn bộ ra file mới. v1 không investment.
+
+    @Override
+    public boolean supportsWrite() {
+        return false;
+    }
+
+    @Override
+    public VirtualNode createFile(FilePath path) throws NodeException {
+        throw new NodeException("Archive write is not supported in v1");
+    }
+
+    @Override
+    public VirtualNode createFolder(FilePath path) throws NodeException {
+        throw new NodeException("Archive write is not supported in v1");
+    }
+
+    @Override
+    public VirtualNode rename(VirtualNode node, String newName) throws NodeException {
+        throw new NodeException("Archive write is not supported in v1");
+    }
+
+    @Override
+    public void delete(VirtualNode node) throws NodeException {
+        throw new NodeException("Archive write is not supported in v1");
+    }
+
     /**
      * Lấy {@link ZipFile} từ cache, hoặc mở mới và cache lại. Mở zip có thể tốn (parse central
      * directory) — cache phẳng tránh re-open mỗi navigate.

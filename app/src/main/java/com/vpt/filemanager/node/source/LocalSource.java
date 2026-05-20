@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -86,6 +87,95 @@ public final class LocalSource implements NodeSource {
             return Files.newInputStream(toNioPath(path), StandardOpenOption.READ);
         } catch (IOException | SecurityException e) {
             throw new NodeException("Unable to open for read: " + path.path(), e);
+        }
+    }
+
+    // ─────────────────────────── Write API ───────────────────────────
+
+    @Override
+    public boolean supportsWrite() {
+        return true;
+    }
+
+    @Override
+    public VirtualNode createFile(FilePath path) throws NodeException {
+        requireLocal(path);
+        try {
+            Path nioPath = toNioPath(path);
+            Path parent = nioPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.createFile(nioPath);
+            return buildNode(path, nioPath);
+        } catch (IOException | SecurityException e) {
+            throw new NodeException("Cannot create file: " + path.path(), e);
+        }
+    }
+
+    @Override
+    public VirtualNode createFolder(FilePath path) throws NodeException {
+        requireLocal(path);
+        try {
+            Path nioPath = toNioPath(path);
+            Files.createDirectories(nioPath);
+            return buildNode(path, nioPath);
+        } catch (IOException | SecurityException e) {
+            throw new NodeException("Cannot create folder: " + path.path(), e);
+        }
+    }
+
+    @Override
+    public VirtualNode rename(VirtualNode node, String newName) throws NodeException {
+        FilePath path = node.path();
+        requireLocal(path);
+        FilePath newPath = path.parent().child(newName);
+        try {
+            Path src = toNioPath(path);
+            Path dst = toNioPath(newPath);
+            try {
+                Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException atomicFailure) {
+                // Atomic move có thể fail nếu src/dst khác filesystem hoặc OS không support;
+                // fallback non-atomic Files.move thường vẫn rename ok trong cùng folder.
+                Files.move(src, dst);
+            }
+            return buildNode(newPath, dst);
+        } catch (IOException | SecurityException e) {
+            throw new NodeException("Cannot rename: " + path.path() + " → " + newName, e);
+        }
+    }
+
+    @Override
+    public void delete(VirtualNode node) throws NodeException {
+        FilePath path = node.path();
+        requireLocal(path);
+        try {
+            deleteRecursively(toNioPath(path));
+        } catch (IOException | SecurityException e) {
+            throw new NodeException("Cannot delete: " + path.path(), e);
+        }
+    }
+
+    /**
+     * Đệ quy iterative chậm gấp đôi vì DirectoryStream khó dùng iterative — recursive đủ deep
+     * cho user folder thực tế (cây <1000 levels). Symlink check tránh infinite loop trong khi
+     * vẫn cho phép xóa symlink chính nó (Files.deleteIfExists xóa link, không follow).
+     */
+    private static void deleteRecursively(Path path) throws IOException {
+        if (Files.isDirectory(path) && !Files.isSymbolicLink(path)) {
+            try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+                for (Path child : stream) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+        Files.deleteIfExists(path);
+    }
+
+    private static void requireLocal(FilePath path) throws NodeException {
+        if (!path.isLocal()) {
+            throw new NodeException("LocalSource cannot handle scheme: " + path.scheme());
         }
     }
 

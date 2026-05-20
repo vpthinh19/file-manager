@@ -13,6 +13,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
 import dagger.hilt.components.SingletonComponent;
 
 import com.vpt.filemanager.data.db.AppDatabase;
+import com.vpt.filemanager.data.db.AppDatabaseMigrations;
+import com.vpt.filemanager.data.db.dao.BookmarkDao;
 import com.vpt.filemanager.data.db.dao.TrashDao;
 
 @Module
@@ -27,14 +29,20 @@ public final class DatabaseModule {
     @Singleton
     public static AppDatabase provideDatabase(@ApplicationContext Context ctx) {
         return Room.databaseBuilder(ctx, AppDatabase.class, DB_NAME)
-                // No destructive migrations: when we bump version we'll author a migration. v1 has
-                // no prior schema, so a missing migration would be a programmer error not a runtime
-                // one, and we want Room to fail loud rather than silently wipe user data.
+                // No destructive migrations: when we bump version we author a migration. The v1→v2
+                // migration adds the bookmark_entries table (Phase R-4). Missing migration would be
+                // a programmer error not a runtime one — let Room fail loud rather than wipe data.
+                .addMigrations(AppDatabaseMigrations.MIGRATION_1_2)
                 .build();
     }
 
     @Provides
     public static TrashDao provideTrashDao(AppDatabase db) {
         return db.trashDao();
+    }
+
+    @Provides
+    public static BookmarkDao provideBookmarkDao(AppDatabase db) {
+        return db.bookmarkDao();
     }
 }
