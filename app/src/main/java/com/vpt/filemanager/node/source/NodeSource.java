@@ -3,6 +3,7 @@ package com.vpt.filemanager.node.source;
 import java.io.InputStream;
 import java.util.List;
 
+import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -19,6 +20,15 @@ import com.vpt.filemanager.node.VirtualNode;
  * (ArchiveSource) tự quản handle cache nội bộ.
  */
 public interface NodeSource {
+    /**
+     * Khởi tạo một {@link VirtualNode} từ {@link FilePath} — stat metadata (isFolder/size/
+     * modifiedAt) tại đây. Dùng khi navigation bắt đầu từ một path chứ không phải từ parent
+     * listing (ví dụ: restore từ SavedStateHandle, pop back stack, drawer click vào virtual root).
+     *
+     * @throws NodeException khi path không tồn tại hoặc không thuộc scheme mà source này handle
+     */
+    VirtualNode resolve(FilePath path) throws NodeException;
+
     /**
      * Liệt kê children của một folder. Caller phải đảm bảo {@code folder.isFolder() == true}.
      *

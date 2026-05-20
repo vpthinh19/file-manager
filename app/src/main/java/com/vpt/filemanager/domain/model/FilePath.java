@@ -11,6 +11,12 @@ import com.vpt.filemanager.core.PathUtils;
 public final class FilePath {
     public static final String SCHEME_FILE = "file";
     public static final String SCHEME_ARCHIVE = "archive";
+    public static final String SCHEME_TRASH = "trash";
+    public static final String SCHEME_BOOKMARK = "bookmark";
+
+    /** Virtual roots cho drawer items — không có authority hay path "thật". */
+    public static final FilePath TRASH_ROOT = new FilePath(SCHEME_TRASH, "", "/");
+    public static final FilePath BOOKMARK_ROOT = new FilePath(SCHEME_BOOKMARK, "", "/");
 
     private final String scheme;
     private final String authority;
@@ -54,6 +60,14 @@ public final class FilePath {
 
     public boolean isArchive() {
         return SCHEME_ARCHIVE.equals(scheme);
+    }
+
+    public boolean isTrash() {
+        return SCHEME_TRASH.equals(scheme);
+    }
+
+    public boolean isBookmark() {
+        return SCHEME_BOOKMARK.equals(scheme);
     }
 
     public FilePath parent() {
