@@ -211,7 +211,8 @@ KHÔNG làm (overengineer): SoA (Struct of Arrays), Paging 3, Flyweight pool, na
 | R-2 | LocalSource + ArchiveSource + NodeFactory impl (UI wire deferred to R-5) | **DONE** |
 | R-3 | `opener/` package + 3 FileOpener (Text/Archive/External); Image/Video/Audio defer Phase 2D | **DONE** |
 | R-4 | NodeSource write API + Bookmark schema + `operations/` (FileOps/TrashOps/BookmarkOps) | **DONE** |
-| R-5 | Split `DualPaneHostFragment` → BrowserFragment + Controllers + Actions | pending |
+| R-5a | Split `DualPaneHostFragment` → 5 Controllers + 2 Actions + 3 Dialogs (keep FileNode) | **DONE** |
+| R-5b | Migrate `PaneViewModel` + Adapter → VirtualNode + Opener + Ops | pending |
 | R-6 | Drop legacy FileSystemProvider / Registry / Repository / use cases | pending |
 | R-7 | Feature-first repackage + flatten `support/` | pending |
 | R-8 | Bookmark UI + Syntax highlight wire + node-aware polish | pending |
