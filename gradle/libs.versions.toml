@@ -11,7 +11,6 @@ glide = "5.0.5"
 commons-compress = "1.28.0"
 zip4j = "2.11.5"
 juniversalchardet = "2.5.0"
-sora-editor = "0.23.4"
 timber = "5.0.1"
 desugar = "2.1.5"
 junit = "4.13.2"
@@ -51,8 +50,6 @@ media3-session = { module = "androidx.media3:media3-session", version.ref = "med
 commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
 zip4j = { module = "net.lingala.zip4j:zip4j", version.ref = "zip4j" }
 juniversalchardet = { module = "com.github.albfernandez:juniversalchardet", version.ref = "juniversalchardet" }
-sora-editor = { module = "io.github.Rosemoe.sora-editor:editor", version.ref = "sora-editor" }
-sora-editor-language-textmate = { module = "io.github.Rosemoe.sora-editor:language-textmate", version.ref = "sora-editor" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 desugar = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
 junit = { module = "junit:junit", version.ref = "junit" }

@@ -94,8 +94,9 @@ dependencies {
 
     implementation(libs.commons.compress)
     implementation(libs.zip4j)
-    implementation(libs.sora.editor)
-    implementation(libs.sora.editor.language.textmate)
+    implementation(platform("io.github.rosemoe:editor-bom:0.24.5"))
+    implementation("io.github.rosemoe:editor")
+    implementation("io.github.rosemoe:language-textmate")
     implementation(libs.timber)
     implementation(libs.juniversalchardet)
 
