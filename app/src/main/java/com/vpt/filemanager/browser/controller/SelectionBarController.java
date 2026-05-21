@@ -16,6 +16,7 @@ import com.vpt.filemanager.browser.DualPaneHostFragment;
 import com.vpt.filemanager.browser.NodeActionsBottomSheet;
 import com.vpt.filemanager.browser.PaneViewModel;
 import com.vpt.filemanager.browser.action.ShareAction;
+import com.vpt.filemanager.browser.action.TransferMode;
 import com.vpt.filemanager.browser.dialog.NameInputDialog;
 import com.vpt.filemanager.properties.PropertiesDialogFragment;
 
@@ -222,7 +223,13 @@ public final class SelectionBarController {
                 vm.addBookmarkSelected();
                 break;
             case COPY:
+                // Phase C-1b: active pane = source, inactive pane = destination. Đúng concept
+                // MT Manager dual-pane direct transfer (xem feedback-mt-manager-verify.md).
+                host.transferSelectionToOtherPane(TransferMode.COPY);
+                break;
             case MOVE:
+                host.transferSelectionToOtherPane(TransferMode.MOVE);
+                break;
             case TOOLS:
             case COMPRESS:
             default:

@@ -23,20 +23,26 @@ import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;
 
 import com.vpt.filemanager.R;
+import com.vpt.filemanager.util.AppExecutors;
 import com.vpt.filemanager.util.FileTreeChangeBus;
 import com.vpt.filemanager.util.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.node.FileCategory;
 import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.opener.FileOpener;
 import com.vpt.filemanager.opener.OpenContext;
 import com.vpt.filemanager.opener.OpenerRegistry;
 import com.vpt.filemanager.opener.PaneNavigator;
+import com.vpt.filemanager.operations.FileOps;
+import com.vpt.filemanager.operations.TrashOps;
 import com.vpt.filemanager.DrawerHost;
 import com.vpt.filemanager.browser.action.CreateAction;
 import com.vpt.filemanager.browser.action.ShareAction;
+import com.vpt.filemanager.browser.action.TransferAction;
+import com.vpt.filemanager.browser.action.TransferMode;
 import com.vpt.filemanager.browser.controller.BackPressController;
 import com.vpt.filemanager.browser.controller.BottomBarController;
 import com.vpt.filemanager.browser.controller.InsetsController;
@@ -66,6 +72,20 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     @Inject
     FileTreeChangeBus changeBus;
 
+    // Phase C-1b: deps cho TransferAction (cross-pane copy/move). Injected qua Hilt thay vì
+    // resolve qua activeVm() để TransferAction là true stateless action giống CreateAction/Share.
+    @Inject
+    AppExecutors executors;
+
+    @Inject
+    NodeFactory nodeFactory;
+
+    @Inject
+    FileOps fileOps;
+
+    @Inject
+    TrashOps trashOps;
+
     private FragmentDualPaneHostBinding binding;
     private PaneViewModel leftVm;
     private PaneViewModel rightVm;
@@ -78,6 +98,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     private BackPressController backPressCtrl;
     private CreateAction createAction;
     private ShareAction shareAction;
+    private TransferAction transferAction;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -121,6 +142,8 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
         createAction = new CreateAction(this);
         shareAction = new ShareAction(this);
+        transferAction = new TransferAction(this, executors, nodeFactory, fileOps, trashOps,
+                changeBus);
         toolbarCtrl = new ToolbarController(this, binding);
         bottomBarCtrl = new BottomBarController(this, binding, createAction);
         selectionBarCtrl = new SelectionBarController(this, binding, shareAction);
@@ -172,6 +195,12 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         backPressCtrl = null;
         createAction = null;
         shareAction = null;
+        // Phase C-1b fix (Codex review): cancel in-flight batch trước khi null reference —
+        // tránh IO thread hold stale Fragment ref + show ConflictDialog vào dead Activity.
+        if (transferAction != null) {
+            transferAction.cancel();
+        }
+        transferAction = null;
         binding = null;
         super.onDestroyView();
     }
@@ -386,9 +415,29 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         return viewModelForPane(activePaneId);
     }
 
+    /**
+     * Phase C-1b: cross-pane transfer cần "pane còn lại". MT Manager raison d'être của dual-pane
+     * — source = active, destination = inactive. Cả 2 pane luôn loaded sau app start nên KHÔNG
+     * có trường hợp inactive null; trả về VM trực tiếp.
+     */
+    @NonNull
+    public PaneViewModel inactiveVm() {
+        return viewModelForPane(PANE_LEFT.equals(activePaneId) ? PANE_RIGHT : PANE_LEFT);
+    }
+
     @NonNull
     public String activePaneId() {
         return activePaneId;
+    }
+
+    /**
+     * Phase C-1b entry point: SelectionBarController wire COPY/MOVE từ bottom sheet vào đây.
+     * Thread: main. Delegate vào TransferAction để encapsulate logic IO + conflict bridge.
+     */
+    public void transferSelectionToOtherPane(@NonNull TransferMode mode) {
+        if (transferAction != null) {
+            transferAction.execute(mode);
+        }
     }
 
     public void toast(@NonNull CharSequence message) {

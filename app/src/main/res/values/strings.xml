@@ -73,6 +73,12 @@
     <string name="conflict_replace">Replace</string>
     <string name="conflict_keep_both">Keep both</string>
 
+    <!-- Phase C-1b transfer error messages (cross-pane copy/move). -->
+    <string name="transfer_no_destination">No destination pane</string>
+    <string name="transfer_same_folder">Source and destination are the same folder</string>
+    <string name="transfer_dest_unreachable">Destination unreachable</string>
+    <string name="transfer_dest_readonly">Destination is read-only</string>
+
     <!-- Phase 2C-7 — Error messages + binary open confirm. -->
     <string name="error_archive_corrupt">Archive is corrupt or not a valid format.</string>
     <string name="error_permission_denied">Permission denied.</string>
