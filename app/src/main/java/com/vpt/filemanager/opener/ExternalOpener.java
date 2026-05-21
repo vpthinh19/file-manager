@@ -12,8 +12,8 @@ import android.net.Uri;
 import androidx.core.content.FileProvider;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.MimeTypes;
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.support.MimeTypes;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 

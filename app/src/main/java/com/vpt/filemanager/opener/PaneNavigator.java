@@ -1,6 +1,6 @@
 package com.vpt.filemanager.opener;
 
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 
 /**
  * Khả năng "navigate pane sang một path khác". Được expose qua {@link OpenContext} cho các

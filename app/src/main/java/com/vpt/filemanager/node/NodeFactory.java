@@ -3,7 +3,7 @@ package com.vpt.filemanager.node;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.source.ArchiveSource;
 import com.vpt.filemanager.node.source.BookmarkSource;
 import com.vpt.filemanager.node.source.LocalSource;

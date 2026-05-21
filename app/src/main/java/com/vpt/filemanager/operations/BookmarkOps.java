@@ -10,7 +10,7 @@ import androidx.lifecycle.LiveData;
 
 import com.vpt.filemanager.data.db.dao.BookmarkDao;
 import com.vpt.filemanager.data.db.entity.BookmarkEntryEntity;
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 

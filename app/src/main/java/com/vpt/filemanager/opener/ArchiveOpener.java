@@ -3,8 +3,8 @@ package com.vpt.filemanager.opener;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.domain.model.FileCategory;
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FileCategory;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;

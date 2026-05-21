@@ -3,7 +3,7 @@ package com.vpt.filemanager.node.source;
 import java.io.InputStream;
 import java.util.List;
 
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 

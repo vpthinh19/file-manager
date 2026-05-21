@@ -10,7 +10,7 @@ import java.util.UUID;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.core.StorageScope;
+import com.vpt.filemanager.support.StorageScope;
 import com.vpt.filemanager.data.db.dao.TrashDao;
 import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
 import com.vpt.filemanager.node.NodeException;

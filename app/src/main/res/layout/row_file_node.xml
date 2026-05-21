@@ -13,7 +13,7 @@
     android:orientation="horizontal"
     android:paddingHorizontal="8dp">
 
-    <com.vpt.filemanager.ui.browser.FileIconView
+    <com.vpt.filemanager.browser.FileIconView
         android:id="@+id/file_icon"
         android:layout_width="30dp"
         android:layout_height="30dp" />

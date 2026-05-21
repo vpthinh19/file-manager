@@ -5,11 +5,11 @@ import android.content.Intent;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.domain.model.FileCategory;
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FileCategory;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.ui.editor.TextEditorActivity;
+import com.vpt.filemanager.editor.TextEditorActivity;
 
 /**
  * Mở file dạng text-based (TXT, MD, JSON, XML, source code, ...) trong sora-editor.

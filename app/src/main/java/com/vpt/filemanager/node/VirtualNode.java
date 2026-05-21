@@ -4,7 +4,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
 
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.source.NodeSource;
 
 /**
@@ -18,7 +18,7 @@ import com.vpt.filemanager.node.source.NodeSource;
  *   <li><b>HÀNH VI khi click</b> (what) — handled bởi {@code FileOpener} (Phase R-3).</li>
  * </ul>
  * Cùng 1 file có thể được wrap bằng nhiều source khác nhau ở thời điểm khác nhau (ví dụ:
- * {@code photos.zip} là {@link com.vpt.filemanager.domain.model.FilePath} local thông thường khi
+ * {@code photos.zip} là {@link com.vpt.filemanager.node.FilePath} local thông thường khi
  * user thấy nó trong folder; khi user click thì {@code ArchiveOpener} re-wrap nó thành VirtualNode
  * có {@code source=ArchiveSource} để navigate vào).
  *

@@ -3,7 +3,7 @@ package com.vpt.filemanager;
 import android.app.Application;
 
 import dagger.hilt.android.HiltAndroidApp;
-import com.vpt.filemanager.core.TimberInit;
+import com.vpt.filemanager.support.TimberInit;
 
 /**
  * Application root. We intentionally do NOT call

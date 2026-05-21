@@ -14,7 +14,7 @@ import java.util.zip.ZipFile;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 

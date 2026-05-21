@@ -1,6 +1,6 @@
 package com.vpt.filemanager.node;
 
-import com.vpt.filemanager.core.error.AppException;
+import com.vpt.filemanager.error.AppException;
 
 /**
  * Lỗi xảy ra khi tương tác với cây {@link VirtualNode} — list children, read entry, hoặc khi

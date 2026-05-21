@@ -15,7 +15,7 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.domain.model.FilePath;
+import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -24,9 +24,6 @@ import com.vpt.filemanager.node.VirtualNode;
  *
  * <p><b>Singleton</b>: stateless, mọi {@link VirtualNode} mọi folder mọi pane share cùng 1
  * instance này (zero RAM waste).
- *
- * <p><b>Path string interning</b> (xem ARCHITECTURE.md "Performance"): mỗi folder list trả 1000+
- * children có cùng path prefix; intern prefix một lần giảm dup string đáng kể với folder lớn.
  *
  * <p><b>Exception policy</b>: mọi {@link IOException} / {@link SecurityException} được wrap thành
  * {@link NodeException} với message user-friendly. Caller-boundary catch (PaneViewModel) format
