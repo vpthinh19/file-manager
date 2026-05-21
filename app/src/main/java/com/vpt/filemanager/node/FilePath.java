@@ -6,7 +6,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
-import com.vpt.filemanager.support.PathUtils;
+import com.vpt.filemanager.util.PathUtils;
 
 public final class FilePath {
     public static final String SCHEME_FILE = "file";

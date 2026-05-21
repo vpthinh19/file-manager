@@ -13,7 +13,7 @@ import androidx.annotation.Nullable;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.support.SortOrder;
+import com.vpt.filemanager.util.SortOrder;
 
 /**
  * Bottom-sheet sort picker. Mapping of {@link SortOrder} ↔ RadioButton id lives here (UI concern)

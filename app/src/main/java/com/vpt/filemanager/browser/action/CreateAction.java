@@ -3,7 +3,7 @@ package com.vpt.filemanager.browser.action;
 import java.io.File;
 
 import com.vpt.filemanager.node.FilePath;
-import com.vpt.filemanager.support.NameDeconflict;
+import com.vpt.filemanager.util.NameDeconflict;
 import com.vpt.filemanager.browser.DualPaneHostFragment;
 import com.vpt.filemanager.browser.PaneViewModel;
 import com.vpt.filemanager.browser.dialog.ConflictDialog;

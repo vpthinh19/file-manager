@@ -21,8 +21,8 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.navigation.NavigationView;
 
 import dagger.hilt.android.AndroidEntryPoint;
-import com.vpt.filemanager.R;
-import com.vpt.filemanager.support.StorageScope;
+
+import com.vpt.filemanager.util.StorageScope;
 import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.browser.DualPaneHostFragment;
 

@@ -1,4 +1,4 @@
-package com.vpt.filemanager.support;
+package com.vpt.filemanager.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -9,8 +9,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import dagger.hilt.android.qualifiers.ApplicationContext;
-
-import com.vpt.filemanager.support.SortOrder;
 
 /**
  * Thin typed wrapper over {@link SharedPreferences}. One file, one bag of typed getters/setters —

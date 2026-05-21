@@ -1,128 +1,130 @@
-﻿[
+{
+  "languages": [
     {
-        "name":  "c",
-        "scopeName":  "source.c",
-        "grammar":  "grammars/c.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "c",
+      "scopeName": "source.c",
+      "grammar": "editor/textmate/grammars/c.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "cpp",
-        "scopeName":  "source.cpp",
-        "grammar":  "grammars/cpp.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "cpp",
+      "scopeName": "source.cpp",
+      "grammar": "editor/textmate/grammars/cpp.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "css",
-        "scopeName":  "source.css",
-        "grammar":  "grammars/css.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "css",
+      "scopeName": "source.css",
+      "grammar": "editor/textmate/grammars/css.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "dockerfile",
-        "scopeName":  "source.dockerfile",
-        "grammar":  "grammars/dockerfile.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "dockerfile",
+      "scopeName": "source.dockerfile",
+      "grammar": "editor/textmate/grammars/dockerfile.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "go",
-        "scopeName":  "source.go",
-        "grammar":  "grammars/go.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "go",
+      "scopeName": "source.go",
+      "grammar": "editor/textmate/grammars/go.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "html",
-        "scopeName":  "text.html.basic",
-        "grammar":  "grammars/html.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "html",
+      "scopeName": "text.html.basic",
+      "grammar": "editor/textmate/grammars/html.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "java",
-        "scopeName":  "source.java",
-        "grammar":  "grammars/java.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "java",
+      "scopeName": "source.java",
+      "grammar": "editor/textmate/grammars/java.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "javascript",
-        "scopeName":  "source.js",
-        "grammar":  "grammars/javascript.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "javascript",
+      "scopeName": "source.js",
+      "grammar": "editor/textmate/grammars/javascript.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "json",
-        "scopeName":  "source.json",
-        "grammar":  "grammars/json.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "json",
+      "scopeName": "source.json",
+      "grammar": "editor/textmate/grammars/json.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "kotlin",
-        "scopeName":  "source.gradle-kotlin-dsl",
-        "grammar":  "grammars/kotlin.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "kotlin",
+      "scopeName": "source.gradle-kotlin-dsl",
+      "grammar": "editor/textmate/grammars/kotlin.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "lua",
-        "scopeName":  "source.lua",
-        "grammar":  "grammars/lua.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "lua",
+      "scopeName": "source.lua",
+      "grammar": "editor/textmate/grammars/lua.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "markdown",
-        "scopeName":  "text.html.markdown",
-        "grammar":  "grammars/markdown.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "markdown",
+      "scopeName": "text.html.markdown",
+      "grammar": "editor/textmate/grammars/markdown.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "php",
-        "scopeName":  "source.php",
-        "grammar":  "grammars/php.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "php",
+      "scopeName": "source.php",
+      "grammar": "editor/textmate/grammars/php.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "python",
-        "scopeName":  "source.python",
-        "grammar":  "grammars/python.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "python",
+      "scopeName": "source.python",
+      "grammar": "editor/textmate/grammars/python.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "ruby",
-        "scopeName":  "source.ruby",
-        "grammar":  "grammars/ruby.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "ruby",
+      "scopeName": "source.ruby",
+      "grammar": "editor/textmate/grammars/ruby.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "rust",
-        "scopeName":  "source.rust",
-        "grammar":  "grammars/rust.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "rust",
+      "scopeName": "source.rust",
+      "grammar": "editor/textmate/grammars/rust.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "shellscript",
-        "scopeName":  "source.shell",
-        "grammar":  "grammars/shellscript.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "shellscript",
+      "scopeName": "source.shell",
+      "grammar": "editor/textmate/grammars/shellscript.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "sql",
-        "scopeName":  "source.sql",
-        "grammar":  "grammars/sql.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "sql",
+      "scopeName": "source.sql",
+      "grammar": "editor/textmate/grammars/sql.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "typescript",
-        "scopeName":  "source.ts",
-        "grammar":  "grammars/typescript.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "typescript",
+      "scopeName": "source.ts",
+      "grammar": "editor/textmate/grammars/typescript.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "xml",
-        "scopeName":  "text.xml",
-        "grammar":  "grammars/xml.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "xml",
+      "scopeName": "text.xml",
+      "grammar": "editor/textmate/grammars/xml.tmLanguage.json",
+      "languageConfiguration": null
     },
     {
-        "name":  "yaml",
-        "scopeName":  "source.yaml",
-        "grammar":  "grammars/yaml.tmLanguage.json",
-        "languageConfiguration":  null
+      "name": "yaml",
+      "scopeName": "source.yaml",
+      "grammar": "editor/textmate/grammars/yaml.tmLanguage.json",
+      "languageConfiguration": null
     }
-]
+  ]
+}

@@ -7,7 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.support.ByteSize;
+import com.vpt.filemanager.util.ByteSize;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.DrawerHost;

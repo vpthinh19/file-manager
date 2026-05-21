@@ -1,6 +1,7 @@
 package com.vpt.filemanager.node.source;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,6 +83,11 @@ public final class BookmarkSource implements NodeSource {
     @Override
     public InputStream read(VirtualNode file) throws NodeException {
         throw new NodeException("Bookmark is a shortcut layer — open via the underlying file path");
+    }
+
+    @Override
+    public OutputStream openWrite(VirtualNode file) throws NodeException {
+        throw new NodeException("Bookmark is a shortcut layer — write via the underlying file path");
     }
 
     // ─────────────── Write API: Bookmark read-only (BookmarkOps owns mutation) ───────────────

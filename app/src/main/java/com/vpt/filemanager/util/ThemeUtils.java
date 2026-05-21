@@ -1,15 +1,11 @@
-package com.vpt.filemanager.support;
+package com.vpt.filemanager.util;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.util.TypedValue;
-import android.view.Window;
 
 import androidx.annotation.AttrRes;
 import androidx.annotation.ColorInt;
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
 
 /**
  * Small bridge between Java code and theme attributes. Centralised so the lookup pattern is the

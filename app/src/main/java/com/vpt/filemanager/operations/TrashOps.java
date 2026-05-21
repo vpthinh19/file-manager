@@ -4,13 +4,14 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.support.StorageScope;
+import com.vpt.filemanager.util.StorageScope;
 import com.vpt.filemanager.data.db.dao.TrashDao;
 import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
 import com.vpt.filemanager.node.NodeException;
@@ -54,7 +55,7 @@ public final class TrashOps {
         if (!node.path().isLocal()) {
             throw new NodeException("Only local files can be moved to trash");
         }
-        Path source = Path.of(node.path().path());
+        Path source = Paths.get(node.path().path());
         if (!Files.exists(source)) {
             throw new NodeException("File no longer exists: " + node.name());
         }
@@ -90,8 +91,8 @@ public final class TrashOps {
         if (entity == null) {
             throw new NodeException("Trash entry not found: " + entryId);
         }
-        Path trashPath = Path.of(entity.trashPath);
-        Path originalPath = Path.of(entity.originalPath);
+        Path trashPath = Paths.get(entity.trashPath);
+        Path originalPath = Paths.get(entity.originalPath);
         if (Files.exists(originalPath)) {
             throw new NodeException("Cannot restore — destination exists: " + entity.displayName);
         }
@@ -139,7 +140,7 @@ public final class TrashOps {
         if (entity == null) {
             return;
         }
-        Path trashPath = Path.of(entity.trashPath);
+        Path trashPath = Paths.get(entity.trashPath);
         try {
             deleteRecursively(trashPath);
             deleteIfEmpty(trashPath.getParent());
@@ -150,7 +151,7 @@ public final class TrashOps {
     }
 
     private static Path trashRoot() {
-        return Path.of(StorageScope.storageRootFor(StorageScope.ROOT_PATH), TRASH_DIR);
+        return Paths.get(StorageScope.storageRootFor(StorageScope.ROOT_PATH), TRASH_DIR);
     }
 
     private static void deleteIfEmpty(Path dir) throws IOException {

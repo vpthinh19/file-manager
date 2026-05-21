@@ -8,3 +8,4 @@ local.properties
 docs/
 .vscode/
 .claude/
+ARCHITECTURE.md

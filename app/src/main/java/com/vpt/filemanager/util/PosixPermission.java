@@ -1,4 +1,4 @@
-package com.vpt.filemanager.support;
+package com.vpt.filemanager.util;
 
 public final class PosixPermission {
     private final int mode;

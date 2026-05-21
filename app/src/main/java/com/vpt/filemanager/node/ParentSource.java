@@ -1,6 +1,7 @@
 package com.vpt.filemanager.node;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 
 import com.vpt.filemanager.node.FilePath;
@@ -33,6 +34,11 @@ final class ParentSource implements NodeSource {
     @Override
     public InputStream read(VirtualNode file) throws NodeException {
         throw new NodeException("Parent marker has no content");
+    }
+
+    @Override
+    public OutputStream openWrite(VirtualNode file) throws NodeException {
+        throw new NodeException("Parent marker is read-only");
     }
 
     @Override

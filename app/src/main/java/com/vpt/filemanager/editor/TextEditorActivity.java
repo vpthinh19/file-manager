@@ -22,6 +22,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import javax.inject.Inject;
 
@@ -34,9 +35,9 @@ import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.support.FileTreeChangeBus;
-import com.vpt.filemanager.support.ThemeUtils;
-import com.vpt.filemanager.support.ErrorPresenter;
+import com.vpt.filemanager.util.FileTreeChangeBus;
+import com.vpt.filemanager.util.ThemeUtils;
+import com.vpt.filemanager.util.ErrorPresenter;
 
 /**
  * Lightweight wrapper around sora-editor's {@code CodeEditor}.
@@ -69,7 +70,7 @@ public final class TextEditorActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         applySystemBarIconContrast();
-        path = Path.of(getIntent().getStringExtra(EXTRA_PATH));
+        path = Paths.get(getIntent().getStringExtra(EXTRA_PATH));
         buildUi();
         startLoad();
     }

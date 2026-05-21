@@ -19,7 +19,7 @@ import java.util.List;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.support.StorageScope;
+import com.vpt.filemanager.util.StorageScope;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
 import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.VirtualNode;

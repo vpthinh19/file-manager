@@ -2,6 +2,7 @@ package com.vpt.filemanager.node.source;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -102,6 +103,11 @@ public final class ArchiveSource implements NodeSource {
     // ─────────────── Write API: archive v1 read-only ───────────────
     // Phase 3 sẽ wire libarchive native cho write support nếu khả thi. ZipFile java.util.zip
     // không support modify in-place — phải write toàn bộ ra file mới. v1 không investment.
+
+    @Override
+    public OutputStream openWrite(VirtualNode file) throws NodeException {
+        throw new NodeException("Archive write is not supported in v1");
+    }
 
     @Override
     public boolean supportsWrite() {

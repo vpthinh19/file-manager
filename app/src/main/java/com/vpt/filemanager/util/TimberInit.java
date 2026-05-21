@@ -1,4 +1,4 @@
-package com.vpt.filemanager.support;
+package com.vpt.filemanager.util;
 
 import com.vpt.filemanager.BuildConfig;
 import timber.log.Timber;

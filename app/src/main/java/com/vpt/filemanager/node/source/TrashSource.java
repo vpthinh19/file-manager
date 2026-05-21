@@ -1,8 +1,9 @@
 package com.vpt.filemanager.node.source;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,7 +58,7 @@ public final class TrashSource implements NodeSource {
         // Defensive (Codex review): nếu Room row tồn tại mà FS blob đã biến mất (partial
         // restore/delete-forever fail), log để dev phát hiện. Vẫn return node — UI sẽ thấy entry
         // và user có thể chọn restore → flow đó sẽ throw clearer "File no longer exists".
-        if (!Files.exists(Path.of(entity.trashPath))) {
+        if (!Files.exists(Paths.get(entity.trashPath))) {
             Timber.w("Stale trash row (blob missing): id=%s path=%s", entity.id, entity.trashPath);
         }
         return buildNode(entity);
@@ -84,6 +85,11 @@ public final class TrashSource implements NodeSource {
     @Override
     public InputStream read(VirtualNode file) throws NodeException {
         throw new NodeException("Cannot open trashed entry — restore first");
+    }
+
+    @Override
+    public OutputStream openWrite(VirtualNode file) throws NodeException {
+        throw new NodeException("Trash is read-only — restore first to edit");
     }
 
     // ─────────────── Write API: Trash read-only (TrashOps owns mutation) ───────────────

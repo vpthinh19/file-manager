@@ -1,4 +1,4 @@
-package com.vpt.filemanager.support;
+package com.vpt.filemanager.util;
 
 import android.app.AlertDialog;
 import android.content.Context;

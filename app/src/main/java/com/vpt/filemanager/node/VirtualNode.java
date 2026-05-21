@@ -1,6 +1,7 @@
 package com.vpt.filemanager.node;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Objects;
 
@@ -111,6 +112,19 @@ public final class VirtualNode {
             throw new NodeException("Cannot read a folder: " + path);
         }
         return source.read(this);
+    }
+
+    /**
+     * Mở stream ghi — chỉ gọi cho file đã tồn tại (caller phải tạo file trước qua
+     * {@code source().createFile(path)}). Truncate existing nội dung. Symmetric với {@link #openRead}.
+     *
+     * @throws NodeException khi đây là folder, source read-only, hoặc IO lỗi
+     */
+    public OutputStream openWrite() throws NodeException {
+        if (isFolder) {
+            throw new NodeException("Cannot write a folder: " + path);
+        }
+        return source.openWrite(this);
     }
 
     @Override

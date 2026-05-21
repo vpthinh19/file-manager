@@ -1,6 +1,7 @@
 package com.vpt.filemanager.node.source;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 
 import com.vpt.filemanager.node.FilePath;
@@ -42,6 +43,20 @@ public interface NodeSource {
      * @throws NodeException khi file không tồn tại, không có quyền đọc, hoặc backend lỗi
      */
     InputStream read(VirtualNode file) throws NodeException;
+
+    /**
+     * Mở stream ghi nội dung file (truncate existing, create if missing). Symmetric với {@link #read}.
+     * Phase C-1a (Copy/Move foundation): dùng cho cross-source stream copy trong {@code FileOps.copy}.
+     *
+     * <p>Caller phải đảm bảo {@code file.isFolder() == false}. Source read-only (Archive v1, Trash,
+     * Bookmark) phải throw thay vì silent no-op để fail-fast tại boundary.
+     *
+     * <p>Caller-side: KHÔNG buffer thêm BufferedOutputStream — caller (FileOps) tự quản byte buffer
+     * 64KB để tránh double-buffering memory waste.
+     *
+     * @throws NodeException khi file là folder, source read-only, hoặc IO lỗi (vd parent missing)
+     */
+    OutputStream openWrite(VirtualNode file) throws NodeException;
 
     // ─────────────────────────── Write API (Phase R-4) ───────────────────────────
     // Source nào không support write (vd ArchiveSource v1) phải override các method này throw

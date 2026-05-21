@@ -27,11 +27,10 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.support.AppExecutors;
-import com.vpt.filemanager.properties.FolderSizeCalculator;
-import com.vpt.filemanager.support.ByteSize;
+import com.vpt.filemanager.util.AppExecutors;
+import com.vpt.filemanager.util.ByteSize;
 import com.vpt.filemanager.node.FilePath;
-import com.vpt.filemanager.support.PosixPermission;
+import com.vpt.filemanager.util.PosixPermission;
 
 /**
  * Read-only properties dialog rendered as a 2-column key/value table (MT Manager style — labels

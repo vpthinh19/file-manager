@@ -3,9 +3,11 @@ package com.vpt.filemanager.node.source;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -82,6 +84,25 @@ public final class LocalSource implements NodeSource {
             return Files.newInputStream(toNioPath(path), StandardOpenOption.READ);
         } catch (IOException | SecurityException e) {
             throw new NodeException("Unable to open for read: " + path.path(), e);
+        }
+    }
+
+    @Override
+    public OutputStream openWrite(VirtualNode file) throws NodeException {
+        FilePath path = file.path();
+        if (!path.isLocal()) {
+            throw new NodeException("LocalSource cannot write scheme: " + path.scheme());
+        }
+        if (file.isFolder()) {
+            throw new NodeException("Cannot openWrite on folder: " + path.path());
+        }
+        try {
+            return Files.newOutputStream(toNioPath(path),
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException | SecurityException e) {
+            throw new NodeException("Unable to open for write: " + path.path(), e);
         }
     }
 
@@ -207,6 +228,6 @@ public final class LocalSource implements NodeSource {
                 && raw.matches("^/[A-Za-z]:/.*")) {
             raw = raw.substring(1);
         }
-        return Path.of(raw);
+        return Paths.get(raw);
     }
 }
