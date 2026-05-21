@@ -19,6 +19,7 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
 import com.vpt.filemanager.core.AppExecutors;
+import com.vpt.filemanager.core.FileTreeChangeBus;
 import com.vpt.filemanager.core.Prefs;
 import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.domain.model.FilePath;
@@ -56,6 +57,7 @@ public final class PaneViewModel extends ViewModel {
     private final BookmarkOps bookmarkOps;
     private final AppExecutors executors;
     private final Prefs prefs;
+    private final FileTreeChangeBus changeBus;
 
     private final MutableLiveData<UiState> uiState = new MutableLiveData<>(new UiState.Loading());
     private final MutableLiveData<Set<FilePath>> selection = new MutableLiveData<>(Collections.emptySet());
@@ -83,7 +85,8 @@ public final class PaneViewModel extends ViewModel {
             TrashOps trashOps,
             BookmarkOps bookmarkOps,
             AppExecutors executors,
-            Prefs prefs) {
+            Prefs prefs,
+            FileTreeChangeBus changeBus) {
         this.savedState = savedState;
         this.nodeFactory = nodeFactory;
         this.fileOps = fileOps;
@@ -91,6 +94,7 @@ public final class PaneViewModel extends ViewModel {
         this.bookmarkOps = bookmarkOps;
         this.executors = executors;
         this.prefs = prefs;
+        this.changeBus = changeBus;
         restoreSavedPath();
     }
 
@@ -371,7 +375,7 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         String trimmed = name.trim();
-        runActionAndRefresh(() -> {
+        runActionAndEmit(() -> {
             VirtualNode parent = nodeFactory.fromPath(currentPath);
             return fileOps.createFolder(parent, trimmed);
         }, "Folder created");
@@ -382,7 +386,7 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         String trimmed = name.trim();
-        runActionAndRefresh(() -> {
+        runActionAndEmit(() -> {
             VirtualNode parent = nodeFactory.fromPath(currentPath);
             return fileOps.createFile(parent, trimmed);
         }, "File created");
@@ -396,7 +400,7 @@ public final class PaneViewModel extends ViewModel {
         // Exit mode trước submit — single-target action xong, selected FilePath cũng sắp
         // disappear (replaced bởi name mới); DiffUtil treat = remove+insert.
         exitSelectionMode();
-        runActionAndRefresh(() -> {
+        runActionAndEmit(() -> {
             VirtualNode node = nodeFactory.fromPath(path);
             return fileOps.rename(node, trimmed);
         }, "Renamed");
@@ -421,7 +425,7 @@ public final class PaneViewModel extends ViewModel {
                     fileOps.createFile(parent, path.name());
                 }
                 events.postValue(isFolder ? "Folder replaced" : "File replaced");
-                refresh();
+                changeBus.emit();
             } catch (Throwable e) {
                 events.postValue("Replace failed: "
                         + (e.getMessage() == null ? "unknown" : e.getMessage()));
@@ -433,7 +437,7 @@ public final class PaneViewModel extends ViewModel {
         if (node == null) {
             return;
         }
-        runActionAndRefresh(() -> { trashOps.moveToTrash(node); return null; },
+        runActionAndEmit(() -> { trashOps.moveToTrash(node); return null; },
                 "Moved to trash");
     }
 
@@ -445,7 +449,7 @@ public final class PaneViewModel extends ViewModel {
         List<FilePath> snapshot = List.copyOf(current);
         // Destructive batch xong → items gone → exit mode hẳn (không thể act tiếp).
         exitSelectionMode();
-        runActionAndRefresh(() -> {
+        runActionAndEmit(() -> {
             for (FilePath p : snapshot) {
                 VirtualNode n = nodeFactory.fromPath(p);
                 trashOps.moveToTrash(n);
@@ -485,7 +489,7 @@ public final class PaneViewModel extends ViewModel {
                 }
             }
             events.postValue(formatBatchResult(ok, failed, "restored", lastError));
-            refresh();
+            changeBus.emit();
         });
     }
 
@@ -493,7 +497,7 @@ public final class PaneViewModel extends ViewModel {
      * Xóa hết trash (FS blob + Room rows). Gọi từ overflow menu "Empty Trash" khi pane=trash root.
      */
     public void emptyTrash() {
-        runActionAndRefresh(() -> { trashOps.emptyAll(); return null; }, "Trash emptied");
+        runActionAndEmit(() -> { trashOps.emptyAll(); return null; }, "Trash emptied");
     }
 
     /**
@@ -525,7 +529,35 @@ public final class PaneViewModel extends ViewModel {
                 }
             }
             events.postValue(formatBatchResult(ok, failed, "bookmark removed", lastError));
-            refresh();
+            changeBus.emit();
+        });
+    }
+
+    /**
+     * Add selected node làm bookmark. Phase R-8: chỉ enabled khi single-selection + folder
+     * scheme=file (SelectionBarController disable rule). Idempotent — duplicate path là no-op
+     * trong {@link BookmarkOps#add}.
+     *
+     * <p>Lưu ý: bookmark là Room-only side-effect; KHÔNG mutate cây FS, nhưng vẫn emit bus để
+     * pane đang xem {@code bookmark://} root được reload list mới.
+     */
+    public void addBookmarkSelected() {
+        Set<FilePath> current = selection.getValue();
+        if (current == null || current.size() != 1) {
+            return;
+        }
+        FilePath path = current.iterator().next();
+        exitSelectionMode();
+        executors.io().submit(() -> {
+            try {
+                VirtualNode node = nodeFactory.fromPath(path);
+                bookmarkOps.add(node);
+                events.postValue("Bookmarked");
+                changeBus.emit();
+            } catch (Throwable e) {
+                events.postValue("Bookmark failed: "
+                        + (e.getMessage() == null ? "unknown" : e.getMessage()));
+            }
         });
     }
 
@@ -585,12 +617,18 @@ public final class PaneViewModel extends ViewModel {
         });
     }
 
-    private void runActionAndRefresh(ThrowingAction action, String successMessage) {
+    /**
+     * Chạy 1 action trên IO, post toast khi success, rồi emit bus để mọi pane (kể cả chính nó)
+     * reload qua observer ở {@link com.vpt.filemanager.ui.browser.DualPaneHostFragment}. Phase
+     * R-8: thay thế "self-refresh" pattern — pane act không tự gọi {@code refresh()} nữa, bus là
+     * single source of truth.
+     */
+    private void runActionAndEmit(ThrowingAction action, String successMessage) {
         executors.io().submit(() -> {
             try {
                 action.run();
                 events.postValue(successMessage);
-                refresh();
+                changeBus.emit();
             } catch (Throwable e) {
                 events.postValue(e.getMessage() == null ? "Action failed" : e.getMessage());
             }
@@ -658,16 +696,6 @@ public final class PaneViewModel extends ViewModel {
 
             public Empty(FilePath path) {
                 this.path = path;
-            }
-        }
-
-        public static final class Roots extends UiState {
-            public final FilePath path;
-            public final List<VirtualNode> roots;
-
-            public Roots(FilePath path, List<VirtualNode> roots) {
-                this.path = path;
-                this.roots = List.copyOf(roots);
             }
         }
 

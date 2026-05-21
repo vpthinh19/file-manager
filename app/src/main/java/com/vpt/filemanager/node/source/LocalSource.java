@@ -60,8 +60,6 @@ public final class LocalSource implements NodeSource {
         if (!Files.isDirectory(nioDir)) {
             throw new NodeException("Not a directory: " + dirPath.path());
         }
-        // intern prefix để mọi child share string — tiết kiệm RAM cho folder lớn
-        dirPath.path().intern();
         List<VirtualNode> result = new ArrayList<>(64);
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(nioDir)) {
             for (Path child : stream) {

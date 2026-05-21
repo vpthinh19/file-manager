@@ -200,9 +200,6 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         if (state instanceof PaneViewModel.UiState.Content c) {
             return withParent(c.path, c.nodes);
         }
-        if (state instanceof PaneViewModel.UiState.Roots r) {
-            return new ArrayList<>(r.roots);
-        }
         if (state instanceof PaneViewModel.UiState.Empty e) {
             return withParent(e.path, List.of());
         }

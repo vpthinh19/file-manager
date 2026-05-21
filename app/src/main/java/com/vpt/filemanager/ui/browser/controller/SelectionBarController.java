@@ -173,6 +173,9 @@ public final class SelectionBarController {
                 disabled.add(NodeActionsBottomSheet.Action.DELETE);
                 disabled.add(NodeActionsBottomSheet.Action.MOVE);
                 disabled.add(NodeActionsBottomSheet.Action.COMPRESS);
+                // Bookmark chỉ chấp nhận local path (BookmarkOps.add throws cho archive scheme).
+                // Disable từ UI để user không thấy action xong toast lỗi.
+                disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
                 break;
             }
         }
@@ -213,11 +216,15 @@ public final class SelectionBarController {
                     host.openWithPath(singlePath);
                 }
                 break;
+            case BOOKMARK:
+                // R-8: enabled chỉ với single + folder + local (xem computeDisabledActions).
+                // VM lo idempotency qua BookmarkOps.add (duplicate path là no-op).
+                vm.addBookmarkSelected();
+                break;
             case COPY:
             case MOVE:
             case TOOLS:
             case COMPRESS:
-            case BOOKMARK:
             default:
                 host.toast(host.getString(action.labelRes) + " — coming in Phase 2C");
                 break;

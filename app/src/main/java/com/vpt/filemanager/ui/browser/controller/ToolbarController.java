@@ -8,7 +8,6 @@ import androidx.annotation.Nullable;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.ByteSize;
-import com.vpt.filemanager.core.StorageScope;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.domain.model.FilePath;
 import com.vpt.filemanager.ui.DrawerHost;
@@ -103,9 +102,6 @@ public final class ToolbarController {
                 setSubtitle(host.getString(R.string.stats_basic,
                         content.folderCount, content.fileCount));
             }
-        } else if (state instanceof PaneViewModel.UiState.Roots roots) {
-            setTitle(StorageScope.ROOT_PATH);
-            setSubtitle(host.getString(R.string.stats_roots, roots.roots.size()));
         } else if (state instanceof PaneViewModel.UiState.Empty empty) {
             setTitle(displayPath(empty.path));
             setSubtitle(host.getString(R.string.stats_basic, 0, 0));
@@ -170,7 +166,6 @@ public final class ToolbarController {
         if (state instanceof PaneViewModel.UiState.Content c) return c.path;
         if (state instanceof PaneViewModel.UiState.Empty e) return e.path;
         if (state instanceof PaneViewModel.UiState.Error e) return e.path;
-        if (state instanceof PaneViewModel.UiState.Roots r) return r.path;
         return null;
     }
 }

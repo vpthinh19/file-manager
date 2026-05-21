@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;
 
 import com.vpt.filemanager.R;
+import com.vpt.filemanager.core.FileTreeChangeBus;
 import com.vpt.filemanager.core.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.domain.model.FileCategory;
@@ -61,6 +62,9 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
     @Inject
     OpenerRegistry openerRegistry;
+
+    @Inject
+    FileTreeChangeBus changeBus;
 
     private FragmentDualPaneHostBinding binding;
     private PaneViewModel leftVm;
@@ -131,9 +135,32 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
         observePane(PANE_LEFT, leftVm);
         observePane(PANE_RIGHT, rightVm);
+        observeChangeBus();
 
         applyActivePaneVisual();
         syncFromActive();
+    }
+
+    /**
+     * Phase R-8: bus reconciliation. Bất kỳ op nào mutate FS (cả từ {@link
+     * com.vpt.filemanager.ui.editor.TextEditorActivity} cross-Activity) emit qua
+     * {@link FileTreeChangeBus} → cả 2 pane refresh đồng bộ.
+     *
+     * <p>Skip initial value: LiveData fire callback ngay khi attach với current counter; nếu
+     * không skip thì lần mở Fragment đầu sẽ refresh 2 pane vô ích (chúng vừa load xong). Lưu
+     * counter base lúc attach → chỉ react khi counter > base.
+     */
+    private void observeChangeBus() {
+        Long initial = changeBus.changes().getValue();
+        final long[] lastSeen = {initial == null ? 0L : initial};
+        changeBus.changes().observe(getViewLifecycleOwner(), counter -> {
+            if (counter == null || counter <= lastSeen[0]) {
+                return;
+            }
+            lastSeen[0] = counter;
+            leftVm.refresh();
+            rightVm.refresh();
+        });
     }
 
     @Override

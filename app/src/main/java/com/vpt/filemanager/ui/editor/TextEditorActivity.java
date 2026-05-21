@@ -23,11 +23,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 import io.github.rosemoe.sora.lang.EmptyLanguage;
 import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
 import com.vpt.filemanager.R;
+import com.vpt.filemanager.core.FileTreeChangeBus;
 import com.vpt.filemanager.core.ThemeUtils;
 import com.vpt.filemanager.ui.ErrorPresenter;
 
@@ -37,7 +41,12 @@ import com.vpt.filemanager.ui.ErrorPresenter;
  * <p>Load pipeline (Phase 2C-7 hardening) is a small state machine: size check → binary sniff →
  * confirm dialog if binary → stream-decode with REPLACE policy → guarded {@code setText}. Every
  * step funnels failures through {@link ErrorPresenter} so the UX matches the rest of the app.
+ *
+ * <p>Phase R-8: emit {@link FileTreeChangeBus} sau khi save thành công để pane nào đang xem
+ * folder cha của file này tự reload (size/mtime cập nhật). Activity scope ngoài Fragment host
+ * nên không thể "tell pane refresh" trực tiếp — bus singleton là cầu nối duy nhất.
  */
+@AndroidEntryPoint
 public final class TextEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PATH = "com.vpt.filemanager.extra.PATH";
 
@@ -45,6 +54,9 @@ public final class TextEditorActivity extends AppCompatActivity {
     private static final long EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
     private static final int SNIFF_BYTES = 4096;
     private static final int NULL_SCAN_WINDOW = 512;
+
+    @Inject
+    FileTreeChangeBus changeBus;
 
     private Path path;
     private CodeEditor editor;
@@ -238,6 +250,7 @@ public final class TextEditorActivity extends AppCompatActivity {
             String text = editor.getText().toString();
             Files.write(path, text.getBytes(StandardCharsets.UTF_8));
             toast("Saved");
+            changeBus.emit();
         } catch (IOException | SecurityException e) {
             ErrorPresenter.toast(this, e);
         }
