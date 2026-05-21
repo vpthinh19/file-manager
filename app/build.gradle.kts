@@ -6,6 +6,9 @@ plugins {
 android {
     namespace = "com.vpt.filemanager"
     compileSdk = 36
+    // Phase C-2a: NDK skeleton cho libarchive bridge (arm64-v8a only theo v1 decision).
+    // Default NDK version cho AGP 9.2.x — Gradle sẽ auto-download nếu chưa có.
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.vpt.filemanager"
@@ -19,6 +22,22 @@ android {
             annotationProcessorOptions {
                 arguments += mapOf("room.schemaLocation" to "$projectDir/schemas")
             }
+        }
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+                cppFlags("-std=c++17", "-fvisibility=hidden", "-Wall")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
