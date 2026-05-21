@@ -52,6 +52,7 @@ commons-compress = { module = "org.apache.commons:commons-compress", version.ref
 zip4j = { module = "net.lingala.zip4j:zip4j", version.ref = "zip4j" }
 juniversalchardet = { module = "com.github.albfernandez:juniversalchardet", version.ref = "juniversalchardet" }
 sora-editor = { module = "io.github.Rosemoe.sora-editor:editor", version.ref = "sora-editor" }
+sora-editor-language-textmate = { module = "io.github.Rosemoe.sora-editor:language-textmate", version.ref = "sora-editor" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 desugar = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
 junit = { module = "junit:junit", version.ref = "junit" }

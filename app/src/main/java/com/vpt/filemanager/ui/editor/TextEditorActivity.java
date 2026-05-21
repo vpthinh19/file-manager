@@ -27,6 +27,9 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
 import io.github.rosemoe.sora.lang.EmptyLanguage;
+import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme;
+import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
+import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry;
 import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
@@ -121,12 +124,45 @@ public final class TextEditorActivity extends AppCompatActivity {
 
         editor = new CodeEditor(this);
         editor.setTextSize(14);
-        editor.setColorScheme(new SchemeDarcula());
-        editor.setEditorLanguage(new EmptyLanguage());
+        applySyntaxStyling();
         editor.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         root.addView(editor);
         setContentView(root);
+    }
+
+    /**
+     * Phase R-9: setup TextMate grammar + theme cho editor.
+     *
+     * <p>Pipeline:
+     * <ol>
+     *   <li>{@link SyntaxSetup#ensureInitialized} idempotent — load grammars + theme lần đầu</li>
+     *   <li>{@link LanguageResolver#scopeFor} → scope name nullable. Null → fallback Empty + dark</li>
+     *   <li>Match scope → {@link TextMateLanguage#create} + {@link TextMateColorScheme}</li>
+     * </ol>
+     *
+     * <p>Lỗi setup (asset thiếu, OOM...) graceful fallback {@link EmptyLanguage} +
+     * {@link SchemeDarcula} — editor vẫn mở được dù không có syntax highlight.
+     */
+    private void applySyntaxStyling() {
+        String scope = LanguageResolver.scopeFor(
+                path.getFileName() == null ? "" : path.getFileName().toString());
+        try {
+            SyntaxSetup.ensureInitialized(this);
+            if (scope != null) {
+                editor.setColorScheme(TextMateColorScheme.create(ThemeRegistry.getInstance()));
+                editor.setEditorLanguage(TextMateLanguage.create(scope, true));
+                return;
+            }
+        } catch (Exception e) {
+            // Asset/grammar load fail (asset corrupt / grammar không parse được / theme JSON
+            // malformed) — fallback plain. KHÔNG bắt Throwable: OutOfMemoryError + linkage error
+            // phải bubble up để crash report bắt được, fallback ở đây sẽ alloc thêm object →
+            // mask root cause. Note: TextMateColorScheme.create() throws checked Exception.
+            timber.log.Timber.w(e, "Syntax setup failed, fallback EmptyLanguage");
+        }
+        editor.setColorScheme(new SchemeDarcula());
+        editor.setEditorLanguage(new EmptyLanguage());
     }
 
     /**

@@ -95,6 +95,7 @@ dependencies {
     implementation(libs.commons.compress)
     implementation(libs.zip4j)
     implementation(libs.sora.editor)
+    implementation(libs.sora.editor.language.textmate)
     implementation(libs.timber)
     implementation(libs.juniversalchardet)
 
