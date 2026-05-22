@@ -1,4 +1,4 @@
-package com.vpt.filemanager.browser;
+package com.vpt.filemanager.browser.icon;
 
 import java.util.Locale;
 

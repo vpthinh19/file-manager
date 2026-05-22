@@ -12,7 +12,7 @@ import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.browser.DualPaneHostFragment;
-import com.vpt.filemanager.browser.NodeActionsBottomSheet;
+import com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet;
 import com.vpt.filemanager.browser.PaneViewModel;
 import com.vpt.filemanager.browser.action.ShareAction;
 import com.vpt.filemanager.browser.action.TransferMode;

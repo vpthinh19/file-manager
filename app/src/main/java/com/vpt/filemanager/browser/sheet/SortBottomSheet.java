@@ -1,4 +1,4 @@
-package com.vpt.filemanager.browser;
+package com.vpt.filemanager.browser.sheet;
 
 import android.app.Dialog;
 import android.os.Bundle;

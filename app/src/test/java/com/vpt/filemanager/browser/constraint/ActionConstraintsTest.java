@@ -1,13 +1,13 @@
 package com.vpt.filemanager.browser.constraint;
 
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.BOOKMARK;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.COMPRESS;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.COPY;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.DELETE;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.MOVE;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.OPEN_WITH;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.PROPERTIES;
-import static com.vpt.filemanager.browser.NodeActionsBottomSheet.Action.RENAME;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.BOOKMARK;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.COMPRESS;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.COPY;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.DELETE;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.MOVE;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.OPEN_WITH;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.PROPERTIES;
+import static com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action.RENAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -18,7 +18,7 @@ import java.util.Set;
 
 import org.junit.Test;
 
-import com.vpt.filemanager.browser.NodeActionsBottomSheet.Action;
+import com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action;
 import com.vpt.filemanager.node.FilePath;
 
 public final class ActionConstraintsTest {

@@ -2,7 +2,7 @@ package com.vpt.filemanager.browser.constraint;
 
 import java.util.EnumSet;
 
-import com.vpt.filemanager.browser.NodeActionsBottomSheet.Action;
+import com.vpt.filemanager.browser.sheet.NodeActionsBottomSheet.Action;
 import com.vpt.filemanager.node.FilePath;
 
 /**
