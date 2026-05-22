@@ -12,7 +12,7 @@ import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.util.AppExecutors;
+import com.vpt.filemanager.threading.AppExecutors;
 
 /**
  * Walk cây node + sum tổng size từng leaf. Visitor over Composite {@link VirtualNode} tree —

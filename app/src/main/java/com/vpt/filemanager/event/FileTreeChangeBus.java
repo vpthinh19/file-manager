@@ -1,4 +1,4 @@
-package com.vpt.filemanager.util;
+package com.vpt.filemanager.event;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;

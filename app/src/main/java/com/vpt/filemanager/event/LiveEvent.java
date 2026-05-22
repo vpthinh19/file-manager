@@ -1,4 +1,4 @@
-package com.vpt.filemanager.util;
+package com.vpt.filemanager.event;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;

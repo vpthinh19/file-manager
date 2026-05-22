@@ -20,8 +20,8 @@ import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.FileOps;
 import com.vpt.filemanager.operations.TrashOps;
-import com.vpt.filemanager.util.AppExecutors;
-import com.vpt.filemanager.util.FileTreeChangeBus;
+import com.vpt.filemanager.event.FileTreeChangeBus;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.util.NameDeconflict;
 
 /**

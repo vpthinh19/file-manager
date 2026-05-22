@@ -18,8 +18,8 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
-import com.vpt.filemanager.util.AppExecutors;
-import com.vpt.filemanager.util.FileTreeChangeBus;
+import com.vpt.filemanager.event.FileTreeChangeBus;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.util.Prefs;
 import com.vpt.filemanager.util.StorageScope;
 import com.vpt.filemanager.node.FilePath;
@@ -30,7 +30,7 @@ import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.BookmarkOps;
 import com.vpt.filemanager.operations.FileOps;
 import com.vpt.filemanager.operations.TrashOps;
-import com.vpt.filemanager.util.LiveEvent;
+import com.vpt.filemanager.event.LiveEvent;
 
 /**
  * Browser pane state machine — holds current location, listing, selection, back/forward stacks.
