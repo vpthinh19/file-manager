@@ -3,7 +3,7 @@ package com.vpt.filemanager.node;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.source.ArchiveSource;
 import com.vpt.filemanager.node.source.BookmarkSource;
 import com.vpt.filemanager.node.source.LocalSource;
@@ -11,7 +11,7 @@ import com.vpt.filemanager.node.source.NodeSource;
 import com.vpt.filemanager.node.source.TrashSource;
 
 /**
- * Điểm vào duy nhất để khởi tạo {@link VirtualNode} từ một {@link FilePath}. Dispatch sang đúng
+ * Điểm vào duy nhất để khởi tạo {@link VirtualNode} từ một {@link NodePath}. Dispatch sang đúng
  * {@link NodeSource} theo scheme của path.
  *
  * <p>Sử dụng chủ yếu khi navigation bắt đầu từ một path string (drawer click → root, restore từ
@@ -48,7 +48,7 @@ public final class NodeFactory {
      *
      * @throws NodeException khi path không tồn tại, scheme không support, hoặc stat fail
      */
-    public VirtualNode fromPath(FilePath path) throws NodeException {
+    public VirtualNode fromPath(NodePath path) throws NodeException {
         if (path.isLocal()) {
             return localSource.resolve(path);
         }
@@ -72,14 +72,14 @@ public final class NodeFactory {
      * @throws NodeException khi node không phải file local hoặc archive không mở được
      */
     public VirtualNode asArchiveRoot(VirtualNode localArchiveFile) throws NodeException {
-        FilePath localPath = localArchiveFile.path();
+        NodePath localPath = localArchiveFile.path();
         if (!localPath.isLocal()) {
             throw new NodeException("Only local files can be opened as archive: " + localPath);
         }
         if (localArchiveFile.isFolder()) {
             throw new NodeException("Cannot open folder as archive: " + localPath);
         }
-        FilePath archiveRoot = FilePath.inArchive(localPath, "/");
+        NodePath archiveRoot = NodePath.inArchive(localPath, "/");
         return archiveSource.resolve(archiveRoot);
     }
 }

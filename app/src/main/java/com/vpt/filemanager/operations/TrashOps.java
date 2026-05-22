@@ -11,8 +11,8 @@ import java.util.UUID;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.util.StorageScope;
 import com.vpt.filemanager.data.db.dao.TrashDao;
+import com.vpt.filemanager.rules.storage.StorageScope;
 import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;

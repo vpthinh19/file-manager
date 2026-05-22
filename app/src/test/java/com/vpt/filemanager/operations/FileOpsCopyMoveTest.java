@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
@@ -43,7 +43,7 @@ public final class FileOpsCopyMoveTest {
     private LocalSource localSource;
     private FileOps fileOps;
     private Path rootDir;
-    private FilePath rootFp;
+    private NodePath rootFp;
     private VirtualNode rootNode;
 
     @Before
@@ -51,7 +51,7 @@ public final class FileOpsCopyMoveTest {
         localSource = new LocalSource();
         fileOps = new FileOps();
         rootDir = temp.getRoot().toPath();
-        rootFp = FilePath.local(rootDir.toString().replace('\\', '/'));
+        rootFp = NodePath.local(rootDir.toString().replace('\\', '/'));
         rootNode = localSource.resolve(rootFp);
     }
 
@@ -178,8 +178,8 @@ public final class FileOpsCopyMoveTest {
         assertTrue(Files.exists(rootDir.resolve("b.txt")));
     }
 
-    private static FilePath filePathOf(Path nio) {
-        return FilePath.local(nio.toString().replace('\\', '/'));
+    private static NodePath filePathOf(Path nio) {
+        return NodePath.local(nio.toString().replace('\\', '/'));
     }
 
     /** Android's nio Files trên bootclasspath không có readString (API < 33) → polyfill. */

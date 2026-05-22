@@ -4,7 +4,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -22,13 +22,13 @@ import com.vpt.filemanager.node.VirtualNode;
  */
 public interface NodeSource {
     /**
-     * Khởi tạo một {@link VirtualNode} từ {@link FilePath} — stat metadata (isFolder/size/
+     * Khởi tạo một {@link VirtualNode} từ {@link NodePath} — stat metadata (isFolder/size/
      * modifiedAt) tại đây. Dùng khi navigation bắt đầu từ một path chứ không phải từ parent
      * listing (ví dụ: restore từ SavedStateHandle, pop back stack, drawer click vào virtual root).
      *
      * @throws NodeException khi path không tồn tại hoặc không thuộc scheme mà source này handle
      */
-    VirtualNode resolve(FilePath path) throws NodeException;
+    VirtualNode resolve(NodePath path) throws NodeException;
 
     /**
      * Liệt kê children của một folder. Caller phải đảm bảo {@code folder.isFolder() == true}.
@@ -75,7 +75,7 @@ public interface NodeSource {
      * @return VirtualNode đại diện file vừa tạo (với metadata fresh)
      * @throws NodeException khi parent không tồn tại, path đã có entry, hoặc source read-only
      */
-    VirtualNode createFile(FilePath path) throws NodeException;
+    VirtualNode createFile(NodePath path) throws NodeException;
 
     /**
      * Tạo folder mới (recursive — tự tạo parent nếu thiếu).
@@ -83,7 +83,7 @@ public interface NodeSource {
      * @return VirtualNode đại diện folder vừa tạo
      * @throws NodeException khi source read-only hoặc IO lỗi
      */
-    VirtualNode createFolder(FilePath path) throws NodeException;
+    VirtualNode createFolder(NodePath path) throws NodeException;
 
     /**
      * Đổi tên node trong cùng parent. Atomic nếu có thể (qua {@link java.nio.file.StandardCopyOption#ATOMIC_MOVE}).

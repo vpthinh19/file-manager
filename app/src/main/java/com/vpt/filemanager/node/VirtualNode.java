@@ -5,8 +5,9 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Objects;
 
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.source.NodeSource;
+import com.vpt.filemanager.node.source.ParentSource;
 
 /**
  * Phần tử trung tâm của DOM ảo. Một {@code VirtualNode} đại diện cho một "thứ user có thể nhìn
@@ -16,10 +17,10 @@ import com.vpt.filemanager.node.source.NodeSource;
  * <h2>Hai trục thiết kế orthogonal</h2>
  * <ul>
  *   <li><b>NGUỒN</b> (where) — ẩn trong {@link NodeSource}. UI không quan tâm.</li>
- *   <li><b>HÀNH VI khi click</b> (what) — handled bởi {@code FileOpener} (Phase R-3).</li>
+ *   <li><b>HÀNH VI khi click</b> (what) — handled bởi {@code NodeOpener} (Phase R-3).</li>
  * </ul>
  * Cùng 1 file có thể được wrap bằng nhiều source khác nhau ở thời điểm khác nhau (ví dụ:
- * {@code photos.zip} là {@link com.vpt.filemanager.node.FilePath} local thông thường khi
+ * {@code photos.zip} là {@link com.vpt.filemanager.node.NodePath} local thông thường khi
  * user thấy nó trong folder; khi user click thì {@code ArchiveOpener} re-wrap nó thành VirtualNode
  * có {@code source=ArchiveSource} để navigate vào).
  *
@@ -34,13 +35,13 @@ import com.vpt.filemanager.node.source.NodeSource;
  * chịu trách nhiệm cache snapshot ở UI layer + invalidate khi navigate.
  */
 public final class VirtualNode {
-    private final FilePath path;
+    private final NodePath path;
     private final boolean isFolder;
     private final long size;
     private final long modifiedAt;
     private final NodeSource source;
 
-    public VirtualNode(FilePath path, boolean isFolder, long size, long modifiedAt, NodeSource source) {
+    public VirtualNode(NodePath path, boolean isFolder, long size, long modifiedAt, NodeSource source) {
         this.path = Objects.requireNonNull(path, "path");
         this.isFolder = isFolder;
         this.size = size;
@@ -53,7 +54,7 @@ public final class VirtualNode {
      * marker → caller navigate đến path đó. Source là {@link ParentSource} singleton; mọi attempt
      * children/read/write trên marker đều throw — caller phải check {@link #isParent()} trước.
      */
-    public static VirtualNode parent(FilePath parentPath) {
+    public static VirtualNode parent(NodePath parentPath) {
         return new VirtualNode(parentPath, true, -1L, -1L, ParentSource.INSTANCE);
     }
 
@@ -65,7 +66,7 @@ public final class VirtualNode {
         return source instanceof ParentSource;
     }
 
-    public FilePath path() {
+    public NodePath path() {
         return path;
     }
 

@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -72,19 +72,19 @@ public final class FileOps {
 
     public VirtualNode createFile(VirtualNode parentFolder, String name) throws NodeException {
         validateWritableFolder(parentFolder);
-        FilePath childPath = parentFolder.path().child(name);
+        NodePath childPath = parentFolder.path().child(name);
         return parentFolder.source().createFile(childPath);
     }
 
     public VirtualNode createFolder(VirtualNode parentFolder, String name) throws NodeException {
         validateWritableFolder(parentFolder);
-        FilePath childPath = parentFolder.path().child(name);
+        NodePath childPath = parentFolder.path().child(name);
         return parentFolder.source().createFolder(childPath);
     }
 
     /**
      * Đổi tên trong cùng folder. Tên mới validate cơ bản (không rỗng, không chứa '/').
-     * FilePath.child() đã throw nếu name chứa separator.
+     * NodePath.child() đã throw nếu name chứa separator.
      */
     public VirtualNode rename(VirtualNode node, String newName) throws NodeException {
         if (newName == null || newName.isBlank()) {
@@ -171,7 +171,7 @@ public final class FileOps {
 
     private VirtualNode moveLocalNio(VirtualNode src, VirtualNode targetParent, String newName)
             throws NodeException {
-        FilePath newPath = targetParent.path().child(newName);
+        NodePath newPath = targetParent.path().child(newName);
         Path srcNio = toNioLocal(src.path());
         Path dstNio = toNioLocal(newPath);
         try {
@@ -193,7 +193,7 @@ public final class FileOps {
 
     private VirtualNode copyFileInto(VirtualNode src, VirtualNode parent, String newName,
                                      CancellationToken token) throws NodeException {
-        FilePath dstPath = parent.path().child(newName);
+        NodePath dstPath = parent.path().child(newName);
         VirtualNode dst = parent.source().createFile(dstPath);
         try (InputStream in = src.openRead(); OutputStream out = dst.openWrite()) {
             byte[] buf = new byte[COPY_BUFFER_BYTES];
@@ -218,7 +218,7 @@ public final class FileOps {
 
     private VirtualNode copyFolderInto(VirtualNode src, VirtualNode parent, String newName,
                                        CancellationToken token) throws NodeException {
-        FilePath dstPath = parent.path().child(newName);
+        NodePath dstPath = parent.path().child(newName);
         VirtualNode newFolder = parent.source().createFolder(dstPath);
         List<VirtualNode> children = src.children();
         try {
@@ -244,7 +244,7 @@ public final class FileOps {
         return newFolder;
     }
 
-    private static Path toNioLocal(FilePath path) {
+    private static Path toNioLocal(NodePath path) {
         String raw = path.path();
         if (System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")
                 && raw.matches("^/[A-Za-z]:/.*")) {

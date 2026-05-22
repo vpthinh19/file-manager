@@ -11,14 +11,14 @@ import javax.inject.Singleton;
  *
  * <p>Phase R-8: hai pane (hoặc N pane sau này) cùng host, plus {@code TextEditorActivity} ngoài
  * Fragment scope, đều có thể mutate file system. Trước R-8, mỗi {@link
- * com.vpt.filemanager.browser.PaneViewModel} tự gọi {@code refresh()} sau action → pane còn lại
+ * com.vpt.filemanager.ui.pane.PaneViewModel} tự gọi {@code refresh()} sau action → pane còn lại
  * thấy data stale (e.g. delete ở left, right vẫn show entry đã xóa nếu cả hai cùng folder).
  *
  * <p>Pattern: blind counter bus.
  * <ul>
- *   <li><b>Producer</b>: bất kỳ site nào mutate FS (FileOps/TrashOps/BookmarkOps wrappers trong
- *       PaneViewModel, plus {@code TextEditorActivity.save}) gọi {@link #emit()} sau khi success.
- *   <li><b>Consumer</b>: {@link com.vpt.filemanager.browser.DualPaneHostFragment} observe bằng
+ *   <li><b>Producer</b>: browser/editor boundary gọi {@link #emit()} sau khi operation mutate
+ *       tree hoặc Room state thành công.
+ *   <li><b>Consumer</b>: {@link com.vpt.filemanager.ui.pane.DualPaneHostFragment} observe bằng
  *       {@code viewLifecycleOwner} → callback gọi {@code refresh()} trên cả 2 VM.
  * </ul>
  *

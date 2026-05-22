@@ -17,7 +17,7 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -38,7 +38,7 @@ public final class LocalSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode resolve(FilePath path) throws NodeException {
+    public VirtualNode resolve(NodePath path) throws NodeException {
         if (!path.isLocal()) {
             throw new NodeException("LocalSource cannot resolve scheme: " + path.scheme());
         }
@@ -51,7 +51,7 @@ public final class LocalSource implements NodeSource {
 
     @Override
     public List<VirtualNode> list(VirtualNode folder) throws NodeException {
-        FilePath dirPath = folder.path();
+        NodePath dirPath = folder.path();
         if (!dirPath.isLocal()) {
             throw new NodeException("LocalSource cannot list scheme: " + dirPath.scheme());
         }
@@ -65,7 +65,7 @@ public final class LocalSource implements NodeSource {
                 String childName = child.getFileName() == null
                         ? child.toString()
                         : child.getFileName().toString();
-                FilePath childPath = dirPath.child(childName);
+                NodePath childPath = dirPath.child(childName);
                 result.add(buildNode(childPath, child));
             }
         } catch (IOException | SecurityException e) {
@@ -76,7 +76,7 @@ public final class LocalSource implements NodeSource {
 
     @Override
     public InputStream read(VirtualNode file) throws NodeException {
-        FilePath path = file.path();
+        NodePath path = file.path();
         if (!path.isLocal()) {
             throw new NodeException("LocalSource cannot read scheme: " + path.scheme());
         }
@@ -89,7 +89,7 @@ public final class LocalSource implements NodeSource {
 
     @Override
     public OutputStream openWrite(VirtualNode file) throws NodeException {
-        FilePath path = file.path();
+        NodePath path = file.path();
         if (!path.isLocal()) {
             throw new NodeException("LocalSource cannot write scheme: " + path.scheme());
         }
@@ -114,7 +114,7 @@ public final class LocalSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode createFile(FilePath path) throws NodeException {
+    public VirtualNode createFile(NodePath path) throws NodeException {
         requireLocal(path);
         try {
             Path nioPath = toNioPath(path);
@@ -130,7 +130,7 @@ public final class LocalSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode createFolder(FilePath path) throws NodeException {
+    public VirtualNode createFolder(NodePath path) throws NodeException {
         requireLocal(path);
         try {
             Path nioPath = toNioPath(path);
@@ -143,9 +143,9 @@ public final class LocalSource implements NodeSource {
 
     @Override
     public VirtualNode rename(VirtualNode node, String newName) throws NodeException {
-        FilePath path = node.path();
+        NodePath path = node.path();
         requireLocal(path);
-        FilePath newPath = path.parent().child(newName);
+        NodePath newPath = path.parent().child(newName);
         try {
             Path src = toNioPath(path);
             Path dst = toNioPath(newPath);
@@ -164,7 +164,7 @@ public final class LocalSource implements NodeSource {
 
     @Override
     public void delete(VirtualNode node) throws NodeException {
-        FilePath path = node.path();
+        NodePath path = node.path();
         requireLocal(path);
         try {
             deleteRecursively(toNioPath(path));
@@ -189,7 +189,7 @@ public final class LocalSource implements NodeSource {
         Files.deleteIfExists(path);
     }
 
-    private static void requireLocal(FilePath path) throws NodeException {
+    private static void requireLocal(NodePath path) throws NodeException {
         if (!path.isLocal()) {
             throw new NodeException("LocalSource cannot handle scheme: " + path.scheme());
         }
@@ -200,7 +200,7 @@ public final class LocalSource implements NodeSource {
      * (1 syscall thay vì 3 lần gọi {@link File#isDirectory} / {@link File#length} /
      * {@link File#lastModified}). Fallback sang File API khi attrs fail (vd symlink broken).
      */
-    private VirtualNode buildNode(FilePath path, Path nioPath) {
+    private VirtualNode buildNode(NodePath path, Path nioPath) {
         boolean dir;
         long size;
         long modified;
@@ -219,10 +219,10 @@ public final class LocalSource implements NodeSource {
     }
 
     /**
-     * Chuyển {@link FilePath} sang {@link java.nio.file.Path}. Trên Windows (chỉ gặp khi chạy
+     * Chuyển {@link NodePath} sang {@link java.nio.file.Path}. Trên Windows (chỉ gặp khi chạy
      * unit test trên host), strip leading slash cho path dạng {@code /C:/...}.
      */
-    private static Path toNioPath(FilePath path) {
+    private static Path toNioPath(NodePath path) {
         String raw = path.path();
         if (System.getProperty("os.name", "").toLowerCase().contains("win")
                 && raw.matches("^/[A-Za-z]:/.*")) {

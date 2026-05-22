@@ -12,7 +12,7 @@ import timber.log.Timber;
 
 import com.vpt.filemanager.data.db.dao.BookmarkDao;
 import com.vpt.filemanager.data.db.entity.BookmarkEntryEntity;
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -48,7 +48,7 @@ public final class BookmarkSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode resolve(FilePath path) throws NodeException {
+    public VirtualNode resolve(NodePath path) throws NodeException {
         if (!path.isBookmark()) {
             throw new NodeException("BookmarkSource cannot resolve scheme: " + path.scheme());
         }
@@ -62,7 +62,7 @@ public final class BookmarkSource implements NodeSource {
 
     @Override
     public List<VirtualNode> list(VirtualNode folder) throws NodeException {
-        FilePath dirPath = folder.path();
+        NodePath dirPath = folder.path();
         if (!dirPath.isBookmark()) {
             throw new NodeException("BookmarkSource cannot list scheme: " + dirPath.scheme());
         }
@@ -70,7 +70,7 @@ public final class BookmarkSource implements NodeSource {
         List<VirtualNode> nodes = new ArrayList<>(entries.size());
         for (BookmarkEntryEntity entity : entries) {
             try {
-                nodes.add(localSource.resolve(FilePath.local(entity.path)));
+                nodes.add(localSource.resolve(NodePath.local(entity.path)));
             } catch (NodeException broken) {
                 // Bookmark trỏ tới folder/file đã bị xoá → skip listing, không fail toàn bộ.
                 // User có thể remove bookmark thủ công sau. Phase 2D cân nhắc auto-prune.
@@ -98,12 +98,12 @@ public final class BookmarkSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode createFile(FilePath path) throws NodeException {
+    public VirtualNode createFile(NodePath path) throws NodeException {
         throw new NodeException("Cannot create inside Bookmark");
     }
 
     @Override
-    public VirtualNode createFolder(FilePath path) throws NodeException {
+    public VirtualNode createFolder(NodePath path) throws NodeException {
         throw new NodeException("Cannot create inside Bookmark");
     }
 

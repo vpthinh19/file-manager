@@ -14,7 +14,7 @@ import timber.log.Timber;
 
 import com.vpt.filemanager.data.db.dao.TrashDao;
 import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
-import com.vpt.filemanager.node.FilePath;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 
@@ -42,7 +42,7 @@ public final class TrashSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode resolve(FilePath path) throws NodeException {
+    public VirtualNode resolve(NodePath path) throws NodeException {
         if (!path.isTrash()) {
             throw new NodeException("TrashSource cannot resolve scheme: " + path.scheme());
         }
@@ -66,7 +66,7 @@ public final class TrashSource implements NodeSource {
 
     @Override
     public List<VirtualNode> list(VirtualNode folder) throws NodeException {
-        FilePath dirPath = folder.path();
+        NodePath dirPath = folder.path();
         if (!dirPath.isTrash()) {
             throw new NodeException("TrashSource cannot list scheme: " + dirPath.scheme());
         }
@@ -100,12 +100,12 @@ public final class TrashSource implements NodeSource {
     }
 
     @Override
-    public VirtualNode createFile(FilePath path) throws NodeException {
+    public VirtualNode createFile(NodePath path) throws NodeException {
         throw new NodeException("Cannot create inside Trash");
     }
 
     @Override
-    public VirtualNode createFolder(FilePath path) throws NodeException {
+    public VirtualNode createFolder(NodePath path) throws NodeException {
         throw new NodeException("Cannot create inside Trash");
     }
 
@@ -126,7 +126,7 @@ public final class TrashSource implements NodeSource {
      * tên (vd 2 file "notes.txt" xóa từ 2 folder) hiển thị riêng biệt với key unique.
      */
     private VirtualNode buildNode(TrashEntryEntity entity) {
-        FilePath path = new FilePath(FilePath.SCHEME_TRASH, entity.id, "/" + entity.displayName);
+        NodePath path = new NodePath(NodePath.SCHEME_TRASH, entity.id, "/" + entity.displayName);
         return new VirtualNode(path, entity.directory,
                 entity.directory ? -1L : entity.sizeBytes,
                 entity.deletedAtMillis, this);
