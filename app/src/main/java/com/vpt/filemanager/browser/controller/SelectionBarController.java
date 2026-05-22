@@ -1,6 +1,5 @@
 package com.vpt.filemanager.browser.controller;
 
-import java.util.EnumSet;
 import java.util.Set;
 
 import android.app.AlertDialog;
@@ -17,6 +16,8 @@ import com.vpt.filemanager.browser.NodeActionsBottomSheet;
 import com.vpt.filemanager.browser.PaneViewModel;
 import com.vpt.filemanager.browser.action.ShareAction;
 import com.vpt.filemanager.browser.action.TransferMode;
+import com.vpt.filemanager.browser.constraint.ActionConstraints;
+import com.vpt.filemanager.browser.constraint.WorkspaceState;
 import com.vpt.filemanager.browser.dialog.NameInputDialog;
 import com.vpt.filemanager.properties.PropertiesDialogFragment;
 
@@ -34,13 +35,10 @@ import com.vpt.filemanager.properties.PropertiesDialogFragment;
  *       bookmarks trực tiếp</li>
  * </ul>
  *
- * <p>Disable rules cho More sheet (xem {@link #computeDisabledActions}):
- * <ul>
- *   <li>multi-select → disable RENAME/PROPERTIES/OPEN_WITH/BOOKMARK (single-target only)</li>
- *   <li>single folder → disable OPEN_WITH (no external viewer for folders)</li>
- *   <li>single file → disable BOOKMARK (v1: bookmarks are folders)</li>
- *   <li>any archive entry → disable RENAME/DELETE/MOVE/COMPRESS (read-only)</li>
- * </ul>
+ * <p>Disable rules cho More sheet đã extract sang {@link
+ * com.vpt.filemanager.browser.constraint.ActionConstraints} ở Phase R-11a — controller chỉ build
+ * snapshot {@link com.vpt.filemanager.browser.constraint.WorkspaceState} và gọi compute, không own
+ * rule logic.
  */
 public final class SelectionBarController {
     private final DualPaneHostFragment host;
@@ -135,52 +133,28 @@ public final class SelectionBarController {
     }
 
     private void showMoreSheet() {
-        PaneViewModel vm = host.activeVm();
-        Set<FilePath> selection = vm.selection().getValue();
+        PaneViewModel activeVm = host.activeVm();
+        Set<FilePath> selection = activeVm.selection().getValue();
         if (selection == null || selection.isEmpty()) {
             return;
         }
         boolean single = selection.size() == 1;
         FilePath singlePath = single ? selection.iterator().next() : null;
-        VirtualNode singleNode = single ? vm.findNode(singlePath) : null;
+        VirtualNode singleNode = single ? activeVm.findNode(singlePath) : null;
+        Boolean singleIsFolder = singleNode != null ? singleNode.isFolder() : null;
+
+        // R-11a: rule logic owned by ActionConstraints — controller chỉ snapshot state.
+        WorkspaceState state = WorkspaceState.of(
+                selection,
+                singleIsFolder,
+                activeVm.currentPath(),
+                host.inactiveVm().currentPath());
 
         NodeActionsBottomSheet sheet = NodeActionsBottomSheet
                 .newInstance(single ? singlePath.name() : selection.size() + " items")
-                .setDisabledActions(computeDisabledActions(selection, singleNode))
+                .setDisabledActions(ActionConstraints.compute(state))
                 .setListener(action -> handleAction(action, singlePath));
         sheet.show(host.getChildFragmentManager(), "selection-more");
-    }
-
-    private EnumSet<NodeActionsBottomSheet.Action> computeDisabledActions(
-            Set<FilePath> selection, @Nullable VirtualNode singleNode) {
-        EnumSet<NodeActionsBottomSheet.Action> disabled =
-                EnumSet.noneOf(NodeActionsBottomSheet.Action.class);
-        boolean multi = selection.size() > 1;
-        if (multi) {
-            disabled.add(NodeActionsBottomSheet.Action.RENAME);
-            disabled.add(NodeActionsBottomSheet.Action.PROPERTIES);
-            disabled.add(NodeActionsBottomSheet.Action.OPEN_WITH);
-            disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
-        } else if (singleNode != null) {
-            if (singleNode.isFolder()) {
-                disabled.add(NodeActionsBottomSheet.Action.OPEN_WITH);
-            } else {
-                disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
-            }
-        }
-        for (FilePath p : selection) {
-            if (p.isArchive()) {
-                disabled.add(NodeActionsBottomSheet.Action.RENAME);
-                disabled.add(NodeActionsBottomSheet.Action.DELETE);
-                disabled.add(NodeActionsBottomSheet.Action.MOVE);
-                disabled.add(NodeActionsBottomSheet.Action.COMPRESS);
-                // Bookmark chỉ chấp nhận local path (BookmarkOps.add throws cho archive scheme).
-                // Disable từ UI để user không thấy action xong toast lỗi.
-                disabled.add(NodeActionsBottomSheet.Action.BOOKMARK);
-                break;
-            }
-        }
-        return disabled;
     }
 
     private void handleAction(NodeActionsBottomSheet.Action action, @Nullable FilePath singlePath) {
