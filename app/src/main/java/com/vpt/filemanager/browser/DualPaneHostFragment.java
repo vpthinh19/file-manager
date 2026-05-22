@@ -25,7 +25,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.util.AppExecutors;
 import com.vpt.filemanager.util.FileTreeChangeBus;
-import com.vpt.filemanager.util.MimeTypes;
+import com.vpt.filemanager.format.MimeTypes;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.node.FileCategory;
 import com.vpt.filemanager.node.FilePath;

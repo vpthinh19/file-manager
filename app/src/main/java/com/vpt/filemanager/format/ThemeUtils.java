@@ -1,4 +1,4 @@
-package com.vpt.filemanager.util;
+package com.vpt.filemanager.format;
 
 import android.content.Context;
 import android.content.res.Configuration;

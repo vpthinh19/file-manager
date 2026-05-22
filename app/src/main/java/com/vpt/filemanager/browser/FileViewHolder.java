@@ -12,7 +12,7 @@ import java.util.Date;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.browser.icon.FileIconView;
 import com.vpt.filemanager.browser.icon.IconCategory;
-import com.vpt.filemanager.util.ByteSize;
+import com.vpt.filemanager.format.ByteSize;
 import com.vpt.filemanager.node.VirtualNode;
 
 /**

@@ -12,7 +12,7 @@ import android.net.Uri;
 import androidx.core.content.FileProvider;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.util.MimeTypes;
+import com.vpt.filemanager.format.MimeTypes;
 import com.vpt.filemanager.node.FilePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;

@@ -36,7 +36,7 @@ import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.util.FileTreeChangeBus;
-import com.vpt.filemanager.util.ThemeUtils;
+import com.vpt.filemanager.format.ThemeUtils;
 import com.vpt.filemanager.util.ErrorPresenter;
 
 /**
