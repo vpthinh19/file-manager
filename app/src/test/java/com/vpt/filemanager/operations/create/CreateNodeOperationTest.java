@@ -17,8 +17,8 @@ import com.vpt.filemanager.data.db.dao.TrashDao;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
-import com.vpt.filemanager.operations.FileOps;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
+import com.vpt.filemanager.operations.trash.TrashStore;
 import com.vpt.filemanager.operations.conflict.NameConflictException;
 
 public final class CreateNodeOperationTest {
@@ -33,7 +33,7 @@ public final class CreateNodeOperationTest {
     @Before
     public void setUp() throws Exception {
         localSource = new LocalSource();
-        operation = new CreateNodeOperation(new FileOps(), new TrashOps(mock(TrashDao.class)));
+        operation = new CreateNodeOperation(new NodeFileBackend(), new TrashStore(mock(TrashDao.class)));
         rootDir = temp.getRoot().toPath();
         rootNode = localSource.resolve(NodePath.local(rootDir.toString().replace('\\', '/')));
     }

@@ -21,7 +21,7 @@ import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.FileOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
 import com.vpt.filemanager.operations.transfer.NameConflict;
 import com.vpt.filemanager.operations.transfer.TransferConflictDecision;
 import com.vpt.filemanager.operations.transfer.TransferConflictResolver;
@@ -45,7 +45,7 @@ public final class TransferAction {
     private final FileTreeChangeBus changeBus;
 
     private volatile Future<?> pendingBatch;
-    private volatile FileOps.CancellationToken pendingToken;
+    private volatile NodeFileBackend.CancellationToken pendingToken;
 
     public TransferAction(DualPaneHostFragment host,
                           AppExecutors executors,
@@ -60,7 +60,7 @@ public final class TransferAction {
     }
 
     public void cancel() {
-        FileOps.CancellationToken token = pendingToken;
+        NodeFileBackend.CancellationToken token = pendingToken;
         if (token != null) {
             token.cancel();
         }
@@ -92,7 +92,7 @@ public final class TransferAction {
         List<NodePath> snapshot = List.copyOf(selection);
         activeVm.exitSelectionMode();
 
-        FileOps.CancellationToken token = new FileOps.CancellationToken();
+        NodeFileBackend.CancellationToken token = new NodeFileBackend.CancellationToken();
         pendingToken = token;
         pendingBatch = executors.io().submit(() -> runTransfer(mode, snapshot, dstParentPath, token));
     }
@@ -100,7 +100,7 @@ public final class TransferAction {
     private void runTransfer(@NonNull TransferMode mode,
                              @NonNull List<NodePath> snapshot,
                              @NonNull NodePath dstParentPath,
-                             @NonNull FileOps.CancellationToken token) {
+                             @NonNull NodeFileBackend.CancellationToken token) {
         try {
             VirtualNode dstParent;
             try {
@@ -164,9 +164,9 @@ public final class TransferAction {
     }
 
     private final class DialogConflictResolver implements TransferConflictResolver {
-        private final FileOps.CancellationToken token;
+        private final NodeFileBackend.CancellationToken token;
 
-        DialogConflictResolver(FileOps.CancellationToken token) {
+        DialogConflictResolver(NodeFileBackend.CancellationToken token) {
             this.token = token;
         }
 

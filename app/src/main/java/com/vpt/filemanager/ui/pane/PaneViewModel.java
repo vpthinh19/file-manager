@@ -25,7 +25,7 @@ import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.operations.sort.SortOrder;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.BatchResult;
+import com.vpt.filemanager.operations.result.BatchResult;
 import com.vpt.filemanager.operations.bookmark.AddBookmarkOperation;
 import com.vpt.filemanager.operations.bookmark.RemoveBookmarksOperation;
 import com.vpt.filemanager.operations.delete.DeleteNodesOperation;

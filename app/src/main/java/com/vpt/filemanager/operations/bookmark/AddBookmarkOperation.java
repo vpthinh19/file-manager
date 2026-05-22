@@ -7,7 +7,7 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.BookmarkOps;
+import com.vpt.filemanager.operations.bookmark.BookmarkStore;
 
 /**
  * Add one virtual node to bookmarks.
@@ -17,8 +17,8 @@ public final class AddBookmarkOperation {
     private final AddBookmark addBookmark;
 
     @Inject
-    public AddBookmarkOperation(BookmarkOps bookmarkOps) {
-        this(bookmarkOps::add);
+    public AddBookmarkOperation(BookmarkStore bookmarkStore) {
+        this(bookmarkStore::add);
     }
 
     public AddBookmarkOperation(AddBookmark addBookmark) {

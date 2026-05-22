@@ -1,4 +1,4 @@
-package com.vpt.filemanager.operations;
+package com.vpt.filemanager.operations.trash;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -16,6 +16,7 @@ import com.vpt.filemanager.rules.storage.StorageScope;
 import com.vpt.filemanager.data.db.entity.TrashEntryEntity;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
 
 /**
  * Orchestrator cho Trash bin — phối hợp file system (move file vào {@code .AppTrash/}) và
@@ -36,19 +37,19 @@ import com.vpt.filemanager.node.VirtualNode;
  * Toast/Dialog. KHÔNG silent overwrite (user data preservation).
  */
 @Singleton
-public final class TrashOps {
+public final class TrashStore {
     private static final String TRASH_DIR = ".AppTrash";
     private static final String FILES_SUBDIR = "files";
 
     private final TrashDao dao;
 
     @Inject
-    public TrashOps(TrashDao dao) {
+    public TrashStore(TrashDao dao) {
         this.dao = dao;
     }
 
     /**
-     * Soft delete: move file vào trash + ghi Room entry. {@link FileOps#delete(VirtualNode)} là
+     * Soft delete: move file vào trash + ghi Room entry. {@link NodeFileBackend#delete(VirtualNode)} là
      * hard delete (permanent).
      */
     public void moveToTrash(VirtualNode node) throws NodeException {

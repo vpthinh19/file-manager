@@ -8,8 +8,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodePath;
-import com.vpt.filemanager.operations.BatchResult;
-import com.vpt.filemanager.operations.BookmarkOps;
+import com.vpt.filemanager.operations.result.BatchResult;
+import com.vpt.filemanager.operations.bookmark.BookmarkStore;
 
 /**
  * Remove bookmark rows by local path.
@@ -19,8 +19,8 @@ public final class RemoveBookmarksOperation {
     private final RemoveBookmark removeBookmark;
 
     @Inject
-    public RemoveBookmarksOperation(BookmarkOps bookmarkOps) {
-        this(bookmarkOps::removeByPath);
+    public RemoveBookmarksOperation(BookmarkStore bookmarkStore) {
+        this(bookmarkStore::removeByPath);
     }
 
     public RemoveBookmarksOperation(RemoveBookmark removeBookmark) {

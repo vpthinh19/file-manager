@@ -15,7 +15,7 @@ import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.NodeSource;
-import com.vpt.filemanager.operations.BatchResult;
+import com.vpt.filemanager.operations.result.BatchResult;
 
 public final class BookmarkOperationsTest {
     private static final NodeSource SOURCE = new StubSource();

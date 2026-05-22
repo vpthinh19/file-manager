@@ -9,9 +9,9 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.FileOps;
-import com.vpt.filemanager.operations.NameDeconflict;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
+import com.vpt.filemanager.operations.conflict.UniqueNameGenerator;
+import com.vpt.filemanager.operations.trash.TrashStore;
 
 /**
  * Batch copy/move operation over virtual nodes.
@@ -22,13 +22,13 @@ import com.vpt.filemanager.operations.TrashOps;
  */
 @Singleton
 public final class TransferOperation {
-    private final FileOps fileOps;
-    private final TrashOps trashOps;
+    private final NodeFileBackend fileBackend;
+    private final TrashStore trashStore;
 
     @Inject
-    public TransferOperation(FileOps fileOps, TrashOps trashOps) {
-        this.fileOps = fileOps;
-        this.trashOps = trashOps;
+    public TransferOperation(NodeFileBackend fileBackend, TrashStore trashStore) {
+        this.fileBackend = fileBackend;
+        this.trashStore = trashStore;
     }
 
     @NonNull
@@ -56,9 +56,9 @@ public final class TransferOperation {
                     break;
                 }
                 if (input.kind == TransferKind.COPY) {
-                    fileOps.copy(src, input.targetParent, targetName, input.token);
+                    fileBackend.copy(src, input.targetParent, targetName, input.token);
                 } else {
-                    fileOps.move(src, input.targetParent, targetName, input.token);
+                    fileBackend.move(src, input.targetParent, targetName, input.token);
                 }
                 ok++;
             } catch (NodeException e) {
@@ -74,7 +74,7 @@ public final class TransferOperation {
     private String resolveTargetName(@NonNull VirtualNode targetParent,
                                      @NonNull String requestedName,
                                      @NonNull TransferConflictResolver resolver,
-                                     @NonNull FileOps.CancellationToken token)
+                                     @NonNull NodeFileBackend.CancellationToken token)
             throws NodeException {
         VirtualNode existing = findChild(targetParent, requestedName);
         if (existing == null) {
@@ -88,10 +88,10 @@ public final class TransferOperation {
             return requestedName;
         }
         if (decision == TransferConflictDecision.REPLACE) {
-            trashOps.moveToTrash(existing);
+            trashStore.moveToTrash(existing);
             return requestedName;
         }
-        return NameDeconflict.uniqueName(targetParent, requestedName);
+        return UniqueNameGenerator.uniqueName(targetParent, requestedName);
     }
 
     private static VirtualNode findChild(VirtualNode parent, String name) throws NodeException {
@@ -108,13 +108,13 @@ public final class TransferOperation {
         @NonNull public final VirtualNode targetParent;
         @NonNull public final TransferKind kind;
         @NonNull public final TransferConflictResolver resolver;
-        @NonNull public final FileOps.CancellationToken token;
+        @NonNull public final NodeFileBackend.CancellationToken token;
 
         public Input(@NonNull List<VirtualNode> sources,
                      @NonNull VirtualNode targetParent,
                      @NonNull TransferKind kind,
                      @NonNull TransferConflictResolver resolver,
-                     @NonNull FileOps.CancellationToken token) {
+                     @NonNull NodeFileBackend.CancellationToken token) {
             this.sources = List.copyOf(sources);
             this.targetParent = targetParent;
             this.kind = kind;

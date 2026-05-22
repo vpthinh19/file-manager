@@ -193,7 +193,7 @@ public final class SelectionBarController {
                 break;
             case BOOKMARK:
                 // R-8: enabled chỉ với single + folder + local (xem computeDisabledActions).
-                // VM lo idempotency qua BookmarkOps.add (duplicate path là no-op).
+                // VM lo idempotency qua BookmarkStore.add (duplicate path là no-op).
                 vm.addBookmarkSelected();
                 break;
             case COPY:

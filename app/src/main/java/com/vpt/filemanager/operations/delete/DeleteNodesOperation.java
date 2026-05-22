@@ -9,18 +9,18 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.trash.TrashStore;
 
 /**
  * Soft-delete virtual nodes by moving them to Trash.
  */
 @Singleton
 public final class DeleteNodesOperation {
-    private final TrashOps trashOps;
+    private final TrashStore trashStore;
 
     @Inject
-    public DeleteNodesOperation(TrashOps trashOps) {
-        this.trashOps = trashOps;
+    public DeleteNodesOperation(TrashStore trashStore) {
+        this.trashStore = trashStore;
     }
 
     @NonNull
@@ -29,7 +29,7 @@ public final class DeleteNodesOperation {
             return new Result(0, 0, null);
         }
         if (!input.continueOnFailure && input.nodes.size() == 1) {
-            trashOps.moveToTrash(input.nodes.get(0));
+            trashStore.moveToTrash(input.nodes.get(0));
             return new Result(1, 0, null);
         }
 
@@ -38,7 +38,7 @@ public final class DeleteNodesOperation {
         String lastError = null;
         for (VirtualNode node : input.nodes) {
             try {
-                trashOps.moveToTrash(node);
+                trashStore.moveToTrash(node);
                 ok++;
             } catch (NodeException e) {
                 if (!input.continueOnFailure) {

@@ -18,8 +18,8 @@ import com.vpt.filemanager.data.db.dao.TrashDao;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
-import com.vpt.filemanager.operations.FileOps;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
+import com.vpt.filemanager.operations.trash.TrashStore;
 
 public final class TransferOperationTest {
     @Rule
@@ -35,7 +35,7 @@ public final class TransferOperationTest {
     @Before
     public void setUp() throws Exception {
         localSource = new LocalSource();
-        operation = new TransferOperation(new FileOps(), new TrashOps(mock(TrashDao.class)));
+        operation = new TransferOperation(new NodeFileBackend(), new TrashStore(mock(TrashDao.class)));
         rootDir = temp.getRoot().toPath();
         srcDir = Files.createDirectories(rootDir.resolve("src"));
         dstDir = Files.createDirectories(rootDir.resolve("dst"));
@@ -51,7 +51,7 @@ public final class TransferOperationTest {
                 dstNode,
                 TransferKind.COPY,
                 conflict -> TransferConflictDecision.CANCEL,
-                FileOps.CancellationToken.neverCancelled()));
+                NodeFileBackend.CancellationToken.neverCancelled()));
 
         assertEquals(1, result.ok);
         assertEquals(0, result.failed);
@@ -69,7 +69,7 @@ public final class TransferOperationTest {
                 dstNode,
                 TransferKind.COPY,
                 conflict -> TransferConflictDecision.KEEP_BOTH,
-                FileOps.CancellationToken.neverCancelled()));
+                NodeFileBackend.CancellationToken.neverCancelled()));
 
         assertEquals(1, result.ok);
         assertEquals("old", readUtf8(dstDir.resolve("a.txt")));
@@ -87,7 +87,7 @@ public final class TransferOperationTest {
                 dstNode,
                 TransferKind.COPY,
                 conflict -> TransferConflictDecision.CANCEL,
-                FileOps.CancellationToken.neverCancelled()));
+                NodeFileBackend.CancellationToken.neverCancelled()));
 
         assertEquals(0, result.ok);
         assertEquals(0, result.failed);

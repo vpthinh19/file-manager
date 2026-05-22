@@ -9,7 +9,7 @@ import java.util.List;
 import org.junit.Test;
 
 import com.vpt.filemanager.node.NodeException;
-import com.vpt.filemanager.operations.BatchResult;
+import com.vpt.filemanager.operations.result.BatchResult;
 
 public final class TrashOperationsTest {
     @Test

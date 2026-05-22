@@ -8,8 +8,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
-import com.vpt.filemanager.operations.BatchResult;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.result.BatchResult;
+import com.vpt.filemanager.operations.trash.TrashStore;
 
 /**
  * Restore selected trash entries by entry id.
@@ -19,8 +19,8 @@ public final class RestoreTrashEntriesOperation {
     private final RestoreEntry restoreEntry;
 
     @Inject
-    public RestoreTrashEntriesOperation(TrashOps trashOps) {
-        this(trashOps::restore);
+    public RestoreTrashEntriesOperation(TrashStore trashStore) {
+        this(trashStore::restore);
     }
 
     public RestoreTrashEntriesOperation(RestoreEntry restoreEntry) {

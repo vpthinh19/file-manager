@@ -1,4 +1,4 @@
-package com.vpt.filemanager.operations;
+package com.vpt.filemanager.operations.bookmark;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +17,7 @@ import com.vpt.filemanager.node.VirtualNode;
 /**
  * Quản lý bookmark folder/file. Pure Room — không đụng FS layer. Click bookmark từ drawer sẽ
  * resolve path → LocalSource.resolve() để dựng VirtualNode mở folder thật. Đây là lý do
- * BookmarkOps không cần biết NodeSource.
+ * BookmarkStore không cần biết NodeSource.
  *
  * <p>v1 scope: chỉ bookmark folder (UI sẽ disable BOOKMARK action cho file ở Phase R-8). Schema
  * vẫn nhận file để forward-compat — đổi UI rule là 1 dòng, không phải migrate schema.
@@ -26,11 +26,11 @@ import com.vpt.filemanager.node.VirtualNode;
  * "Add bookmark" trên cùng item nhiều lần.
  */
 @Singleton
-public final class BookmarkOps {
+public final class BookmarkStore {
     private final BookmarkDao dao;
 
     @Inject
-    public BookmarkOps(BookmarkDao dao) {
+    public BookmarkStore(BookmarkDao dao) {
         this.dao = dao;
     }
 

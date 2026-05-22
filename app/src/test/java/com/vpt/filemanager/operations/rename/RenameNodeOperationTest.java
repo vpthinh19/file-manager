@@ -18,7 +18,7 @@ import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
-import com.vpt.filemanager.operations.FileOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
 
 public final class RenameNodeOperationTest {
     @Rule
@@ -31,7 +31,7 @@ public final class RenameNodeOperationTest {
     @Before
     public void setUp() {
         localSource = new LocalSource();
-        operation = new RenameNodeOperation(new FileOps());
+        operation = new RenameNodeOperation(new NodeFileBackend());
         rootDir = temp.getRoot().toPath();
     }
 

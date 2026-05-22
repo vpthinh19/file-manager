@@ -31,7 +31,7 @@ import com.vpt.filemanager.node.VirtualNode;
  * archive file (đã URL-encoded), path = inner path bên trong zip ({@code /} = archive root).
  * Ví dụ: {@code archive://file%3A%2F%2F%2Fstorage%2Fphotos.zip/photos/cat.jpg}.
  *
- * <p><b>Capability v1</b>: chỉ read. Phase 2C-6 thêm extract qua {@code FileOps.copy}, phase
+ * <p><b>Capability v1</b>: chỉ read. Phase 2C-6 thêm extract qua {@code NodeFileBackend.copy}, phase
  * 3 thêm libarchive native cho 7z/RAR/TAR.
  *
  * <p><b>Thread-safety</b>: {@link ZipFile} thread-safe cho concurrent reads (Javadoc). Cache

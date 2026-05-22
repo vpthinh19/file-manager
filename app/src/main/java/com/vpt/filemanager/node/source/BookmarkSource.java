@@ -24,7 +24,7 @@ import com.vpt.filemanager.node.VirtualNode;
  * <ul>
  *   <li>Click 1 bookmark folder trong pane → navigate vào folder thật (scheme=file) — opener flow
  *       chuẩn, không có code path đặc biệt.</li>
- *   <li>Long-press bookmark → selection mode với scheme=file path → {@link com.vpt.filemanager.operations.BookmarkOps#remove}
+ *   <li>Long-press bookmark → selection mode với scheme=file path → {@link com.vpt.filemanager.operations.bookmark.BookmarkStore#remove}
  *       xoá theo path lookup. UI layer detect "pane đang ở bookmark root" qua active VM
  *       currentPath().scheme(), không qua path của children.</li>
  * </ul>
@@ -33,7 +33,7 @@ import com.vpt.filemanager.node.VirtualNode;
  * throw {@link NodeException} — list() skip silently + Timber log. Drop-bookmark-on-broken là việc
  * của user (qua remove action) hoặc Phase 2D cleanup job.
  *
- * <p><b>Write API</b>: read-only — BookmarkOps sở hữu add/remove. Bookmark root không support
+ * <p><b>Write API</b>: read-only — BookmarkStore sở hữu add/remove. Bookmark root không support
  * createFile/createFolder/rename (semantic: bookmark = shortcut, không phải folder thật).
  */
 @Singleton
@@ -90,7 +90,7 @@ public final class BookmarkSource implements NodeSource {
         throw new NodeException("Bookmark is a shortcut layer — write via the underlying file path");
     }
 
-    // ─────────────── Write API: Bookmark read-only (BookmarkOps owns mutation) ───────────────
+    // ─────────────── Write API: Bookmark read-only (BookmarkStore owns mutation) ───────────────
 
     @Override
     public boolean supportsWrite() {
@@ -114,6 +114,6 @@ public final class BookmarkSource implements NodeSource {
 
     @Override
     public void delete(VirtualNode node) throws NodeException {
-        throw new NodeException("Use BookmarkOps for bookmark mutations");
+        throw new NodeException("Use BookmarkStore for bookmark mutations");
     }
 }

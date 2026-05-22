@@ -26,8 +26,8 @@ import com.vpt.filemanager.node.VirtualNode;
  * <p><b>Click semantic</b>: trashed node KHÔNG mở được — UI tap-as-select gate ở
  * {@code PaneFragment} (xem R-7b). {@link #read} throw để defense-in-depth nếu opener nhỡ gọi tới.
  *
- * <p><b>Write API</b>: read-only — {@code TrashOps} sở hữu flow restore/empty riêng (xem
- * {@link com.vpt.filemanager.operations.TrashOps}). v1 không cho rename/createFile trong Trash.
+ * <p><b>Write API</b>: read-only — {@code TrashStore} sở hữu flow restore/empty riêng (xem
+ * {@link com.vpt.filemanager.operations.trash.TrashStore}). v1 không cho rename/createFile trong Trash.
  *
  * <p><b>Folder browsing</b>: v1 chỉ list root. Trashed folder không expandable (entry là 1 blob)
  * — nếu cần inspect bên trong, user phải restore trước. Phase 2D có thể cân nhắc browse-inside.
@@ -92,7 +92,7 @@ public final class TrashSource implements NodeSource {
         throw new NodeException("Trash is read-only — restore first to edit");
     }
 
-    // ─────────────── Write API: Trash read-only (TrashOps owns mutation) ───────────────
+    // ─────────────── Write API: Trash read-only (TrashStore owns mutation) ───────────────
 
     @Override
     public boolean supportsWrite() {
@@ -116,9 +116,9 @@ public final class TrashSource implements NodeSource {
 
     @Override
     public void delete(VirtualNode node) throws NodeException {
-        // TrashOps.emptyAll / deleteForever owns hard-delete flow. NodeSource.delete() được
-        // FileOps.delete gate qua supportsWrite=false trước khi gọi → never reach đây từ FileOps.
-        throw new NodeException("Use TrashOps for trash mutations");
+        // TrashStore.emptyAll / deleteForever owns hard-delete flow. NodeSource.delete() được
+        // NodeFileBackend.delete gate qua supportsWrite=false trước khi gọi → never reach đây từ NodeFileBackend.
+        throw new NodeException("Use TrashStore for trash mutations");
     }
 
     /**

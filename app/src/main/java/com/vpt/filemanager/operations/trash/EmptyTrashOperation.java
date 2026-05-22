@@ -4,7 +4,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.trash.TrashStore;
 
 /**
  * Empty all trash entries.
@@ -14,8 +14,8 @@ public final class EmptyTrashOperation {
     private final EmptyTrash emptyTrash;
 
     @Inject
-    public EmptyTrashOperation(TrashOps trashOps) {
-        this(trashOps::emptyAll);
+    public EmptyTrashOperation(TrashStore trashStore) {
+        this(trashStore::emptyAll);
     }
 
     public EmptyTrashOperation(EmptyTrash emptyTrash) {

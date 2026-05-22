@@ -1,4 +1,4 @@
-package com.vpt.filemanager.operations;
+package com.vpt.filemanager.operations.support;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -24,7 +24,7 @@ import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
 
 /**
- * JVM unit test cho {@link FileOps#copy} / {@link FileOps#move} với {@link LocalSource} thật trên
+ * JVM unit test cho {@link NodeFileBackend#copy} / {@link NodeFileBackend#move} với {@link LocalSource} thật trên
  * temp folder. Cover các nhánh chính:
  *
  * <ul>
@@ -36,12 +36,12 @@ import com.vpt.filemanager.node.source.LocalSource;
  *   <li>CancellationToken pre-cancelled → skip stream copy mid-batch</li>
  * </ul>
  */
-public final class FileOpsCopyMoveTest {
+public final class NodeFileBackendCopyMoveTest {
     @Rule
     public final TemporaryFolder temp = new TemporaryFolder();
 
     private LocalSource localSource;
-    private FileOps fileOps;
+    private NodeFileBackend fileBackend;
     private Path rootDir;
     private NodePath rootFp;
     private VirtualNode rootNode;
@@ -49,7 +49,7 @@ public final class FileOpsCopyMoveTest {
     @Before
     public void setUp() throws Exception {
         localSource = new LocalSource();
-        fileOps = new FileOps();
+        fileBackend = new NodeFileBackend();
         rootDir = temp.getRoot().toPath();
         rootFp = NodePath.local(rootDir.toString().replace('\\', '/'));
         rootNode = localSource.resolve(rootFp);
@@ -60,8 +60,8 @@ public final class FileOpsCopyMoveTest {
         Path src = Files.write(rootDir.resolve("src.txt"), "hello".getBytes(StandardCharsets.UTF_8));
         VirtualNode srcNode = localSource.resolve(filePathOf(src));
 
-        VirtualNode copied = fileOps.copy(srcNode, rootNode, "dst.txt",
-                FileOps.CancellationToken.neverCancelled());
+        VirtualNode copied = fileBackend.copy(srcNode, rootNode, "dst.txt",
+                NodeFileBackend.CancellationToken.neverCancelled());
 
         assertNotNull(copied);
         assertTrue(Files.exists(src));
@@ -77,8 +77,8 @@ public final class FileOpsCopyMoveTest {
         Files.write(srcDir.getParent().resolve("b.txt"), "B".getBytes(StandardCharsets.UTF_8));
         VirtualNode srcNode = localSource.resolve(filePathOf(srcDir.getParent()));
 
-        VirtualNode copied = fileOps.copy(srcNode, rootNode, "dstDir",
-                FileOps.CancellationToken.neverCancelled());
+        VirtualNode copied = fileBackend.copy(srcNode, rootNode, "dstDir",
+                NodeFileBackend.CancellationToken.neverCancelled());
 
         assertTrue(copied.isFolder());
         Path dstRoot = rootDir.resolve("dstDir");
@@ -95,8 +95,8 @@ public final class FileOpsCopyMoveTest {
         Path src = Files.write(rootDir.resolve("src.txt"), "X".getBytes(StandardCharsets.UTF_8));
         VirtualNode srcNode = localSource.resolve(filePathOf(src));
 
-        fileOps.move(srcNode, rootNode, "moved.txt",
-                FileOps.CancellationToken.neverCancelled());
+        fileBackend.move(srcNode, rootNode, "moved.txt",
+                NodeFileBackend.CancellationToken.neverCancelled());
 
         assertFalse("Source must be gone after move", Files.exists(src));
         Path dst = rootDir.resolve("moved.txt");
@@ -110,8 +110,8 @@ public final class FileOpsCopyMoveTest {
         Files.write(srcDir.resolve("leaf.txt"), "L".getBytes(StandardCharsets.UTF_8));
         VirtualNode srcNode = localSource.resolve(filePathOf(srcDir.getParent()));
 
-        fileOps.move(srcNode, rootNode, "newName",
-                FileOps.CancellationToken.neverCancelled());
+        fileBackend.move(srcNode, rootNode, "newName",
+                NodeFileBackend.CancellationToken.neverCancelled());
 
         assertFalse(Files.exists(srcDir.getParent()));
         Path dst = rootDir.resolve("newName");
@@ -126,8 +126,8 @@ public final class FileOpsCopyMoveTest {
         VirtualNode srcNode = localSource.resolve(filePathOf(src));
 
         assertThrows(NodeException.class,
-                () -> fileOps.copy(srcNode, rootNode, "dst.txt",
-                        FileOps.CancellationToken.neverCancelled()));
+                () -> fileBackend.copy(srcNode, rootNode, "dst.txt",
+                        NodeFileBackend.CancellationToken.neverCancelled()));
         // Dest gốc giữ nguyên — copy fail-fast, không corrupt
         assertEquals("B", readUtf8(rootDir.resolve("dst.txt")));
     }
@@ -138,8 +138,8 @@ public final class FileOpsCopyMoveTest {
         VirtualNode srcNode = localSource.resolve(filePathOf(src));
 
         assertThrows(NodeException.class,
-                () -> fileOps.copy(srcNode, rootNode, "bad/name.txt",
-                        FileOps.CancellationToken.neverCancelled()));
+                () -> fileBackend.copy(srcNode, rootNode, "bad/name.txt",
+                        NodeFileBackend.CancellationToken.neverCancelled()));
         assertFalse(Files.exists(rootDir.resolve("bad")));
     }
 
@@ -150,12 +150,12 @@ public final class FileOpsCopyMoveTest {
             Files.write(srcDir.resolve(name), name.getBytes(StandardCharsets.UTF_8));
         }
         VirtualNode srcNode = localSource.resolve(filePathOf(srcDir));
-        FileOps.CancellationToken token = new FileOps.CancellationToken();
+        NodeFileBackend.CancellationToken token = new NodeFileBackend.CancellationToken();
         token.cancel();
 
         // Pre-cancelled: copy throws NodeException + dst phải biến mất hoàn toàn (atomic semantic).
         assertThrows(NodeException.class,
-                () -> fileOps.copy(srcNode, rootNode, "dstDir", token));
+                () -> fileBackend.copy(srcNode, rootNode, "dstDir", token));
         assertFalse("Cancel must leave no partial dst", Files.exists(rootDir.resolve("dstDir")));
         // Source giữ nguyên — copy is read-only on src.
         assertTrue(Files.isDirectory(srcDir));
@@ -172,7 +172,7 @@ public final class FileOpsCopyMoveTest {
         Path src = Files.write(rootDir.resolve("a.txt"), "z".getBytes(StandardCharsets.UTF_8));
         VirtualNode srcNode = localSource.resolve(filePathOf(src));
 
-        fileOps.move(srcNode, rootNode, "b.txt", FileOps.CancellationToken.neverCancelled());
+        fileBackend.move(srcNode, rootNode, "b.txt", NodeFileBackend.CancellationToken.neverCancelled());
 
         assertFalse(Files.exists(src));
         assertTrue(Files.exists(rootDir.resolve("b.txt")));

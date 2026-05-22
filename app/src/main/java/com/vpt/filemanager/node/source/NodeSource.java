@@ -46,12 +46,12 @@ public interface NodeSource {
 
     /**
      * Mở stream ghi nội dung file (truncate existing, create if missing). Symmetric với {@link #read}.
-     * Phase C-1a (Copy/Move foundation): dùng cho cross-source stream copy trong {@code FileOps.copy}.
+     * Phase C-1a (Copy/Move foundation): dùng cho cross-source stream copy trong {@code NodeFileBackend.copy}.
      *
      * <p>Caller phải đảm bảo {@code file.isFolder() == false}. Source read-only (Archive v1, Trash,
      * Bookmark) phải throw thay vì silent no-op để fail-fast tại boundary.
      *
-     * <p>Caller-side: KHÔNG buffer thêm BufferedOutputStream — caller (FileOps) tự quản byte buffer
+     * <p>Caller-side: KHÔNG buffer thêm BufferedOutputStream — caller (NodeFileBackend) tự quản byte buffer
      * 64KB để tránh double-buffering memory waste.
      *
      * @throws NodeException khi file là folder, source read-only, hoặc IO lỗi (vd parent missing)
@@ -60,11 +60,11 @@ public interface NodeSource {
 
     // ─────────────────────────── Write API (Phase R-4) ───────────────────────────
     // Source nào không support write (vd ArchiveSource v1) phải override các method này throw
-    // NodeException với message rõ. FileOps facade gate qua supportsWrite() trước khi gọi.
+    // NodeException với message rõ. NodeFileBackend facade gate qua supportsWrite() trước khi gọi.
 
     /**
      * {@code true} nếu source này hỗ trợ create/rename/delete. ArchiveSource v1 = false.
-     * Caller (FileOps) check trước khi gọi write methods để fail-fast với message rõ thay vì
+     * Caller (NodeFileBackend) check trước khi gọi write methods để fail-fast với message rõ thay vì
      * bắt NodeException ở layer thấp.
      */
     boolean supportsWrite();
@@ -96,7 +96,7 @@ public interface NodeSource {
     /**
      * Xóa permanent (không qua Trash). Folder = xóa đệ quy.
      *
-     * <p><b>Note</b>: TrashOps có flow riêng để move-to-trash (FS move + Room insert) — KHÔNG
+     * <p><b>Note</b>: TrashStore có flow riêng để move-to-trash (FS move + Room insert) — KHÔNG
      * gọi delete() ở đây cho soft-delete. Caller (PaneViewModel) phân biệt soft vs hard tại
      * layer trên.
      *

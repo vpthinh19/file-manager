@@ -1,4 +1,4 @@
-package com.vpt.filemanager.operations;
+package com.vpt.filemanager.operations.support;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +17,7 @@ import javax.inject.Singleton;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.operations.trash.TrashStore;
 
 /**
  * Facade cho file CRUD trên VirtualNode tree. Inspect node, dispatch xuống
@@ -30,27 +31,27 @@ import com.vpt.filemanager.node.VirtualNode;
  *       cùng filesystem, copy+delete khi qua filesystem khác (vd SD card).</li>
  *   <li><b>Cross-source / non-local</b>: generic stream copy qua {@link VirtualNode#openRead} →
  *       {@link VirtualNode#openWrite}. Folder = đệ quy children + createFolder per level.</li>
- *   <li><b>Conflict</b>: FileOps không tự resolve — caller (Worker / VM) check tồn tại trước và
+ *   <li><b>Conflict</b>: NodeFileBackend không tự resolve — caller (Worker / VM) check tồn tại trước và
  *       chọn policy. {@link CancellationToken} cho phép Worker abort mid-stream.</li>
  * </ul>
  *
- * <p>Trash soft-delete KHÔNG đi qua FileOps — dùng {@link TrashOps#moveToTrash(VirtualNode)}.
- * FileOps.delete() là PERMANENT.
+ * <p>Trash soft-delete KHÔNG đi qua NodeFileBackend — dùng {@link TrashStore#moveToTrash(VirtualNode)}.
+ * NodeFileBackend.delete() là PERMANENT.
  *
  * <p>Stateless singleton — không hold reference VM/Fragment. Caller (PaneViewModel / Worker) wrap
  * call trong {@code executors.io().submit(...)} + catch NodeException ở boundary để format
  * Toast/Dialog.
  */
 @Singleton
-public final class FileOps {
+public final class NodeFileBackend {
     private static final int COPY_BUFFER_BYTES = 64 * 1024;
 
     @Inject
-    public FileOps() {
+    public NodeFileBackend() {
     }
 
     /**
-     * Token huỷ tác vụ stream copy. Worker set {@code cancelled} từ outside; FileOps check sau mỗi
+     * Token huỷ tác vụ stream copy. Worker set {@code cancelled} từ outside; NodeFileBackend check sau mỗi
      * buffer write. Tách khỏi {@code Thread.interrupt()} để Worker có thể quản lý semantic cancel
      * riêng (vd "Skip this item" ≠ "Cancel all").
      */
@@ -95,7 +96,7 @@ public final class FileOps {
     }
 
     /**
-     * <b>Permanent delete</b>. Folder = xóa đệ quy. Gọi {@link TrashOps#moveToTrash} cho soft delete.
+     * <b>Permanent delete</b>. Folder = xóa đệ quy. Gọi {@link TrashStore#moveToTrash} cho soft delete.
      */
     public void delete(VirtualNode node) throws NodeException {
         validateWritable(node);
@@ -106,7 +107,7 @@ public final class FileOps {
 
     /**
      * Copy node (file hoặc folder) vào {@code targetParent} với tên {@code newName}. Conflict
-     * resolution là việc của caller — FileOps throw nếu {@code newName} đã có trong targetParent.
+     * resolution là việc của caller — NodeFileBackend throw nếu {@code newName} đã có trong targetParent.
      *
      * <p>Folder copy đệ quy — file children copy qua stream, sub-folder gọi đệ quy. Partial copy
      * khi fail giữa chừng (vd disk full): các entry đã copy sẽ giữ nguyên — caller chịu cleanup

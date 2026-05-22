@@ -17,7 +17,7 @@ public final class AppDatabaseMigrations {
     }
 
     /**
-     * v1 → v2: add {@code bookmark_entries} table cho Phase R-4 BookmarkOps. Schema khớp với
+     * v1 → v2: add {@code bookmark_entries} table cho Phase R-4 BookmarkStore. Schema khớp với
      * {@link com.vpt.filemanager.data.db.entity.BookmarkEntryEntity}.
      */
     public static final Migration MIGRATION_1_2 = new Migration(1, 2) {

@@ -7,23 +7,23 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.FileOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
 
 /**
  * Rename one virtual node inside its current parent.
  */
 @Singleton
 public final class RenameNodeOperation {
-    private final FileOps fileOps;
+    private final NodeFileBackend fileBackend;
 
     @Inject
-    public RenameNodeOperation(FileOps fileOps) {
-        this.fileOps = fileOps;
+    public RenameNodeOperation(NodeFileBackend fileBackend) {
+        this.fileBackend = fileBackend;
     }
 
     @NonNull
     public VirtualNode execute(@NonNull Input input) throws NodeException {
-        return fileOps.rename(input.node, input.newName);
+        return fileBackend.rename(input.node, input.newName);
     }
 
     public static final class Input {

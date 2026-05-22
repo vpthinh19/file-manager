@@ -1,4 +1,4 @@
-package com.vpt.filemanager.operations;
+package com.vpt.filemanager.operations.result;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;

@@ -1,4 +1,4 @@
-package com.vpt.filemanager.operations;
+package com.vpt.filemanager.operations.conflict;
 
 import androidx.annotation.NonNull;
 
@@ -17,8 +17,8 @@ import com.vpt.filemanager.node.VirtualNode;
  * <p>Works through the virtual node tree, so create and transfer flows do not need local-only
  * {@code File.exists()} checks.
  */
-public final class NameDeconflict {
-    private NameDeconflict() {
+public final class UniqueNameGenerator {
+    private UniqueNameGenerator() {
     }
 
     private static final int MAX_ATTEMPTS = 1000;

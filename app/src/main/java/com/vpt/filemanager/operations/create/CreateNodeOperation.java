@@ -7,9 +7,9 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.FileOps;
-import com.vpt.filemanager.operations.NameDeconflict;
-import com.vpt.filemanager.operations.TrashOps;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
+import com.vpt.filemanager.operations.conflict.UniqueNameGenerator;
+import com.vpt.filemanager.operations.trash.TrashStore;
 import com.vpt.filemanager.operations.conflict.NameConflictException;
 
 /**
@@ -21,13 +21,13 @@ import com.vpt.filemanager.operations.conflict.NameConflictException;
  */
 @Singleton
 public final class CreateNodeOperation {
-    private final FileOps fileOps;
-    private final TrashOps trashOps;
+    private final NodeFileBackend fileBackend;
+    private final TrashStore trashStore;
 
     @Inject
-    public CreateNodeOperation(FileOps fileOps, TrashOps trashOps) {
-        this.fileOps = fileOps;
-        this.trashOps = trashOps;
+    public CreateNodeOperation(NodeFileBackend fileBackend, TrashStore trashStore) {
+        this.fileBackend = fileBackend;
+        this.trashStore = trashStore;
     }
 
     @NonNull
@@ -40,14 +40,14 @@ public final class CreateNodeOperation {
                 throw new NameConflictException(name, existing);
             }
             if (input.policy == ExistingNamePolicy.REPLACE) {
-                trashOps.moveToTrash(existing);
+                trashStore.moveToTrash(existing);
             } else if (input.policy == ExistingNamePolicy.KEEP_BOTH) {
-                finalName = NameDeconflict.uniqueName(input.parent, name);
+                finalName = UniqueNameGenerator.uniqueName(input.parent, name);
             }
         }
         return input.type == CreateNodeType.FOLDER
-                ? fileOps.createFolder(input.parent, finalName)
-                : fileOps.createFile(input.parent, finalName);
+                ? fileBackend.createFolder(input.parent, finalName)
+                : fileBackend.createFile(input.parent, finalName);
     }
 
     private static String validateName(String name) throws NodeException {
