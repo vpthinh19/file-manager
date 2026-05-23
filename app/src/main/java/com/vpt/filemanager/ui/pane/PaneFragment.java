@@ -149,7 +149,7 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         // semantic. Bookmark children scheme=file → click chuẩn (passthrough). Trash pane phải
         // detect qua currentPath, KHÔNG qua node.path().scheme() vì node có thể là parent marker.
         NodePath current = viewModel.currentPath();
-        if (current != null && current.isTrash()) {
+        if ((current != null && current.isTrash()) || node.path().isTrash()) {
             viewModel.enterSelectionAndToggle(node);
             return;
         }

@@ -39,7 +39,7 @@ public final class StorageScope {
                 || isAtRoot(path)) {
             return true;
         }
-        if (path.isArchive()) {
+        if (path.isArchive() || path.isSearch()) {
             return true;
         }
         return path.isLocal();

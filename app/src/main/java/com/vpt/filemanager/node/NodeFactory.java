@@ -10,6 +10,7 @@ import com.vpt.filemanager.node.source.LocalSource;
 import com.vpt.filemanager.node.source.NodeSource;
 import com.vpt.filemanager.node.source.TrashSource;
 import com.vpt.filemanager.node.source.RootSource;
+import com.vpt.filemanager.node.source.SearchSource;
 
 /**
  * Điểm vào duy nhất để khởi tạo {@link VirtualNode} từ một {@link NodePath}. Dispatch sang đúng
@@ -33,18 +34,21 @@ public final class NodeFactory {
     private final TrashSource trashSource;
     private final BookmarkSource bookmarkSource;
     private final RootSource rootSource;
+    private final SearchSource searchSource;
 
     @Inject
     public NodeFactory(LocalSource localSource,
                        ArchiveSource archiveSource,
                        TrashSource trashSource,
                        BookmarkSource bookmarkSource,
-                       RootSource rootSource) {
+                       RootSource rootSource,
+                       SearchSource searchSource) {
         this.localSource = localSource;
         this.archiveSource = archiveSource;
         this.trashSource = trashSource;
         this.bookmarkSource = bookmarkSource;
         this.rootSource = rootSource;
+        this.searchSource = searchSource;
     }
 
     /**
@@ -67,6 +71,9 @@ public final class NodeFactory {
         }
         if (path.isBookmark()) {
             return bookmarkSource.resolve(path);
+        }
+        if (path.isSearch()) {
+            return searchSource.resolve(path);
         }
         throw new NodeException("Unsupported scheme: " + path.scheme());
     }

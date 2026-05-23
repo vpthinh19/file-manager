@@ -42,12 +42,34 @@ public final class MutationResult {
         if (allLiveSnapshots || changedContainers.contains(visibleContainer)) {
             return true;
         }
+        if (visibleContainer.isSearch() && affectsSearchResult(visibleContainer)) {
+            return true;
+        }
         for (NodePath removed : removedSubtrees) {
             if (visibleContainer.isSameOrDescendantOf(removed)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean affectsSearchResult(@NonNull NodePath searchPath) {
+        NodePath scope = searchPath.searchScope();
+        for (NodePath changed : changedContainers) {
+            if (intersects(scope, changed)) {
+                return true;
+            }
+        }
+        for (NodePath removed : removedSubtrees) {
+            if (intersects(scope, removed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean intersects(@NonNull NodePath first, @NonNull NodePath second) {
+        return first.isSameOrDescendantOf(second) || second.isSameOrDescendantOf(first);
     }
 
     /**

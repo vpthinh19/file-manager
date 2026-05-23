@@ -161,6 +161,34 @@ public final class RuleEngineTest {
     }
 
     @Test
+    public void searchResults_disableCreateAndCannotBeTransferDestination() {
+        NodePath search = NodePath.search(DIR_A, "draft");
+
+        EnumSet<WorkspaceAction> activeDisabled = RuleEngine.defaults().disabledActions(
+                WorkspaceRuleState.of(setOf(), null, search, DIR_B));
+        EnumSet<WorkspaceAction> destinationDisabled = RuleEngine.defaults().disabledActions(
+                WorkspaceRuleState.of(setOf(FOO), Boolean.FALSE, DIR_A, search));
+
+        assertTrue(activeDisabled.contains(CREATE));
+        assertTrue(destinationDisabled.contains(COPY));
+        assertTrue(destinationDisabled.contains(MOVE));
+    }
+
+    @Test
+    public void searchResult_alreadyInDestination_disablesSelfTransfer() {
+        NodePath search = NodePath.search(DIR_A, "foo");
+        WorkspaceRuleState directResult = WorkspaceRuleState.of(
+                setOf(DIR_A.child("foo.txt")), Boolean.FALSE, search, DIR_A);
+        WorkspaceRuleState nestedResult = WorkspaceRuleState.of(
+                setOf(DIR_A.child("nested").child("foo.txt")), Boolean.FALSE, search, DIR_A);
+
+        assertTrue(RuleEngine.defaults().disabledActions(directResult).contains(COPY));
+        assertTrue(RuleEngine.defaults().disabledActions(directResult).contains(MOVE));
+        assertFalse(RuleEngine.defaults().disabledActions(nestedResult).contains(COPY));
+        assertFalse(RuleEngine.defaults().disabledActions(nestedResult).contains(MOVE));
+    }
+
+    @Test
     public void mixedSelectionWithArchive_unionsAllRules() {
         // multi-select + contains archive entry: union of (multi rules) + (archive rules).
         WorkspaceRuleState state = WorkspaceRuleState.of(

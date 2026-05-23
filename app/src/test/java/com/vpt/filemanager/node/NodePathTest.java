@@ -36,6 +36,18 @@ public final class NodePathTest {
     }
 
     @Test
+    public void searchRoundTrip_keepsScopeAndQueryOutsideTreePath() {
+        NodePath scope = NodePath.local("/sdcard/My Folder");
+        NodePath search = NodePath.search(scope, "draft/report");
+
+        assertTrue(search.isSearch());
+        assertEquals(search, NodePath.parse(search.toString()));
+        assertEquals(scope, search.searchScope());
+        assertEquals("draft/report", search.searchQuery());
+        assertEquals("/", search.path());
+    }
+
+    @Test
     public void virtualRootRoundTrip() {
         assertTrue(NodePath.ROOT.isRoot());
         assertEquals(NodePath.ROOT, NodePath.parse(NodePath.ROOT.toString()));

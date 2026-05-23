@@ -1,23 +1,37 @@
 package com.vpt.filemanager.browser;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
+import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static org.hamcrest.Matchers.allOf;
 
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
+import android.view.View;
 
 import androidx.test.core.app.ActivityScenario;
+import androidx.test.espresso.NoMatchingViewException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import org.hamcrest.Matcher;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.ui.main.MainActivity;
@@ -45,5 +59,63 @@ public final class DualPaneHostInstrumentedTest {
             onView(withId(R.id.pane_right_container)).check(matches(isDisplayed()));
             onView(withId(R.id.btn_add)).check(matches(isDisplayed()));
         }
+    }
+
+    @Test
+    public void search_rendersVirtualResultsAndRefreshesAfterExternalChange() throws Exception {
+        Path scope = Paths.get("/storage/emulated/0/CodexSearchScope");
+        Path match = scope.resolve("codex-search-needle.txt");
+        Files.createDirectories(scope);
+        Files.write(match, "needle".getBytes(StandardCharsets.UTF_8));
+
+        try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
+            Matcher<View> leftScope = allOf(withText("CodexSearchScope"),
+                    isDescendantOfA(withId(R.id.pane_left_container)));
+            waitForView(leftScope);
+            onView(leftScope).perform(click());
+
+            onView(allOf(withContentDescription(R.string.menu_more_options),
+                    isDescendantOfA(withId(R.id.toolbar)))).perform(click());
+            onView(withText(R.string.action_search)).perform(click());
+            onView(withId(R.id.et_name)).perform(replaceText("codex-search-needle"));
+            onView(withId(android.R.id.button1)).perform(click());
+
+            Matcher<View> result = allOf(withText("codex-search-needle.txt"),
+                    isDescendantOfA(withId(R.id.pane_left_container)));
+            waitForView(result);
+            onView(withText("Search: codex-search-needle")).check(matches(isDisplayed()));
+
+            Files.delete(match);
+            waitForNoView(result);
+        } finally {
+            Files.deleteIfExists(match);
+            Files.deleteIfExists(scope);
+        }
+    }
+
+    private static void waitForView(Matcher<View> matcher) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                onView(matcher).check(matches(isDisplayed()));
+                return;
+            } catch (NoMatchingViewException | AssertionError error) {
+                Thread.sleep(100);
+            }
+        }
+        onView(matcher).check(matches(isDisplayed()));
+    }
+
+    private static void waitForNoView(Matcher<View> matcher) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                onView(matcher).check(doesNotExist());
+                return;
+            } catch (AssertionError error) {
+                Thread.sleep(100);
+            }
+        }
+        onView(matcher).check(doesNotExist());
     }
 }

@@ -16,6 +16,8 @@ Coverage:
 - Operation mutation contracts: mutating operations report precise `MutationResult` branches.
 - Workspace command dispatch: rule enforcement at execution time and mutation publication.
 - Document sessions: savepoint comparison, parent invalidation, external rewrite/deletion detection, and conflict-safe saves.
+- Search projections: `search://` address contracts, recursive virtual-node listing, read-only
+  rules, parent navigation, and subtree mutation invalidation.
 
 Current syntax tests:
 - `SyntaxAssetContractTest`: validates catalog grammar/configuration paths, dependency scopes, and expanded language coverage.
@@ -42,7 +44,8 @@ Coverage:
 Current syntax tests:
 - `SyntaxSetupInstrumentedTest`: lazily loads selected catalog grammars and light/dark TextMate themes using real Android assets.
 - `TextEditorActivityInstrumentedTest`: opens a virtual-path local document, verifies in-file result counts, and reports external deletion through `DocumentSession`.
-- `DualPaneHostInstrumentedTest`: launches `MainActivity` with all-files access and verifies both panes plus the command bar instantiate through Hilt.
+- `DualPaneHostInstrumentedTest`: launches `MainActivity` with all-files access, verifies both
+  panes instantiate through Hilt, and verifies search rendering plus direct-scope external refresh.
 
 ## Next Tests To Add
 
@@ -85,7 +88,8 @@ Current syntax tests:
 
 ### Search And Archive Editing
 
-- Search file/folder results render through a temporary `search://` virtual node and refresh after mutation.
+- Extend search coverage for deep-subtree external changes, explicit refresh, large-tree result
+  limits, and cancellation during rapid navigation.
 - Stage archive add/rename/delete changes in an overlay, commit through libarchive, and verify the original file is replaced only after successful validation.
 - Modify the archive file externally during a staged edit and verify commit enters conflict handling rather than overwriting.
 

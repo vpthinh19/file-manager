@@ -17,6 +17,7 @@ import com.vpt.filemanager.operations.create.CreateNodeOperation;
 import com.vpt.filemanager.operations.create.ExistingNamePolicy;
 import com.vpt.filemanager.operations.delete.DeleteNodesOperation;
 import com.vpt.filemanager.operations.rename.RenameNodeOperation;
+import com.vpt.filemanager.operations.search.SearchNodesOperation;
 import com.vpt.filemanager.operations.transfer.TransferKind;
 import com.vpt.filemanager.operations.transfer.TransferOperation;
 import com.vpt.filemanager.operations.trash.EmptyTrashOperation;
@@ -25,11 +26,12 @@ import com.vpt.filemanager.rules.RuleEngine;
 import com.vpt.filemanager.rules.WorkspaceRuleState;
 
 /**
- * Workspace command boundary for mutating operations.
+ * Workspace access boundary for user-invoked operations.
  *
  * <p>UI may describe intent and render availability, but it does not execute mutation rules or
- * derive reconciliation scope. Commands are validated here at execution time and each operation
- * publishes its explicit virtual-tree mutation through the store.
+ * derive reconciliation scope. Mutating commands are validated here at execution time and publish
+ * their explicit virtual-tree mutation through the store. Read-only projection requests such as
+ * search return a virtual location without publishing a mutation.
  */
 @Singleton
 public final class WorkspaceCommandDispatcher {
@@ -42,6 +44,7 @@ public final class WorkspaceCommandDispatcher {
     private final RemoveBookmarksOperation removeBookmarksOperation;
     private final RestoreTrashEntriesOperation restoreTrashEntriesOperation;
     private final EmptyTrashOperation emptyTrashOperation;
+    private final SearchNodesOperation searchNodesOperation;
     private final RuleEngine rules;
 
     @Inject
@@ -54,10 +57,12 @@ public final class WorkspaceCommandDispatcher {
             AddBookmarkOperation addBookmarkOperation,
             RemoveBookmarksOperation removeBookmarksOperation,
             RestoreTrashEntriesOperation restoreTrashEntriesOperation,
-            EmptyTrashOperation emptyTrashOperation) {
+            EmptyTrashOperation emptyTrashOperation,
+            SearchNodesOperation searchNodesOperation) {
         this(store, createNodeOperation, renameNodeOperation, deleteNodesOperation,
                 transferOperation, addBookmarkOperation, removeBookmarksOperation,
-                restoreTrashEntriesOperation, emptyTrashOperation, RuleEngine.defaults());
+                restoreTrashEntriesOperation, emptyTrashOperation, searchNodesOperation,
+                RuleEngine.defaults());
     }
 
     WorkspaceCommandDispatcher(
@@ -70,6 +75,7 @@ public final class WorkspaceCommandDispatcher {
             RemoveBookmarksOperation removeBookmarksOperation,
             RestoreTrashEntriesOperation restoreTrashEntriesOperation,
             EmptyTrashOperation emptyTrashOperation,
+            SearchNodesOperation searchNodesOperation,
             RuleEngine rules) {
         this.store = store;
         this.createNodeOperation = createNodeOperation;
@@ -80,6 +86,7 @@ public final class WorkspaceCommandDispatcher {
         this.removeBookmarksOperation = removeBookmarksOperation;
         this.restoreTrashEntriesOperation = restoreTrashEntriesOperation;
         this.emptyTrashOperation = emptyTrashOperation;
+        this.searchNodesOperation = searchNodesOperation;
         this.rules = rules;
     }
 
@@ -174,6 +181,16 @@ public final class WorkspaceCommandDispatcher {
     public void emptyTrash() throws NodeException {
         EmptyTrashOperation.Result result = emptyTrashOperation.execute();
         store.publish(result.mutation);
+    }
+
+    /**
+     * Produces a transient read-only virtual location. It publishes no mutation because creating
+     * a query view does not change source nodes.
+     */
+    @NonNull
+    public SearchNodesOperation.Output search(@NonNull SearchNodesOperation.Input input)
+            throws NodeException {
+        return searchNodesOperation.execute(input);
     }
 
     private void requireAllowed(@NonNull WorkspaceAction action,

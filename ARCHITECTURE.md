@@ -48,6 +48,7 @@ com.vpt.filemanager
 │   │   ├── ArchiveSource.java
 │   │   ├── TrashSource.java
 │   │   ├── BookmarkSource.java
+│   │   ├── SearchSource.java
 │   │   ├── ParentSource.java
 │   │   └── archive/             native/archive backend bridge
 │   └── opener/                  what happens when a node is opened
@@ -66,6 +67,7 @@ com.vpt.filemanager
 │   ├── bookmark/
 │   ├── properties/
 │   ├── sort/
+│   ├── search/
 │   ├── selection/
 │   ├── navigation/
 │   ├── pane/
@@ -92,12 +94,14 @@ com.vpt.filemanager
 
 `NodePath`
 : A virtual path. It is not just a local filesystem path. It supports `file://`, `archive://`,
-`trash://`, `bookmark://`, and `root:///`. `root:///` materializes the stable Storage, Trash, and
-Bookmarks branches without loading their descendants.
+`trash://`, `bookmark://`, `search://`, and `root:///`. `root:///` materializes the stable Storage,
+Trash, and Bookmarks branches without loading their descendants. `search://` is a transient
+projection over a scope plus query; result rows retain their original node paths and sources.
 
 `NodeSource`
 : Source strategy. A source knows how to resolve, list, read, and optionally write nodes for one
-kind of storage.
+kind of storage. `SearchSource` is a read-only projection source: it re-traverses its scope on
+listing rather than retaining copied result nodes.
 
 `NodeOpener`
 : Open strategy. An opener decides how to open a file node: text editor, archive navigation, system
@@ -119,6 +123,7 @@ RenameNodeOperation
 TransferOperation
 RestoreTrashEntriesOperation
 EmptyTrashOperation
+SearchNodesOperation
 AddBookmarkOperation
 RemoveBookmarksOperation
 SortNodesOperation
@@ -157,6 +162,11 @@ instead of local-only `File.exists`.
 `operations/result/BatchResult`
 : Shared DTO for batch operations that intentionally continue after per-item failure.
 
+`SearchNodesOperation`
+: Creates a `search://` result location from a virtual scope and filename query. Traversal occurs
+when `SearchSource` materializes that result location, allowing workspace refresh/reconciliation
+to read current nodes without coupling search to Android UI.
+
 These classes are not legacy leftovers. The old `*Ops` names were misleading; the current names
 make their role explicit: backend/store/helper/result.
 
@@ -183,6 +193,9 @@ Rules should answer questions like:
 - Archive entries are read-only.
 - Non-local nodes cannot use Android open-with.
 - Same active/inactive path disables copy/move.
+- Search result containers disable create and cannot be copy/move destinations; selected result
+  rows remain their underlying nodes and keep normal source-specific rules. A result whose real
+  parent is the destination pane also disables copy/move as a self-transfer.
 
 ## Workspace
 
@@ -220,17 +233,24 @@ invalidated snapshot once even when two panes show the same directory.
 hints; the store always re-reads a source before publishing display state.
 
 `WorkspaceCommandDispatcher`
-: The mutation gateway. It evaluates `RuleEngine` at execution time, calls mutating operations,
-and publishes each operation's `MutationResult` to `WorkspaceStore`. Browser UI does not construct
-mutation scopes or call mutating operations directly.
+: The user-operation gateway exposed to pane UI. It evaluates `RuleEngine` at execution time for
+mutating operations and publishes each mutation's `MutationResult` to `WorkspaceStore`. Read-only
+projection requests such as search return a virtual result location without publishing a change.
+Browser UI does not construct mutation scopes or run source traversal directly.
 
 `DocumentSession`
 : A lifecycle-bound open-file session created by `WorkspaceStore`. It reads and writes through
 `VirtualNode`, owns the content savepoint and source fingerprint, prevents external-change
 overwrites, and receives invalidation signals while its parent container is retained for watching.
 
+For `search://` snapshots, `WorkspaceStore` retains observation of the original local scope while
+the projection is visible. Mutations published anywhere inside that scope invalidate the search
+snapshot. Android `FileObserver` is not recursively installed across every descendant folder:
+external changes directly in the retained scope update automatically; external deep-subtree
+changes appear after explicit refresh or a relevant app operation.
+
 Current transition boundary: pane navigation/selection state still lives in `PaneViewModel`.
-Search results, writable archive overlays, and media sessions are not implemented yet.
+Writable archive overlays and media sessions are not implemented yet.
 
 ### Reconciliation
 
@@ -318,7 +338,6 @@ placeholder icons for non-media nodes.
 The following capabilities remain planned and must use the same workspace contracts:
 
 ```text
-SearchNodesOperation         temporary search:// virtual result node for file/folder search
 ArchiveEditSession           overlay edits for archive virtual branches
 ArchiveCommitOperation       libarchive C++ temp-write, validation, and atomic replacement
 Image/video/audio openers    Glide image viewer and Media3 playback

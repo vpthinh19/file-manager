@@ -14,6 +14,8 @@ public final class NodePath {
     public static final String SCHEME_ARCHIVE = "archive";
     public static final String SCHEME_TRASH = "trash";
     public static final String SCHEME_BOOKMARK = "bookmark";
+    public static final String SCHEME_SEARCH = "search";
+    private static final String SEARCH_DESCRIPTOR_SEPARATOR = "\n";
 
     /** Virtual roots cho drawer items — không có authority hay path "thật". */
     public static final NodePath ROOT = new NodePath(SCHEME_ROOT, "", "/");
@@ -39,6 +41,13 @@ public final class NodePath {
         return new NodePath(SCHEME_ARCHIVE, archivePath.toString(), innerPath);
     }
 
+    public static NodePath search(NodePath scopePath, String query) {
+        Objects.requireNonNull(scopePath, "scopePath");
+        Objects.requireNonNull(query, "query");
+        return new NodePath(SCHEME_SEARCH,
+                scopePath.toString() + SEARCH_DESCRIPTOR_SEPARATOR + query, "/");
+    }
+
     public static NodePath parse(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("Path is blank");
@@ -57,6 +66,9 @@ public final class NodePath {
         }
         if (raw.startsWith("bookmark://")) {
             return parseSchemeWithAuthority(SCHEME_BOOKMARK, raw.substring("bookmark://".length()));
+        }
+        if (raw.startsWith("search://")) {
+            return parseSchemeWithAuthority(SCHEME_SEARCH, raw.substring("search://".length()));
         }
         return local(raw);
     }
@@ -93,6 +105,22 @@ public final class NodePath {
 
     public boolean isBookmark() {
         return SCHEME_BOOKMARK.equals(scheme);
+    }
+
+    public boolean isSearch() {
+        return SCHEME_SEARCH.equals(scheme);
+    }
+
+    public NodePath searchScope() {
+        requireSearchDescriptor();
+        int separator = authority.indexOf(SEARCH_DESCRIPTOR_SEPARATOR);
+        return NodePath.parse(authority.substring(0, separator));
+    }
+
+    public String searchQuery() {
+        requireSearchDescriptor();
+        int separator = authority.indexOf(SEARCH_DESCRIPTOR_SEPARATOR);
+        return authority.substring(separator + SEARCH_DESCRIPTOR_SEPARATOR.length());
     }
 
     public NodePath parent() {
@@ -190,6 +218,12 @@ public final class NodePath {
             return URLDecoder.decode(value, StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    private void requireSearchDescriptor() {
+        if (!isSearch() || authority.indexOf(SEARCH_DESCRIPTOR_SEPARATOR) <= 0) {
+            throw new IllegalStateException("Path is not a search result root: " + this);
         }
     }
 }

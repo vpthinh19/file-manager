@@ -14,6 +14,7 @@ import com.vpt.filemanager.ui.drawer.DrawerHost;
 import com.vpt.filemanager.ui.pane.DualPaneHostFragment;
 import com.vpt.filemanager.ui.pane.PaneViewModel;
 import com.vpt.filemanager.ui.dialog.SortBottomSheet;
+import com.vpt.filemanager.ui.dialog.SearchDialog;
 
 /**
  * Manage toolbar: navigation icon (mở drawer), overflow menu router, title/subtitle render theo
@@ -57,7 +58,7 @@ public final class ToolbarController {
             // Defensive (Codex review): guard against stale menu visibility — nếu pane đã rời
             // Trash trong khi overflow menu vẫn còn cache item visible, no-op để tránh empty
             // trash bị invoke từ pane Storage/Bookmark.
-            NodePath currentPath = host.activeVm().currentPath();
+            NodePath currentPath = sourceContext(host.activeVm().currentPath());
             if (currentPath == null || !currentPath.isTrash()) {
                 return true;
             }
@@ -70,7 +71,11 @@ public final class ToolbarController {
                     .show();
             return true;
         }
-        if (id == R.id.action_search || id == R.id.action_settings) {
+        if (id == R.id.action_search) {
+            SearchDialog.show(host.requireContext(), host.activeVm()::search);
+            return true;
+        }
+        if (id == R.id.action_settings) {
             host.toast(host.getString(R.string.coming_soon));
             return true;
         }
@@ -91,7 +96,10 @@ public final class ToolbarController {
         applyContextualOverflow(state);
         if (state instanceof PaneViewModel.UiState.Content content) {
             setTitle(displayPath(content.path));
-            if (content.path.isArchive()) {
+            if (content.path.isSearch()) {
+                setSubtitle(host.getString(R.string.stats_search_results,
+                        content.folderCount + content.fileCount));
+            } else if (content.path.isArchive()) {
                 setSubtitle(host.getString(R.string.stats_archive,
                         content.folderCount + content.fileCount));
             } else if (content.totalBytes > 0) {
@@ -104,7 +112,9 @@ public final class ToolbarController {
             }
         } else if (state instanceof PaneViewModel.UiState.Empty empty) {
             setTitle(displayPath(empty.path));
-            setSubtitle(host.getString(R.string.stats_basic, 0, 0));
+            setSubtitle(empty.path.isSearch()
+                    ? host.getString(R.string.stats_search_results, 0)
+                    : host.getString(R.string.stats_basic, 0, 0));
         } else if (state instanceof PaneViewModel.UiState.Error error) {
             setTitle(displayPath(error.path));
             setSubtitle(error.message == null || error.message.isEmpty()
@@ -145,6 +155,9 @@ public final class ToolbarController {
         if (path.isBookmark()) {
             return host.getString(R.string.menu_bookmarks);
         }
+        if (path.isSearch()) {
+            return host.getString(R.string.search_title, path.searchQuery());
+        }
         return path.path();
     }
 
@@ -154,7 +167,7 @@ public final class ToolbarController {
      * resource. Visibility update là 1 syscall {@code MenuItem.setVisible}, cheap.
      */
     private void applyContextualOverflow(@Nullable PaneViewModel.UiState state) {
-        NodePath path = pathOf(state);
+        NodePath path = sourceContext(pathOf(state));
         MenuItem emptyTrash = binding.toolbar.getMenu().findItem(R.id.action_empty_trash);
         if (emptyTrash != null) {
             emptyTrash.setVisible(path != null && path.isTrash());
@@ -167,5 +180,10 @@ public final class ToolbarController {
         if (state instanceof PaneViewModel.UiState.Empty e) return e.path;
         if (state instanceof PaneViewModel.UiState.Error e) return e.path;
         return null;
+    }
+
+    @Nullable
+    private static NodePath sourceContext(@Nullable NodePath path) {
+        return path != null && path.isSearch() ? path.searchScope() : path;
     }
 }

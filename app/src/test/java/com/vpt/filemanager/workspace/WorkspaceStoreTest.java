@@ -25,13 +25,14 @@ public final class WorkspaceStoreTest {
     private static final NodePath DOCUMENTS = NodePath.local("/sdcard/Documents");
 
     private CountingSource source;
+    private NodeFactory factory;
     private WorkspaceFileWatcher watcher;
     private WorkspaceStore store;
 
     @Before
     public void setUp() throws Exception {
         source = new CountingSource();
-        NodeFactory factory = mock(NodeFactory.class);
+        factory = mock(NodeFactory.class);
         watcher = mock(WorkspaceFileWatcher.class);
         when(factory.fromPath(DOCUMENTS))
                 .thenReturn(new VirtualNode(DOCUMENTS, true, -1L, 0L, source));
@@ -56,6 +57,17 @@ public final class WorkspaceStoreTest {
 
         DocumentSession session = store.openDocument(document);
         session.close();
+
+        verify(watcher).retain(DOCUMENTS);
+        verify(watcher).release(DOCUMENTS);
+    }
+
+    @Test
+    public void searchSnapshot_observesOriginalLocalScope() {
+        NodePath search = NodePath.search(DOCUMENTS, "note");
+
+        store.retain(search);
+        store.release(search);
 
         verify(watcher).retain(DOCUMENTS);
         verify(watcher).release(DOCUMENTS);

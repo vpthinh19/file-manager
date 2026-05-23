@@ -67,7 +67,7 @@ public final class SelectionBarController {
     private void onMoreOrContextAction() {
         PaneViewModel vm = host.activeVm();
         NodePath current = vm.currentPath();
-        if (current != null && current.isTrash()) {
+        if (isTrashContext(current) || selectionIsOnlyTrashEntries(vm)) {
             vm.restoreSelected();
             return;
         }
@@ -117,9 +117,10 @@ public final class SelectionBarController {
      * mode/selection thay đổi — render là idempotent setImageResource nên không tốn.
      */
     private void applyContextualMoreIcon() {
-        NodePath current = host.activeVm().currentPath();
+        PaneViewModel vm = host.activeVm();
+        NodePath current = vm.currentPath();
         int iconRes;
-        if (current != null && current.isTrash()) {
+        if (isTrashContext(current) || selectionIsOnlyTrashEntries(vm)) {
             iconRes = R.drawable.ic_restore;
         } else if (current != null && current.isBookmark()) {
             iconRes = R.drawable.ic_bookmark_remove;
@@ -127,6 +128,25 @@ public final class SelectionBarController {
             iconRes = R.drawable.ic_more;
         }
         binding.btnSelMore.setImageResource(iconRes);
+    }
+
+    @Nullable
+    private static boolean isTrashContext(@Nullable NodePath path) {
+        return path != null && (path.isTrash()
+                || (path.isSearch() && path.searchScope().isTrash()));
+    }
+
+    private static boolean selectionIsOnlyTrashEntries(PaneViewModel vm) {
+        Set<NodePath> paths = vm.selection().getValue();
+        if (paths == null || paths.isEmpty()) {
+            return false;
+        }
+        for (NodePath path : paths) {
+            if (!path.isTrash()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void showMoreSheet() {

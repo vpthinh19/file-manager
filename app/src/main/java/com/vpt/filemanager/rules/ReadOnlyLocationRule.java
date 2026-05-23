@@ -22,6 +22,6 @@ final class ReadOnlyLocationRule implements WorkspaceRule {
 
     private static boolean isReadOnlyContainer(NodePath path) {
         return path != null && (path.isRoot() || path.isTrash() || path.isBookmark()
-                || path.isArchive());
+                || path.isArchive() || path.isSearch());
     }
 }

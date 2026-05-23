@@ -20,12 +20,14 @@ import javax.inject.Inject;
 import dagger.hilt.android.lifecycle.HiltViewModel;
 import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.data.prefs.UserPreferences;
+import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.operations.sort.SortOrder;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.delete.DeleteNodesOperation;
 import com.vpt.filemanager.operations.rename.RenameNodeOperation;
+import com.vpt.filemanager.operations.search.SearchNodesOperation;
 import com.vpt.filemanager.event.LiveEvent;
 import com.vpt.filemanager.operations.navigation.NavigateToParentOperation;
 import com.vpt.filemanager.operations.selection.SelectRangeOperation;
@@ -337,6 +339,19 @@ public final class PaneViewModel extends ViewModel {
     public void refresh() {
         if (currentPath != null) {
             load(currentPath, false);
+        }
+    }
+
+    public void search(@NonNull String query) {
+        if (currentPath == null) {
+            return;
+        }
+        try {
+            SearchNodesOperation.Output result = commands.search(
+                    new SearchNodesOperation.Input(currentPath, query));
+            navigateTo(result.resultPath);
+        } catch (NodeException error) {
+            events.setValue(error.getMessage() == null ? "Search failed" : error.getMessage());
         }
     }
 

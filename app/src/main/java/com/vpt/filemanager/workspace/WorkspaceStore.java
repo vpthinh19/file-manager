@@ -69,11 +69,11 @@ public final class WorkspaceStore {
 
     public synchronized void retain(@NonNull NodePath path) {
         retainCounts.merge(path, 1, Integer::sum);
-        fileWatcher.retain(path);
+        fileWatcher.retain(observationPath(path));
     }
 
     public synchronized void release(@NonNull NodePath path) {
-        fileWatcher.release(path);
+        fileWatcher.release(observationPath(path));
         Integer count = retainCounts.get(path);
         if (count == null || count <= 1) {
             retainCounts.remove(path);
@@ -157,5 +157,9 @@ public final class WorkspaceStore {
             invalidatedAt.remove(path);
         }
         return snapshot;
+    }
+
+    private static NodePath observationPath(@NonNull NodePath path) {
+        return path.isSearch() ? path.searchScope() : path;
     }
 }

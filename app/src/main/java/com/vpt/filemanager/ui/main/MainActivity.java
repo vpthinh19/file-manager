@@ -181,6 +181,9 @@ public final class MainActivity extends AppCompatActivity implements DrawerHost,
         if (hosted instanceof DualPaneHostFragment dual) {
             NodePath path = dual.activeVm().currentPath();
             if (path != null) {
+                if (path.isSearch()) {
+                    path = path.searchScope();
+                }
                 if (path.isTrash()) {
                     return R.id.menu_trash;
                 }

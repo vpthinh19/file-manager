@@ -15,6 +15,9 @@ public final class NavigateToParentOperation {
         if (path == null || path.isRoot()) {
             return new Output(null);
         }
+        if (path.isSearch()) {
+            return new Output(path.searchScope());
+        }
         if (StorageScope.isAtRoot(path)
                 || path.equals(NodePath.TRASH_ROOT)
                 || path.equals(NodePath.BOOKMARK_ROOT)) {

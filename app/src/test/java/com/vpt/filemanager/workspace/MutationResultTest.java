@@ -53,4 +53,19 @@ public final class MutationResultTest {
                 .build()
                 .affectsNode(document));
     }
+
+    @Test
+    public void changedDescendant_invalidatesSearchResultsForItsScope() {
+        NodePath scope = NodePath.local("/sdcard/Documents");
+        NodePath results = NodePath.search(scope, "report");
+
+        assertTrue(MutationResult.builder()
+                .changedContainer(NodePath.local("/sdcard/Documents/nested"))
+                .build()
+                .affectsListing(results));
+        assertFalse(MutationResult.builder()
+                .changedContainer(NodePath.local("/sdcard/Pictures"))
+                .build()
+                .affectsListing(results));
+    }
 }

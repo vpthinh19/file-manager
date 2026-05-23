@@ -28,6 +28,7 @@ import com.vpt.filemanager.operations.create.CreateNodeOperation;
 import com.vpt.filemanager.operations.create.CreateNodeType;
 import com.vpt.filemanager.operations.create.ExistingNamePolicy;
 import com.vpt.filemanager.operations.support.NodeFileBackend;
+import com.vpt.filemanager.operations.search.SearchNodesOperation;
 import com.vpt.filemanager.operations.transfer.TransferConflictDecision;
 import com.vpt.filemanager.operations.transfer.TransferKind;
 import com.vpt.filemanager.operations.transfer.TransferOperation;
@@ -105,9 +106,23 @@ public final class WorkspaceCommandDispatcherTest {
         verify(store, never()).publish(org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    public void search_createsVirtualLocationWithoutPublishingMutation() throws Exception {
+        WorkspaceCommandDispatcher dispatcher = dispatcher();
+        NodePath scope = NodePath.local("/sdcard/Documents");
+
+        SearchNodesOperation.Output result = dispatcher.search(
+                new SearchNodesOperation.Input(scope, "report"));
+
+        assertEquals(scope, result.resultPath.searchScope());
+        assertEquals("report", result.resultPath.searchQuery());
+        verify(store, never()).publish(org.mockito.ArgumentMatchers.any());
+    }
+
     private WorkspaceCommandDispatcher dispatcher() {
         return new WorkspaceCommandDispatcher(store, createOperation, null, null,
-                transferOperation, null, null, null, null, RuleEngine.defaults());
+                transferOperation, null, null, null, null, new SearchNodesOperation(),
+                RuleEngine.defaults());
     }
 
     private static NodePath path(Path nio) {

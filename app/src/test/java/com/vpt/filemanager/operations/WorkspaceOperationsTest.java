@@ -32,6 +32,15 @@ public final class WorkspaceOperationsTest {
     }
 
     @Test
+    public void navigateToParent_searchRoot_returnsQueryScope() {
+        NodePath scope = NodePath.local("/sdcard/Download");
+        NavigateToParentOperation.Output output = new NavigateToParentOperation().execute(
+                new NavigateToParentOperation.Input(NodePath.search(scope, "photo")));
+
+        assertEquals(scope, output.parentPath);
+    }
+
+    @Test
     public void selectRange_fillsVisibleGapBetweenSelectedNodes() {
         VirtualNode a = file("/sdcard/a.txt");
         VirtualNode b = file("/sdcard/b.txt");
