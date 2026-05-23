@@ -103,6 +103,13 @@ projection over a scope plus query; result rows retain their original node paths
 kind of storage. `SearchSource` is a read-only projection source: it re-traverses its scope on
 listing rather than retaining copied result nodes.
 
+`ArchiveSource`
+: Writable source for ZIP-compatible archive containers. An archive entry remains an ordinary
+`VirtualNode`: create, copy, move, rename, delete, and editor save all dispatch through the same
+operation/source contracts used by local nodes. Physical commits are delegated to
+`ArchiveMutationBackend`; the current `ZipArchiveMutationBackend` rewrites a temporary archive and
+atomically replaces the original file after success.
+
 `NodeOpener`
 : Open strategy. An opener decides how to open a file node: text editor, archive navigation, system
 viewer, and future image/video/audio/pdf viewers.
@@ -179,7 +186,7 @@ Examples:
 
 ```text
 SelectionShapeRule
-ArchiveReadOnlyRule
+ArchiveEntryRule
 NonLocalOpenWithRule
 SamePanePathTransferRule
 ```
@@ -190,7 +197,7 @@ workspace, so the same rule evaluation drives rendered availability and executio
 Rules should answer questions like:
 
 - Multiple selection disables rename/properties/open-with.
-- Archive entries are read-only.
+- Archive entries are writable but are not bookmark targets or Android open-with targets.
 - Non-local nodes cannot use Android open-with.
 - Same active/inactive path disables copy/move.
 - Search result containers disable create and cannot be copy/move destinations; selected result
@@ -250,7 +257,8 @@ external changes directly in the retained scope update automatically; external d
 changes appear after explicit refresh or a relevant app operation.
 
 Current transition boundary: pane navigation/selection state still lives in `PaneViewModel`.
-Writable archive overlays and media sessions are not implemented yet.
+Writable ZIP-compatible archive entries are implemented through atomic container rewrites; media
+sessions and native multi-format archive support are not implemented yet.
 
 ### Reconciliation
 
@@ -338,8 +346,7 @@ placeholder icons for non-media nodes.
 The following capabilities remain planned and must use the same workspace contracts:
 
 ```text
-ArchiveEditSession           overlay edits for archive virtual branches
-ArchiveCommitOperation       libarchive C++ temp-write, validation, and atomic replacement
+NativeArchiveBackend         libarchive C++ reader/writer for TAR/7z/RAR and broader formats
 Image/video/audio openers    Glide image viewer and Media3 playback
 ```
 
@@ -351,6 +358,8 @@ Default rule:
 
 - Use constructor injection for concrete stateless services and operations.
 - Use Hilt modules for Android/platform objects such as Room database and DAO instances.
+- Bind replaceable technical backends through modules; `ArchiveModule` currently maps
+  `ArchiveMutationBackend` to `ZipArchiveMutationBackend`.
 - Keep Android `Context`, `Intent`, `Fragment`, and `Activity` out of node and operation classes
   unless the class is explicitly in `ui`.
 

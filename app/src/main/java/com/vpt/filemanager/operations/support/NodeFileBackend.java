@@ -131,8 +131,8 @@ public final class NodeFileBackend {
      *   <li>Same-scheme local: thử {@code Files.move(ATOMIC_MOVE)} — O(1) khi cùng filesystem.
      *       Fallback {@code Files.move()} non-atomic — nio tự copy+delete khi qua filesystem khác
      *       (vd SD card / OTG).</li>
-     *   <li>Cross-source (vd archive entry → local): {@link #copy} + {@code source.delete(src)}.
-     *       Yêu cầu {@code src.source().supportsWrite()} = true → archive → throw fail-fast.</li>
+     *   <li>Cross-source (including archive entries): {@link #copy} + {@code source.delete(src)}.
+     *       Writable sources define their own commit semantics.</li>
      * </ol>
      */
     public VirtualNode move(VirtualNode src, VirtualNode targetParent, String newName,
@@ -196,7 +196,9 @@ public final class NodeFileBackend {
                                      CancellationToken token) throws NodeException {
         NodePath dstPath = parent.path().child(newName);
         VirtualNode dst = parent.source().createFile(dstPath);
-        try (InputStream in = src.openRead(); OutputStream out = dst.openWrite()) {
+        // Archive outputs commit a rewritten container on close. Closing the input first also
+        // makes same-archive copy/move release its old reader before the replacement occurs.
+        try (OutputStream out = dst.openWrite(); InputStream in = src.openRead()) {
             byte[] buf = new byte[COPY_BUFFER_BYTES];
             int n;
             while ((n = in.read(buf)) >= 0) {

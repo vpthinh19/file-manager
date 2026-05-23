@@ -16,9 +16,8 @@ import javax.inject.Singleton;
  *       {@code nativeVersion()} return thật {@code archive_version_string()}</li>
  *   <li>C-2c: read-only listing — {@code openArchive(path)}, {@code listEntries(handle)}</li>
  *   <li>C-2d: streaming extract qua native pipe fd → {@code FileInputStream(fd)}</li>
- *   <li>C-2e: write/update path (zip rewrite tới temp, atomic replace), replace
- *       {@code ArchiveSource} backend từ Apache Commons Compress + Zip4j → libarchive,
- *       xóa 2 lib Java đó</li>
+ *   <li>C-2e: native write/update path implementing {@link ArchiveMutationBackend}, replacing
+ *       the current ZIP-compatible Java mutation backend for broader formats</li>
  * </ul>
  *
  * <p><b>arm64-v8a only</b> theo v1 decision (xem [[project-decisions-v1]]). Lib name

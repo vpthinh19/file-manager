@@ -78,15 +78,15 @@ public final class RuleEngineTest {
     }
 
     @Test
-    public void archiveEntry_disablesReadOnlyAndBookmarkAndOpenWith() {
+    public void archiveEntry_isWritableButCannotBookmarkCompressOrOpenWith() {
         WorkspaceRuleState state = WorkspaceRuleState.of(
                 setOf(ARCHIVE_ENTRY), Boolean.FALSE, DIR_A, DIR_B);
 
         EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
-        assertTrue(disabled.contains(RENAME));
-        assertTrue(disabled.contains(DELETE));
-        assertTrue(disabled.contains(MOVE));
+        assertFalse(disabled.contains(RENAME));
+        assertFalse(disabled.contains(DELETE));
+        assertFalse(disabled.contains(MOVE));
         assertTrue(disabled.contains(COMPRESS));
         assertTrue(disabled.contains(BOOKMARK));
         // Rule 6: archive is non-local → OPEN_WITH disabled (silent no-op without this).
@@ -161,6 +161,20 @@ public final class RuleEngineTest {
     }
 
     @Test
+    public void archiveContainer_allowsCreateCopyAndMoveDestination() {
+        NodePath archiveFolder = NodePath.inArchive(NodePath.local("/sdcard/x.zip"), "/docs");
+
+        EnumSet<WorkspaceAction> createDisabled = RuleEngine.defaults().disabledActions(
+                WorkspaceRuleState.of(setOf(), null, archiveFolder, DIR_B));
+        EnumSet<WorkspaceAction> transferDisabled = RuleEngine.defaults().disabledActions(
+                WorkspaceRuleState.of(setOf(FOO), Boolean.FALSE, DIR_A, archiveFolder));
+
+        assertFalse(createDisabled.contains(CREATE));
+        assertFalse(transferDisabled.contains(COPY));
+        assertFalse(transferDisabled.contains(MOVE));
+    }
+
+    @Test
     public void searchResults_disableCreateAndCannotBeTransferDestination() {
         NodePath search = NodePath.search(DIR_A, "draft");
 
@@ -202,8 +216,8 @@ public final class RuleEngineTest {
         assertTrue(disabled.contains(OPEN_WITH));
         assertTrue(disabled.contains(BOOKMARK));
         // From archive entry
-        assertTrue(disabled.contains(DELETE));
-        assertTrue(disabled.contains(MOVE));
+        assertFalse(disabled.contains(DELETE));
+        assertFalse(disabled.contains(MOVE));
         assertTrue(disabled.contains(COMPRESS));
     }
 
@@ -215,7 +229,7 @@ public final class RuleEngineTest {
 
         EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
-        assertTrue(disabled.contains(RENAME));
+        assertFalse(disabled.contains(RENAME));
         assertTrue(disabled.contains(BOOKMARK));
     }
 

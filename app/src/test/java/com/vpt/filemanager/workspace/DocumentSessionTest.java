@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -21,6 +23,7 @@ import org.junit.rules.TemporaryFolder;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.source.LocalSource;
+import com.vpt.filemanager.node.source.ArchiveSource;
 
 public final class DocumentSessionTest {
     @Rule
@@ -77,5 +80,31 @@ public final class DocumentSessionTest {
         Files.delete(document);
 
         assertEquals(DocumentSession.ExternalState.DELETED, session.inspectExternalState());
+    }
+
+    @Test
+    public void archiveEntry_loadAndSave_usesSameDocumentSessionContract() throws Exception {
+        Path archive = temp.getRoot().toPath().resolve("notes.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            output.putNextEntry(new ZipEntry("note.txt"));
+            output.write("old".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+        NodePath entryPath = NodePath.inArchive(
+                NodePath.local(archive.toString().replace('\\', '/')), "/note.txt");
+        ArchiveSource archiveSource = new ArchiveSource();
+        NodeFactory factory = mock(NodeFactory.class);
+        when(factory.fromPath(entryPath)).thenAnswer(ignored -> archiveSource.resolve(entryPath));
+        WorkspaceStore archiveWorkspace = mock(WorkspaceStore.class);
+        DocumentSession archiveSession = new DocumentSession(entryPath, factory, archiveWorkspace);
+
+        assertTrue(archiveSession.load(false).writable);
+        DocumentSession.SaveResult saved = archiveSession.save("new content");
+
+        assertEquals("new content", archiveSession.load(false).content);
+        assertTrue(saved.mutation.affectsListing(entryPath.parent()));
+        assertTrue(saved.mutation.affectsListing(NodePath.local(
+                archive.getParent().toString().replace('\\', '/'))));
+        verify(archiveWorkspace).publishFromDocument(archiveSession, saved.mutation);
     }
 }

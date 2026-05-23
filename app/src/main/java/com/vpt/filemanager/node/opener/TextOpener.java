@@ -18,8 +18,8 @@ import com.vpt.filemanager.ui.editor.TextEditorActivity;
  * (programming language source) — cùng được editor handle như nhau. Syntax highlight per
  * language sẽ wire ở Phase R-8 qua {@code LanguageResolver}.
  *
- * <p><b>Archive entry</b>: hiện throw NodeException — sora-editor yêu cầu Path object trên file
- * system, archive entry là stream. Phase 2C-6 sẽ thêm "extract to cache + open" flow.
+ * <p><b>Archive entry</b>: supported through workspace {@code DocumentSession}; editor I/O stays
+ * stream-based and {@code ArchiveSource} commits the enclosing container.
  *
  * <p><b>Safe-load</b>: workspace {@code DocumentSession} owns size checks, binary detection,
  * decoding, savepoints and conflict handling. Opener does not duplicate that logic.
@@ -43,9 +43,6 @@ public final class TextOpener implements NodeOpener {
     @Override
     public void onOpen(VirtualNode node, OpenContext ctx) throws NodeException {
         NodePath path = node.path();
-        if (!path.isLocal()) {
-            throw new NodeException("Editing inside archive: coming in Phase 2C");
-        }
         Intent intent = new Intent(ctx.context(), TextEditorActivity.class);
         intent.putExtra(TextEditorActivity.EXTRA_PATH, path.toString());
         ctx.context().startActivity(intent);

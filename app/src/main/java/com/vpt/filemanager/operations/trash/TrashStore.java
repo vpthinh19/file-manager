@@ -22,8 +22,8 @@ import com.vpt.filemanager.operations.support.NodeFileBackend;
  * Orchestrator cho Trash bin — phối hợp file system (move file vào {@code .AppTrash/}) và
  * Room ({@link TrashDao} ghi metadata để Restore biết original path).
  *
- * <p>v1 chỉ trash node thuộc {@link com.vpt.filemanager.node.source.LocalSource}. Archive entries
- * không trash được (read-only source).
+ * <p>Only local nodes can be moved into Trash. Archive entries are deleted by rewriting their
+ * enclosing archive; they do not become independent trash entries.
  *
  * <p>Layout đĩa: {@code /storage/emulated/0/.AppTrash/files/{uuid}/{originalName}}.
  * UUID per-entry tránh collision khi user xóa 2 file cùng tên ở 2 folder khác nhau.

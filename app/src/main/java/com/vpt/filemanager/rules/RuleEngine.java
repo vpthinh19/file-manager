@@ -11,7 +11,7 @@ import com.vpt.filemanager.workspace.WorkspaceAction;
 public final class RuleEngine {
     private static final List<WorkspaceRule> DEFAULT_RULES = List.of(
             new SelectionShapeRule(),
-            new ArchiveReadOnlyRule(),
+            new ArchiveEntryRule(),
             new NonLocalOpenWithRule(),
             new SamePanePathTransferRule(),
             new ReadOnlyLocationRule());

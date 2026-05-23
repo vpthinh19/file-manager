@@ -34,6 +34,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.ui.main.MainActivity;
@@ -101,6 +104,47 @@ public final class DualPaneHostInstrumentedTest {
             waitForNoView(result);
         } finally {
             Files.deleteIfExists(match);
+            Files.deleteIfExists(scope);
+        }
+    }
+
+    @Test
+    public void archivePane_createFile_rewritesPhysicalZipContainer() throws Exception {
+        Path scope = Paths.get("/storage/emulated/0/CodexArchiveScope");
+        Path archive = scope.resolve("editable.zip");
+        Files.createDirectories(scope);
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            output.putNextEntry(new ZipEntry("seed.txt"));
+            output.write("seed".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+
+        try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
+            Matcher<View> scopeRow = allOf(withText("CodexArchiveScope"),
+                    isDescendantOfA(withId(R.id.pane_left_container)));
+            waitForView(scopeRow);
+            onView(scopeRow).perform(click());
+
+            Matcher<View> archiveRow = allOf(withText("editable.zip"),
+                    isDescendantOfA(withId(R.id.pane_left_container)));
+            waitForView(archiveRow);
+            onView(archiveRow).perform(click());
+            waitForView(allOf(withText("seed.txt"),
+                    isDescendantOfA(withId(R.id.pane_left_container))));
+
+            onView(withId(R.id.btn_add)).check(matches(isEnabled())).perform(click());
+            onView(withId(R.id.btn_type_file)).perform(click());
+            onView(withId(R.id.et_name)).perform(replaceText("created.txt"));
+            onView(withId(android.R.id.button1)).perform(click());
+
+            waitForView(allOf(withText("created.txt"),
+                    isDescendantOfA(withId(R.id.pane_left_container))));
+        } finally {
+            try (ZipFile result = new ZipFile(archive.toFile())) {
+                org.junit.Assert.assertTrue(result.getEntry("seed.txt") != null);
+                org.junit.Assert.assertTrue(result.getEntry("created.txt") != null);
+            }
+            Files.deleteIfExists(archive);
             Files.deleteIfExists(scope);
         }
     }

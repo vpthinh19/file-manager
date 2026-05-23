@@ -68,4 +68,22 @@ public final class MutationResultTest {
                 .build()
                 .affectsListing(results));
     }
+
+    @Test
+    public void archiveMutation_invalidatesVirtualBranchAndPhysicalArchiveParent() {
+        NodePath archiveFile = NodePath.local("/sdcard/Download/data.zip");
+        NodePath archiveFolder = NodePath.inArchive(archiveFile, "/docs");
+        NodePath openEntry = archiveFolder.child("note.txt");
+
+        MutationResult virtualMutation = MutationResult.builder()
+                .changedContainer(archiveFolder)
+                .build();
+        MutationResult externalContainerRewrite = MutationResult.builder()
+                .changedContainer(archiveFile.parent())
+                .build();
+
+        assertTrue(virtualMutation.affectsListing(archiveFile.parent()));
+        assertTrue(externalContainerRewrite.affectsListing(archiveFolder));
+        assertTrue(externalContainerRewrite.affectsNode(openEntry));
+    }
 }

@@ -21,9 +21,9 @@ import com.vpt.filemanager.node.VirtualNode;
  * archive-trong-archive). canOpen() check {@code path.isLocal()}. Phase 2D có thể mở rộng nếu
  * người dùng yêu cầu.
  *
- * <p><b>Format support</b>: hiện ArchiveSource chỉ wrap {@link java.util.zip.ZipFile} — handle
- * được .zip + .jar/.war/.apk (cùng format). TAR/7z/RAR throw NodeException ở
- * {@code ArchiveSource.openOrCache} với message rõ. Phase 3 thêm libarchive native.
+ * <p><b>Format support</b>: {@code ArchiveSource} currently reads and writes ZIP-compatible
+ * containers such as .zip/.jar/.war/.apk. TAR/7z/RAR require the planned native libarchive
+ * backend.
  */
 @Singleton
 public final class ArchiveOpener implements NodeOpener {

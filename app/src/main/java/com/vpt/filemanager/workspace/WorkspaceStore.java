@@ -177,6 +177,12 @@ public final class WorkspaceStore {
     }
 
     private static NodePath observationPath(@NonNull NodePath path) {
-        return path.isSearch() ? path.searchScope() : path;
+        if (path.isSearch()) {
+            return observationPath(path.searchScope());
+        }
+        if (path.isArchive()) {
+            return NodePath.parse(path.authority()).parent();
+        }
+        return path;
     }
 }

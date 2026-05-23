@@ -13,11 +13,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.data.db.dao.TrashDao;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
+import com.vpt.filemanager.node.source.ArchiveSource;
 import com.vpt.filemanager.operations.support.NodeFileBackend;
 import com.vpt.filemanager.operations.trash.TrashStore;
 
@@ -96,6 +99,34 @@ public final class TransferOperationTest {
         assertEquals(2, result.cancelledRemaining);
         assertEquals("old", readUtf8(dstDir.resolve("a.txt")));
         assertTrue(Files.notExists(dstDir.resolve("b.txt")));
+    }
+
+    @Test
+    public void copy_replaceInsideArchive_rewritesDestinationEntry() throws Exception {
+        Path sourcePath = Files.write(srcDir.resolve("a.txt"),
+                "new".getBytes(StandardCharsets.UTF_8));
+        Path archivePath = rootDir.resolve("data.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archivePath))) {
+            output.putNextEntry(new ZipEntry("a.txt"));
+            output.write("old".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+        ArchiveSource archiveSource = new ArchiveSource();
+        VirtualNode archiveRoot = archiveSource.resolve(
+                NodePath.inArchive(filePathOf(archivePath), "/"));
+
+        TransferOperation.Result result = operation.execute(new TransferOperation.Input(
+                List.of(localSource.resolve(filePathOf(sourcePath))),
+                archiveRoot,
+                TransferKind.COPY,
+                conflict -> TransferConflictDecision.REPLACE,
+                NodeFileBackend.CancellationToken.neverCancelled()));
+
+        assertEquals(1, result.ok);
+        try (java.io.InputStream input = archiveSource.resolve(
+                NodePath.inArchive(filePathOf(archivePath), "/a.txt")).openRead()) {
+            assertEquals("new", new String(input.readAllBytes(), StandardCharsets.UTF_8));
+        }
     }
 
     private static NodePath filePathOf(Path nio) {

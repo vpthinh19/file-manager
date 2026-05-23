@@ -17,11 +17,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.LocalSource;
+import com.vpt.filemanager.node.source.ArchiveSource;
 
 /**
  * JVM unit test cho {@link NodeFileBackend#copy} / {@link NodeFileBackend#move} với {@link LocalSource} thật trên
@@ -178,6 +180,29 @@ public final class NodeFileBackendCopyMoveTest {
         assertTrue(Files.exists(rootDir.resolve("b.txt")));
     }
 
+    @Test
+    public void copyAndMove_acrossLocalAndArchive_useSameBackendContract() throws Exception {
+        Path archivePath = rootDir.resolve("data.zip");
+        try (ZipOutputStream ignored = new ZipOutputStream(Files.newOutputStream(archivePath))) {
+        }
+        ArchiveSource archiveSource = new ArchiveSource();
+        VirtualNode archiveRoot = archiveSource.resolve(
+                NodePath.inArchive(filePathOf(archivePath), "/"));
+        Path sourceFile = Files.write(rootDir.resolve("input.txt"),
+                "inside".getBytes(StandardCharsets.UTF_8));
+
+        VirtualNode inside = fileBackend.copy(localSource.resolve(filePathOf(sourceFile)),
+                archiveRoot, "inside.txt", NodeFileBackend.CancellationToken.neverCancelled());
+        VirtualNode cloned = fileBackend.copy(inside, archiveRoot, "clone.txt",
+                NodeFileBackend.CancellationToken.neverCancelled());
+        fileBackend.move(cloned, rootNode, "extracted.txt",
+                NodeFileBackend.CancellationToken.neverCancelled());
+
+        assertEquals("inside", readNode(archiveSource.resolve(inside.path())));
+        assertEquals("inside", readUtf8(rootDir.resolve("extracted.txt")));
+        assertThrows(NodeException.class, () -> archiveSource.resolve(cloned.path()));
+    }
+
     private static NodePath filePathOf(Path nio) {
         return NodePath.local(nio.toString().replace('\\', '/'));
     }
@@ -185,5 +210,11 @@ public final class NodeFileBackendCopyMoveTest {
     /** Android's nio Files trên bootclasspath không có readString (API < 33) → polyfill. */
     private static String readUtf8(Path path) throws IOException {
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+    }
+
+    private static String readNode(VirtualNode node) throws Exception {
+        try (java.io.InputStream input = node.openRead()) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }

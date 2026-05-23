@@ -411,7 +411,7 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         runAction(() -> commands.delete(
-                new DeleteNodesOperation.Input(List.of(node), false), ruleState), "Moved to trash");
+                new DeleteNodesOperation.Input(List.of(node), false), ruleState), "Deleted");
     }
 
     public void deleteSelected(@NonNull WorkspaceRuleState ruleState) {
@@ -540,7 +540,7 @@ public final class PaneViewModel extends ViewModel {
                 Object result = action.run();
                 String message = successMessage;
                 if (message == null && result instanceof DeleteNodesOperation.Result deleteResult) {
-                    message = deleteResult.message("moved to trash");
+                    message = deleteResult.message("deleted");
                 }
                 if (message != null) {
                     events.postValue(message);

@@ -250,10 +250,6 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     // ───────────── OpenAs dialog (legacy UNKNOWN-extension fallback) ─────────────
 
     private void showOpenAsDialog(@NonNull VirtualNode node) {
-        if (!node.path().isLocal()) {
-            toast("Opening files inside archive: coming in Phase 2C");
-            return;
-        }
         OpenAsDialogFragment.newInstance(node.name())
                 .setListener(choice -> handleOpenAs(node, choice))
                 .show(getChildFragmentManager(), "open-as");
@@ -280,10 +276,6 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     }
 
     private void openAsText(@NonNull NodePath path) {
-        if (!path.isLocal()) {
-            toast("Editing inside archive: coming in Phase 2C");
-            return;
-        }
         Intent intent = new Intent(requireContext(), TextEditorActivity.class);
         intent.putExtra(TextEditorActivity.EXTRA_PATH, path.toString());
         startActivity(intent);

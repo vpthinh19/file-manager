@@ -25,6 +25,8 @@ import org.junit.runner.RunWith;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.ui.editor.TextEditorActivity;
 import com.vpt.filemanager.R;
@@ -44,6 +46,27 @@ public final class TextEditorActivityInstrumentedTest {
 
         try (ActivityScenario<TextEditorActivity> ignored = ActivityScenario.launch(intent)) {
             onView(withText("SyntaxSmoke.java")).check(matches(isDisplayed()));
+            onView(withContentDescription("Save")).check(matches(isDisplayed()));
+        }
+    }
+
+    @Test
+    public void opensArchiveTextEntryThroughDocumentSession() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Path archive = context.getCacheDir().toPath().resolve("EditorArchive.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            output.putNextEntry(new ZipEntry("inside.txt"));
+            output.write("archive text\n".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+
+        Intent intent = new Intent(context, TextEditorActivity.class);
+        intent.putExtra(TextEditorActivity.EXTRA_PATH,
+                NodePath.inArchive(NodePath.local(archive.toString()), "/inside.txt").toString());
+
+        try (ActivityScenario<TextEditorActivity> ignored = ActivityScenario.launch(intent)) {
+            onView(withText("inside.txt")).check(matches(isDisplayed()));
+            waitForView(withText("UTF-8"));
             onView(withContentDescription("Save")).check(matches(isDisplayed()));
         }
     }

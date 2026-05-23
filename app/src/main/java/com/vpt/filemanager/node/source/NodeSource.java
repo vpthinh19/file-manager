@@ -48,7 +48,7 @@ public interface NodeSource {
      * Mở stream ghi nội dung file (truncate existing, create if missing). Symmetric với {@link #read}.
      * Phase C-1a (Copy/Move foundation): dùng cho cross-source stream copy trong {@code NodeFileBackend.copy}.
      *
-     * <p>Caller phải đảm bảo {@code file.isFolder() == false}. Source read-only (Archive v1, Trash,
+     * <p>Caller phải đảm bảo {@code file.isFolder() == false}. Source read-only (Trash,
      * Bookmark) phải throw thay vì silent no-op để fail-fast tại boundary.
      *
      * <p>Caller-side: KHÔNG buffer thêm BufferedOutputStream — caller (NodeFileBackend) tự quản byte buffer
@@ -59,11 +59,11 @@ public interface NodeSource {
     OutputStream openWrite(VirtualNode file) throws NodeException;
 
     // ─────────────────────────── Write API (Phase R-4) ───────────────────────────
-    // Source nào không support write (vd ArchiveSource v1) phải override các method này throw
+    // Source nào không support write phải override các method này throw
     // NodeException với message rõ. NodeFileBackend facade gate qua supportsWrite() trước khi gọi.
 
     /**
-     * {@code true} nếu source này hỗ trợ create/rename/delete. ArchiveSource v1 = false.
+     * {@code true} nếu source này hỗ trợ create/rename/delete.
      * Caller (NodeFileBackend) check trước khi gọi write methods để fail-fast với message rõ thay vì
      * bắt NodeException ở layer thấp.
      */

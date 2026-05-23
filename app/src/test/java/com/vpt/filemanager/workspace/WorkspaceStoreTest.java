@@ -74,6 +74,17 @@ public final class WorkspaceStoreTest {
     }
 
     @Test
+    public void archiveSnapshot_observesPhysicalContainerParent() {
+        NodePath archive = NodePath.inArchive(DOCUMENTS.child("data.zip"), "/docs");
+
+        store.retain(archive);
+        store.release(archive);
+
+        verify(watcher).retain(DOCUMENTS);
+        verify(watcher).release(DOCUMENTS);
+    }
+
+    @Test
     public void rootNode_isStableLogicalTreeEntryPoint() {
         assertSame(store.rootNode(), store.rootNode());
         assertEquals(NodePath.ROOT, store.rootNode().path());

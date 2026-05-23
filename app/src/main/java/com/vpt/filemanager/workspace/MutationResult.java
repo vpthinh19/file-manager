@@ -42,6 +42,10 @@ public final class MutationResult {
         if (allLiveSnapshots || changedContainers.contains(visibleContainer)) {
             return true;
         }
+        if (visibleContainer.isArchive()
+                && changedContainers.contains(NodePath.parse(visibleContainer.authority()).parent())) {
+            return true;
+        }
         if (visibleContainer.isSearch() && affectsSearchResult(visibleContainer)) {
             return true;
         }
@@ -79,6 +83,10 @@ public final class MutationResult {
         if (allLiveSnapshots || changedContainers.contains(nodePath.parent())) {
             return true;
         }
+        if (nodePath.isArchive()
+                && changedContainers.contains(NodePath.parse(nodePath.authority()).parent())) {
+            return true;
+        }
         for (NodePath removed : removedSubtrees) {
             if (nodePath.isSameOrDescendantOf(removed)) {
                 return true;
@@ -94,6 +102,10 @@ public final class MutationResult {
         @NonNull
         public Builder changedContainer(@NonNull NodePath path) {
             changedContainers.add(path);
+            if (path.isArchive()) {
+                NodePath archiveFile = NodePath.parse(path.authority());
+                changedContainers.add(archiveFile.parent());
+            }
             return this;
         }
 

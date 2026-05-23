@@ -10,19 +10,23 @@ import javax.inject.Singleton;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.operations.support.NodeFileBackend;
 import com.vpt.filemanager.operations.trash.TrashStore;
 import com.vpt.filemanager.workspace.MutationResult;
 
 /**
- * Soft-delete virtual nodes by moving them to Trash.
+ * Delete virtual nodes. Local nodes are moved to Trash; archive entries are removed from their
+ * writable container because they have no independent local object that can live in Trash.
  */
 @Singleton
 public final class DeleteNodesOperation {
     private final TrashStore trashStore;
+    private final NodeFileBackend fileBackend;
 
     @Inject
-    public DeleteNodesOperation(TrashStore trashStore) {
+    public DeleteNodesOperation(TrashStore trashStore, NodeFileBackend fileBackend) {
         this.trashStore = trashStore;
+        this.fileBackend = fileBackend;
     }
 
     @NonNull
@@ -33,7 +37,7 @@ public final class DeleteNodesOperation {
         }
         if (!input.continueOnFailure && input.nodes.size() == 1) {
             VirtualNode node = input.nodes.get(0);
-            trashStore.moveToTrash(node);
+            deleteNode(node);
             recordDeletedNode(mutation, node);
             return new Result(1, 0, null, mutation.build());
         }
@@ -43,7 +47,7 @@ public final class DeleteNodesOperation {
         String lastError = null;
         for (VirtualNode node : input.nodes) {
             try {
-                trashStore.moveToTrash(node);
+                deleteNode(node);
                 recordDeletedNode(mutation, node);
                 ok++;
             } catch (NodeException e) {
@@ -60,8 +64,18 @@ public final class DeleteNodesOperation {
 
     private static void recordDeletedNode(MutationResult.Builder mutation, VirtualNode node) {
         mutation.changedContainer(node.path().parent())
-                .changedContainer(NodePath.TRASH_ROOT)
                 .removedSubtree(node.path());
+        if (!node.path().isArchive()) {
+            mutation.changedContainer(NodePath.TRASH_ROOT);
+        }
+    }
+
+    private void deleteNode(VirtualNode node) throws NodeException {
+        if (node.path().isArchive()) {
+            fileBackend.delete(node);
+        } else {
+            trashStore.moveToTrash(node);
+        }
     }
 
     public static final class Input {

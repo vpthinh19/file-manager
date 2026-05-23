@@ -44,9 +44,13 @@ public final class CreateNodeOperation {
                 throw new NameConflictException(name, existing);
             }
             if (input.policy == ExistingNamePolicy.REPLACE) {
-                trashStore.moveToTrash(existing);
-                mutation.changedContainer(NodePath.TRASH_ROOT)
-                        .removedSubtree(existing.path());
+                if (existing.path().isArchive()) {
+                    fileBackend.delete(existing);
+                } else {
+                    trashStore.moveToTrash(existing);
+                    mutation.changedContainer(NodePath.TRASH_ROOT);
+                }
+                mutation.removedSubtree(existing.path());
             } else if (input.policy == ExistingNamePolicy.KEEP_BOTH) {
                 finalName = UniqueNameGenerator.uniqueName(input.parent, name);
             }

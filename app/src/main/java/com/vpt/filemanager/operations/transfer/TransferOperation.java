@@ -97,9 +97,13 @@ public final class TransferOperation {
             return requestedName;
         }
         if (decision == TransferConflictDecision.REPLACE) {
-            trashStore.moveToTrash(existing);
+            if (existing.path().isArchive()) {
+                fileBackend.delete(existing);
+            } else {
+                trashStore.moveToTrash(existing);
+                mutation.changedContainer(NodePath.TRASH_ROOT);
+            }
             mutation.changedContainer(targetParent.path())
-                    .changedContainer(NodePath.TRASH_ROOT)
                     .removedSubtree(existing.path());
             return requestedName;
         }

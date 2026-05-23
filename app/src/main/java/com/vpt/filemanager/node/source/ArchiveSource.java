@@ -1,9 +1,14 @@
 package com.vpt.filemanager.node.source;
 
 import java.io.FilterInputStream;
+import java.io.FilterOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -20,14 +25,20 @@ import javax.inject.Singleton;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
+import com.vpt.filemanager.node.source.archive.ArchiveMutationBackend;
+import com.vpt.filemanager.node.source.archive.ZipArchiveMutationBackend;
 
 /**
- * Read-only ZIP-backed virtual-node source.
+ * ZIP-backed virtual-node source.
  *
  * <p>ZIP central directories are cached to keep navigation responsive, but the cache is bounded.
  * An archive with an open entry stream is pinned until that stream closes; inactive least-recently
  * used sessions are then closed and evicted. Opening unrelated archives therefore cannot retain
  * every {@link ZipFile} for the process lifetime.
+ *
+ * <p>Writes delegate to {@link ArchiveMutationBackend}: entry mutations rewrite a temporary
+ * container and replace the physical archive only after a complete successful rewrite. Operation
+ * classes continue to treat archive entries like ordinary virtual nodes.
  */
 @Singleton
 public final class ArchiveSource implements NodeSource {
@@ -35,9 +46,15 @@ public final class ArchiveSource implements NodeSource {
 
     private final Map<NodePath, ArchiveSession> sessions =
             new LinkedHashMap<>(MAX_OPEN_ARCHIVES + 1, 0.75f, true);
+    private final ArchiveMutationBackend mutationBackend;
+
+    public ArchiveSource() {
+        this(new ZipArchiveMutationBackend());
+    }
 
     @Inject
-    public ArchiveSource() {
+    public ArchiveSource(ArchiveMutationBackend mutationBackend) {
+        this.mutationBackend = mutationBackend;
     }
 
     @Override
@@ -56,6 +73,12 @@ public final class ArchiveSource implements NodeSource {
                 entry = session.zip.getEntry(inner + "/");
             }
             if (entry == null) {
+                String childPrefix = inner + "/";
+                boolean implicitDirectory = session.zip.stream()
+                        .anyMatch(candidate -> candidate.getName().startsWith(childPrefix));
+                if (implicitDirectory) {
+                    return new VirtualNode(path, true, -1L, -1L, this);
+                }
                 throw new NodeException("Archive entry not found: " + inner);
             }
             boolean folder = entry.isDirectory();
@@ -106,42 +129,95 @@ public final class ArchiveSource implements NodeSource {
 
     @Override
     public OutputStream openWrite(VirtualNode file) throws NodeException {
-        throw new NodeException("Archive write is not supported in v1");
+        NodePath entryPath = file.path();
+        if (!entryPath.isArchive() || file.isFolder()) {
+            throw new NodeException("Cannot write archive folder: " + entryPath);
+        }
+        NodePath archiveFilePath = NodePath.parse(entryPath.authority());
+        try {
+            Path payload = Files.createTempFile("archive-entry-", ".payload");
+            OutputStream staged = Files.newOutputStream(payload,
+                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+            return new StagedEntryOutputStream(staged, payload, archiveFilePath, entryPath.path());
+        } catch (IOException | SecurityException error) {
+            throw new NodeException("Unable to stage archive entry: " + entryPath.name(), error);
+        }
     }
 
     @Override
     public boolean supportsWrite() {
-        return false;
+        return true;
     }
 
     @Override
     public VirtualNode createFile(NodePath path) throws NodeException {
-        throw new NodeException("Archive write is not supported in v1");
+        NodePath archiveFilePath = requireArchiveEntry(path);
+        mutate(archiveFilePath, () -> mutationBackend.createFile(archiveFilePath, path.path()));
+        return resolve(path);
     }
 
     @Override
     public VirtualNode createFolder(NodePath path) throws NodeException {
-        throw new NodeException("Archive write is not supported in v1");
+        NodePath archiveFilePath = requireArchiveEntry(path);
+        mutate(archiveFilePath, () -> mutationBackend.createFolder(archiveFilePath, path.path()));
+        return resolve(path);
     }
 
     @Override
     public VirtualNode rename(VirtualNode node, String newName) throws NodeException {
-        throw new NodeException("Archive write is not supported in v1");
+        NodePath oldPath = node.path();
+        NodePath archiveFilePath = requireArchiveEntry(oldPath);
+        NodePath renamedPath = oldPath.parent().child(newName);
+        mutate(archiveFilePath, () -> mutationBackend.rename(
+                archiveFilePath, oldPath.path(), renamedPath.path(), node.isFolder()));
+        return resolve(renamedPath);
     }
 
     @Override
     public void delete(VirtualNode node) throws NodeException {
-        throw new NodeException("Archive write is not supported in v1");
+        NodePath path = node.path();
+        NodePath archiveFilePath = requireArchiveEntry(path);
+        mutate(archiveFilePath, () -> mutationBackend.delete(
+                archiveFilePath, path.path(), node.isFolder()));
+    }
+
+    private static NodePath requireArchiveEntry(NodePath path) throws NodeException {
+        if (!path.isArchive() || "/".equals(path.path())) {
+            throw new NodeException("Cannot mutate archive root: " + path);
+        }
+        NodePath archiveFilePath = NodePath.parse(path.authority());
+        if (!archiveFilePath.isLocal()) {
+            throw new NodeException("Only local archive containers are writable");
+        }
+        return archiveFilePath;
+    }
+
+    private synchronized void mutate(NodePath archiveFilePath, ArchiveMutation mutation)
+            throws NodeException {
+        ArchiveSession cached = sessions.get(archiveFilePath);
+        if (cached != null && cached.activeUses > 0) {
+            throw new NodeException("Archive is busy: close open entries before modifying it");
+        }
+        if (cached != null) {
+            sessions.remove(archiveFilePath);
+            closeQuietly(cached.zip);
+        }
+        mutation.run();
     }
 
     private synchronized ArchiveSession acquire(NodePath archiveFilePath) throws NodeException {
         ArchiveSession existing = sessions.get(archiveFilePath);
         if (existing != null) {
-            existing.activeUses++;
-            return existing;
+            if (existing.activeUses == 0 && !existing.matches(archiveFilePath)) {
+                sessions.remove(archiveFilePath);
+                closeQuietly(existing.zip);
+            } else {
+                existing.activeUses++;
+                return existing;
+            }
         }
         try {
-            ArchiveSession session = new ArchiveSession(new ZipFile(archiveFilePath.path()));
+            ArchiveSession session = new ArchiveSession(archiveFilePath);
             session.activeUses = 1;
             sessions.put(archiveFilePath, session);
             trimInactiveSessions();
@@ -237,10 +313,21 @@ public final class ArchiveSource implements NodeSource {
 
     private static final class ArchiveSession {
         final ZipFile zip;
+        final long containerLength;
+        final long containerModifiedAt;
         int activeUses;
 
-        ArchiveSession(ZipFile zip) {
-            this.zip = zip;
+        ArchiveSession(NodePath archiveFilePath) throws IOException {
+            File physical = new File(archiveFilePath.path());
+            this.zip = new ZipFile(physical);
+            this.containerLength = physical.length();
+            this.containerModifiedAt = physical.lastModified();
+        }
+
+        boolean matches(NodePath archiveFilePath) {
+            File physical = new File(archiveFilePath.path());
+            return physical.length() == containerLength
+                    && physical.lastModified() == containerModifiedAt;
         }
     }
 
@@ -265,5 +352,47 @@ public final class ArchiveSource implements NodeSource {
                 release(session);
             }
         }
+    }
+
+    private final class StagedEntryOutputStream extends FilterOutputStream {
+        private final Path payload;
+        private final NodePath archiveFilePath;
+        private final String innerPath;
+        private boolean closed;
+
+        StagedEntryOutputStream(OutputStream output,
+                                Path payload,
+                                NodePath archiveFilePath,
+                                String innerPath) {
+            super(output);
+            this.payload = payload;
+            this.archiveFilePath = archiveFilePath;
+            this.innerPath = innerPath;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            try {
+                super.close();
+                mutate(archiveFilePath,
+                        () -> mutationBackend.replaceFile(archiveFilePath, innerPath, payload));
+            } catch (NodeException error) {
+                throw new IOException(error.getMessage(), error);
+            } finally {
+                try {
+                    Files.deleteIfExists(payload);
+                } catch (IOException ignored) {
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface ArchiveMutation {
+        void run() throws NodeException;
     }
 }
