@@ -8,6 +8,9 @@ import androidx.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
@@ -29,6 +32,9 @@ import org.eclipse.tm4e.core.registry.IThemeSource;
  * data for languages the user never opens.
  */
 public final class SyntaxSetup {
+    private static final int MAX_CACHED_GRAMMAR_SCOPES = 3;
+    private static final Map<String, CachedGrammar> GRAMMAR_CACHE =
+            new LinkedHashMap<>(MAX_CACHED_GRAMMAR_SCOPES + 1, 0.75f, true);
     private static boolean providerRegistered;
     @Nullable
     private static String activeThemeName;
@@ -49,7 +55,7 @@ public final class SyntaxSetup {
      * @return a language instance or {@code null} when no catalog entry exists for the scope.
      */
     @Nullable
-    public static synchronized TextMateLanguage createLanguage(
+    public static synchronized LanguageLease acquireLanguage(
             @NonNull Context context,
             @Nullable String scopeName) throws IOException {
         SyntaxDefinition definition = SyntaxCatalog.find(scopeName);
@@ -57,8 +63,30 @@ public final class SyntaxSetup {
             return null;
         }
         ensureInfrastructure(context);
-        loadDefinition(definition, new HashSet<>());
-        return TextMateLanguage.create(definition.scopeName, true);
+        CachedGrammar grammar = GRAMMAR_CACHE.get(definition.scopeName);
+        if (grammar == null) {
+            GrammarRegistry registry = new GrammarRegistry(null);
+            loadDefinition(definition, new HashSet<>(), registry);
+            applyTheme(registry);
+            grammar = new CachedGrammar(registry);
+            GRAMMAR_CACHE.put(definition.scopeName, grammar);
+        } else {
+            applyTheme(grammar.registry);
+        }
+        grammar.activeLeases++;
+        try {
+            TextMateLanguage language = TextMateLanguage.create(
+                    definition.scopeName,
+                    grammar.registry,
+                    ThemeRegistry.getInstance(),
+                    true);
+            trimGrammarCache();
+            return new LanguageLease(language, grammar);
+        } catch (RuntimeException failure) {
+            grammar.activeLeases--;
+            trimGrammarCache();
+            throw failure;
+        }
     }
 
     /**
@@ -113,9 +141,11 @@ public final class SyntaxSetup {
         }
     }
 
-    private static void loadDefinition(SyntaxDefinition definition, Set<String> visiting)
+    private static void loadDefinition(
+            SyntaxDefinition definition,
+            Set<String> visiting,
+            GrammarRegistry registry)
             throws IOException {
-        GrammarRegistry registry = GrammarRegistry.getInstance();
         if (registry.findGrammar(definition.scopeName, false) != null) {
             return;
         }
@@ -125,7 +155,7 @@ public final class SyntaxSetup {
         for (String dependencyScope : definition.dependencies) {
             SyntaxDefinition dependency = SyntaxCatalog.find(dependencyScope);
             if (dependency != null) {
-                loadDefinition(dependency, visiting);
+                loadDefinition(dependency, visiting, registry);
             }
         }
         try (InputStream input =
@@ -149,6 +179,73 @@ public final class SyntaxSetup {
             throw new IOException("Grammar load failed: " + definition.grammarAsset, error);
         } finally {
             visiting.remove(definition.scopeName);
+        }
+    }
+
+    private static void applyTheme(GrammarRegistry registry) throws IOException {
+        try {
+            registry.setTheme(ThemeRegistry.getInstance().getCurrentThemeModel());
+        } catch (Exception error) {
+            throw new IOException("Unable to apply TextMate theme", error);
+        }
+    }
+
+    private static void trimGrammarCache() {
+        if (GRAMMAR_CACHE.size() <= MAX_CACHED_GRAMMAR_SCOPES) {
+            return;
+        }
+        Iterator<Map.Entry<String, CachedGrammar>> entries = GRAMMAR_CACHE.entrySet().iterator();
+        while (GRAMMAR_CACHE.size() > MAX_CACHED_GRAMMAR_SCOPES && entries.hasNext()) {
+            CachedGrammar grammar = entries.next().getValue();
+            if (grammar.activeLeases == 0) {
+                entries.remove();
+                grammar.registry.dispose();
+            }
+        }
+    }
+
+    private static void release(CachedGrammar grammar) {
+        if (grammar.activeLeases > 0) {
+            grammar.activeLeases--;
+        }
+        trimGrammarCache();
+    }
+
+    private static final class CachedGrammar {
+        final GrammarRegistry registry;
+        int activeLeases;
+
+        CachedGrammar(GrammarRegistry registry) {
+            this.registry = registry;
+        }
+    }
+
+    /**
+     * Keeps one grammar registry alive only while an editor uses it or it remains in the small MRU.
+     */
+    public static final class LanguageLease implements AutoCloseable {
+        private final TextMateLanguage language;
+        private CachedGrammar grammar;
+
+        private LanguageLease(TextMateLanguage language, CachedGrammar grammar) {
+            this.language = language;
+            this.grammar = grammar;
+        }
+
+        @NonNull
+        public TextMateLanguage language() {
+            return language;
+        }
+
+        @Override
+        public void close() {
+            synchronized (SyntaxSetup.class) {
+                if (grammar == null) {
+                    return;
+                }
+                release(grammar);
+                grammar = null;
+            }
         }
     }
 }

@@ -15,7 +15,6 @@ import com.vpt.filemanager.ui.editor.SyntaxSetup;
 
 import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme;
 import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
-import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry;
 import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry;
 
 @RunWith(AndroidJUnit4.class)
@@ -26,17 +25,25 @@ public final class SyntaxSetupInstrumentedTest {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
         SyntaxSetup.ensureInitialized(context);
-        TextMateLanguage javaLanguage = SyntaxSetup.createLanguage(context, "source.java");
-        TextMateLanguage jsonLanguage = SyntaxSetup.createLanguage(context, "source.json");
-        TextMateLanguage xmlLanguage = SyntaxSetup.createLanguage(context, "text.xml");
+        try (SyntaxSetup.LanguageLease javaLease =
+                     SyntaxSetup.acquireLanguage(context, "source.java");
+             SyntaxSetup.LanguageLease jsonLease =
+                     SyntaxSetup.acquireLanguage(context, "source.json");
+             SyntaxSetup.LanguageLease xmlLease =
+                     SyntaxSetup.acquireLanguage(context, "text.xml")) {
+            TextMateLanguage javaLanguage = javaLease.language();
+            TextMateLanguage jsonLanguage = jsonLease.language();
+            TextMateLanguage xmlLanguage = xmlLease.language();
 
-        assertNotNull(GrammarRegistry.getInstance().findGrammar("source.java"));
-        assertNotNull(GrammarRegistry.getInstance().findGrammar("source.json"));
-        assertNotNull(GrammarRegistry.getInstance().findGrammar("text.xml"));
-        assertNotNull(javaLanguage);
-        assertNotNull(jsonLanguage);
-        assertNotNull(xmlLanguage);
-        assertNotNull(TextMateColorScheme.create(ThemeRegistry.getInstance()));
+            assertNotNull(javaLanguage);
+            assertNotNull(jsonLanguage);
+            assertNotNull(xmlLanguage);
+            assertNotNull(TextMateColorScheme.create(ThemeRegistry.getInstance()));
+
+            javaLanguage.destroy();
+            jsonLanguage.destroy();
+            xmlLanguage.destroy();
+        }
     }
 
     @Test

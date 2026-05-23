@@ -1,12 +1,16 @@
 package com.vpt.filemanager.workspace;
 
 import android.os.FileObserver;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javax.inject.Inject;
@@ -22,6 +26,7 @@ import timber.log.Timber;
  */
 @Singleton
 public final class WorkspaceFileWatcher {
+    static final long EVENT_COALESCE_MILLIS = 80L;
     private static final int EVENTS = FileObserver.CREATE
             | FileObserver.DELETE
             | FileObserver.MOVED_FROM
@@ -31,6 +36,10 @@ public final class WorkspaceFileWatcher {
             | FileObserver.MOVE_SELF;
 
     private final Map<NodePath, WatchEntry> entries = new HashMap<>();
+    private final Set<NodePath> pendingChangedContainers = new LinkedHashSet<>();
+    private final Set<NodePath> pendingRemovedSubtrees = new LinkedHashSet<>();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable dispatchPendingEvents = this::dispatchPendingEvents;
     private Consumer<MutationResult> listener = ignored -> { };
 
     @Inject
@@ -76,14 +85,33 @@ public final class WorkspaceFileWatcher {
         }
     }
 
-    private void onFilesystemEvent(NodePath path, int event) {
+    void onFilesystemEvent(NodePath path, int event) {
         boolean selfRemoved = (event & (FileObserver.DELETE_SELF | FileObserver.MOVE_SELF)) != 0;
-        MutationResult.Builder mutation = MutationResult.builder().changedContainer(path);
-        if (selfRemoved) {
-            mutation.removedSubtree(path);
+        synchronized (this) {
+            pendingChangedContainers.add(path);
+            if (selfRemoved) {
+                pendingRemovedSubtrees.add(path);
+            }
+            mainHandler.removeCallbacks(dispatchPendingEvents);
+            mainHandler.postDelayed(dispatchPendingEvents, EVENT_COALESCE_MILLIS);
         }
+    }
+
+    private void dispatchPendingEvents() {
+        MutationResult.Builder mutation = MutationResult.builder();
         Consumer<MutationResult> callback;
         synchronized (this) {
+            if (pendingChangedContainers.isEmpty() && pendingRemovedSubtrees.isEmpty()) {
+                return;
+            }
+            for (NodePath changed : pendingChangedContainers) {
+                mutation.changedContainer(changed);
+            }
+            for (NodePath removed : pendingRemovedSubtrees) {
+                mutation.removedSubtree(removed);
+            }
+            pendingChangedContainers.clear();
+            pendingRemovedSubtrees.clear();
             callback = listener;
         }
         callback.accept(mutation.build());

@@ -1,45 +1,40 @@
 package com.vpt.filemanager.node.source;
 
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 
 /**
- * {@link NodeSource} impl cho archive (zip) — read-only browsing.
+ * Read-only ZIP-backed virtual-node source.
  *
- * <p><b>Session cache</b>: mở {@link ZipFile} là syscall + parse central directory (~ms-100ms cho
- * zip lớn). Mỗi archive file mở 1 lần, cache trong {@code sessions} map, sống đến hết app
- * lifetime. Slight memory cost (~KB per cached zip), bù lại không re-open mỗi lần navigate inner
- * folder.
- *
- * <p><b>NodePath shape</b>: archive entry có scheme = {@code archive}, authority = path tới
- * archive file (đã URL-encoded), path = inner path bên trong zip ({@code /} = archive root).
- * Ví dụ: {@code archive://file%3A%2F%2F%2Fstorage%2Fphotos.zip/photos/cat.jpg}.
- *
- * <p><b>Capability v1</b>: chỉ read. Phase 2C-6 thêm extract qua {@code NodeFileBackend.copy}, phase
- * 3 thêm libarchive native cho 7z/RAR/TAR.
- *
- * <p><b>Thread-safety</b>: {@link ZipFile} thread-safe cho concurrent reads (Javadoc). Cache
- * map là {@link ConcurrentHashMap}.
+ * <p>ZIP central directories are cached to keep navigation responsive, but the cache is bounded.
+ * An archive with an open entry stream is pinned until that stream closes; inactive least-recently
+ * used sessions are then closed and evicted. Opening unrelated archives therefore cannot retain
+ * every {@link ZipFile} for the process lifetime.
  */
 @Singleton
 public final class ArchiveSource implements NodeSource {
-    private final Map<NodePath, ZipFile> sessions = new ConcurrentHashMap<>();
+    static final int MAX_OPEN_ARCHIVES = 4;
+
+    private final Map<NodePath, ArchiveSession> sessions =
+            new LinkedHashMap<>(MAX_OPEN_ARCHIVES + 1, 0.75f, true);
 
     @Inject
     public ArchiveSource() {
@@ -50,23 +45,25 @@ public final class ArchiveSource implements NodeSource {
         if (!path.isArchive()) {
             throw new NodeException("ArchiveSource cannot resolve scheme: " + path.scheme());
         }
-        // archive://...!/ → root folder của archive
         if ("/".equals(path.path())) {
             return new VirtualNode(path, true, -1L, -1L, this);
         }
-        NodePath archiveFilePath = NodePath.parse(path.authority());
-        ZipFile zip = openOrCache(archiveFilePath);
-        String inner = stripLeadingSlash(path.path());
-        ZipEntry entry = zip.getEntry(inner);
-        if (entry == null) {
-            // Thử tìm dưới dạng folder (zip lưu folder với suffix '/')
-            entry = zip.getEntry(inner + "/");
+        ArchiveSession session = acquire(NodePath.parse(path.authority()));
+        try {
+            String inner = stripLeadingSlash(path.path());
+            ZipEntry entry = session.zip.getEntry(inner);
+            if (entry == null) {
+                entry = session.zip.getEntry(inner + "/");
+            }
             if (entry == null) {
                 throw new NodeException("Archive entry not found: " + inner);
             }
+            boolean folder = entry.isDirectory();
+            return new VirtualNode(path, folder,
+                    folder ? -1L : entry.getSize(), entry.getTime(), this);
+        } finally {
+            release(session);
         }
-        boolean dir = entry.isDirectory();
-        return new VirtualNode(path, dir, dir ? -1L : entry.getSize(), entry.getTime(), this);
     }
 
     @Override
@@ -76,8 +73,12 @@ public final class ArchiveSource implements NodeSource {
             throw new NodeException("ArchiveSource cannot list scheme: " + dirPath.scheme());
         }
         NodePath archiveFilePath = NodePath.parse(dirPath.authority());
-        ZipFile zip = openOrCache(archiveFilePath);
-        return listImmediateChildren(zip, archiveFilePath, dirPath.path());
+        ArchiveSession session = acquire(archiveFilePath);
+        try {
+            return listImmediateChildren(session.zip, archiveFilePath, dirPath.path());
+        } finally {
+            release(session);
+        }
     }
 
     @Override
@@ -86,23 +87,22 @@ public final class ArchiveSource implements NodeSource {
         if (!filePath.isArchive()) {
             throw new NodeException("ArchiveSource cannot read scheme: " + filePath.scheme());
         }
-        NodePath archiveFilePath = NodePath.parse(filePath.authority());
-        ZipFile zip = openOrCache(archiveFilePath);
+        ArchiveSession session = acquire(NodePath.parse(filePath.authority()));
         String inner = stripLeadingSlash(filePath.path());
-        ZipEntry entry = zip.getEntry(inner);
-        if (entry == null || entry.isDirectory()) {
-            throw new NodeException("Archive entry not found: " + inner);
-        }
         try {
-            return zip.getInputStream(entry);
-        } catch (IOException e) {
-            throw new NodeException("Unable to open archive entry: " + inner, e);
+            ZipEntry entry = session.zip.getEntry(inner);
+            if (entry == null || entry.isDirectory()) {
+                throw new NodeException("Archive entry not found: " + inner);
+            }
+            return new SessionInputStream(session.zip.getInputStream(entry), session);
+        } catch (IOException | NodeException error) {
+            release(session);
+            if (error instanceof NodeException) {
+                throw (NodeException) error;
+            }
+            throw new NodeException("Unable to open archive entry: " + inner, error);
         }
     }
-
-    // ─────────────── Write API: archive v1 read-only ───────────────
-    // Phase 3 sẽ wire libarchive native cho write support nếu khả thi. ZipFile java.util.zip
-    // không support modify in-place — phải write toàn bộ ra file mới. v1 không investment.
 
     @Override
     public OutputStream openWrite(VirtualNode file) throws NodeException {
@@ -134,40 +134,66 @@ public final class ArchiveSource implements NodeSource {
         throw new NodeException("Archive write is not supported in v1");
     }
 
-    /**
-     * Lấy {@link ZipFile} từ cache, hoặc mở mới và cache lại. Mở zip có thể tốn (parse central
-     * directory) — cache phẳng tránh re-open mỗi navigate.
-     */
-    private ZipFile openOrCache(NodePath archiveFilePath) throws NodeException {
-        ZipFile existing = sessions.get(archiveFilePath);
+    private synchronized ArchiveSession acquire(NodePath archiveFilePath) throws NodeException {
+        ArchiveSession existing = sessions.get(archiveFilePath);
         if (existing != null) {
+            existing.activeUses++;
             return existing;
         }
         try {
-            ZipFile fresh = new ZipFile(archiveFilePath.path());
-            ZipFile prev = sessions.putIfAbsent(archiveFilePath, fresh);
-            if (prev != null) {
-                // Race condition: another thread cached first → đóng instance vừa mở
-                try {
-                    fresh.close();
-                } catch (IOException ignored) {
-                }
-                return prev;
-            }
-            return fresh;
-        } catch (IOException e) {
-            throw new NodeException("Unable to open archive: " + archiveFilePath.path(), e);
+            ArchiveSession session = new ArchiveSession(new ZipFile(archiveFilePath.path()));
+            session.activeUses = 1;
+            sessions.put(archiveFilePath, session);
+            trimInactiveSessions();
+            return session;
+        } catch (IOException error) {
+            throw new NodeException("Unable to open archive: " + archiveFilePath.path(), error);
         }
     }
 
-    /**
-     * Liệt kê immediate children dưới {@code innerDir} trong zip. {@link ZipFile} lưu entries
-     * dạng flat (vd "a/b/c.txt") — phải parse prefix + tách "immediate" theo dấu '/' đầu tiên
-     * sau prefix. {@link Set} dedup tránh trùng tên (zip lưu cả entry folder "a/" và entry file
-     * "a/b" → "a" xuất hiện 2 lần).
-     */
-    private List<VirtualNode> listImmediateChildren(ZipFile zip, NodePath archiveFilePath,
-                                                     String innerDir) {
+    private synchronized void release(ArchiveSession session) {
+        if (session.activeUses > 0) {
+            session.activeUses--;
+        }
+        trimInactiveSessions();
+    }
+
+    private void trimInactiveSessions() {
+        while (sessions.size() > MAX_OPEN_ARCHIVES) {
+            Iterator<Map.Entry<NodePath, ArchiveSession>> entries = sessions.entrySet().iterator();
+            boolean removed = false;
+            while (entries.hasNext()) {
+                ArchiveSession candidate = entries.next().getValue();
+                if (candidate.activeUses == 0) {
+                    entries.remove();
+                    closeQuietly(candidate.zip);
+                    removed = true;
+                    break;
+                }
+            }
+            if (!removed) {
+                return;
+            }
+        }
+    }
+
+    int cachedSessionCount() {
+        synchronized (this) {
+            return sessions.size();
+        }
+    }
+
+    private static void closeQuietly(ZipFile zip) {
+        try {
+            zip.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    private List<VirtualNode> listImmediateChildren(
+            ZipFile zip,
+            NodePath archiveFilePath,
+            String innerDir) {
         String prefix = normalizeEntryPrefix(innerDir);
         Set<String> directNames = new HashSet<>();
         List<VirtualNode> nodes = new ArrayList<>(32);
@@ -182,10 +208,10 @@ public final class ArchiveSource implements NodeSource {
             if (direct.isEmpty() || !directNames.add(direct)) {
                 return;
             }
-            boolean dir = slash >= 0 || entry.isDirectory();
+            boolean folder = slash >= 0 || entry.isDirectory();
             NodePath childPath = NodePath.inArchive(archiveFilePath, joinInner(innerDir, direct));
-            nodes.add(new VirtualNode(childPath, dir,
-                    dir ? -1L : entry.getSize(), entry.getTime(), this));
+            nodes.add(new VirtualNode(childPath, folder,
+                    folder ? -1L : entry.getSize(), entry.getTime(), this));
         });
         return nodes;
     }
@@ -206,9 +232,38 @@ public final class ArchiveSource implements NodeSource {
     }
 
     private static String joinInner(String parent, String child) {
-        if ("/".equals(parent)) {
-            return "/" + child;
+        return "/".equals(parent) ? "/" + child : parent + "/" + child;
+    }
+
+    private static final class ArchiveSession {
+        final ZipFile zip;
+        int activeUses;
+
+        ArchiveSession(ZipFile zip) {
+            this.zip = zip;
         }
-        return parent + "/" + child;
+    }
+
+    private final class SessionInputStream extends FilterInputStream {
+        private final ArchiveSession session;
+        private boolean closed;
+
+        SessionInputStream(InputStream input, ArchiveSession session) {
+            super(input);
+            this.session = session;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            try {
+                super.close();
+            } finally {
+                release(session);
+            }
+        }
     }
 }

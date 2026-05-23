@@ -93,6 +93,23 @@ public final class WorkspaceStore {
     }
 
     /**
+     * Materializes a navigated location once and shares its current snapshot between panes.
+     *
+     * <p>Explicit refresh still uses {@link #reload(NodePath)}. A navigation to a path already
+     * visible in the other pane should not immediately scan and allocate the same directory again.
+     */
+    @NonNull
+    public synchronized DirectorySnapshot open(@NonNull NodePath path) throws NodeException {
+        DirectorySnapshot current = snapshots.get(path);
+        Long requiredRevision = invalidatedAt.get(path);
+        if (current != null
+                && (requiredRevision == null || current.revision >= requiredRevision)) {
+            return current;
+        }
+        return materialize(path);
+    }
+
+    /**
      * Reads after a mutation only if no other pane has already reconciled this live path.
      */
     @NonNull

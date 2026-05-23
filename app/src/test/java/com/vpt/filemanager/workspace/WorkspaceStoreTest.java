@@ -95,6 +95,18 @@ public final class WorkspaceStoreTest {
     }
 
     @Test
+    public void twoPanesOpeningSamePath_shareCurrentMaterializedSnapshot() throws Exception {
+        store.retain(DOCUMENTS);
+        store.retain(DOCUMENTS);
+
+        DirectorySnapshot firstPane = store.open(DOCUMENTS);
+        DirectorySnapshot secondPane = store.open(DOCUMENTS);
+
+        assertEquals(1, source.listCalls);
+        assertSame(firstPane, secondPane);
+    }
+
+    @Test
     public void releasedSnapshot_isNotReusedWhenPathIsOpenedAgain() throws Exception {
         store.retain(DOCUMENTS);
         store.reload(DOCUMENTS);

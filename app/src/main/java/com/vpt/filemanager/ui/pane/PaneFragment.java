@@ -9,7 +9,6 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -92,17 +91,10 @@ public final class PaneFragment extends Fragment implements FileListAdapter.List
         adapter = new FileListAdapter(this);
         binding.rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.rv.setAdapter(adapter);
-        // Fixed-size rows let RV skip a measure pass. Row height = 46dp (row_file_node.xml).
+        // Stable row dimensions let RecyclerView skip redundant measure passes.
         binding.rv.setHasFixedSize(true);
-        // Tight 120ms cross-fade per item — DefaultItemAnimator fade-out rows DiffUtil removed
-        // (folder leaving) song song fade-in rows DiffUtil inserted. KHÔNG layoutAnimation,
-        // KHÔNG manual RV alpha trick: cross-fade sync với diff commit.
-        DefaultItemAnimator animator = new DefaultItemAnimator();
-        animator.setAddDuration(120);
-        animator.setRemoveDuration(120);
-        animator.setChangeDuration(120);
-        animator.setMoveDuration(120);
-        binding.rv.setItemAnimator(animator);
+        // Navigation and filesystem bursts can replace many rows; mass fades add draw work.
+        binding.rv.setItemAnimator(null);
         binding.rv.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv,

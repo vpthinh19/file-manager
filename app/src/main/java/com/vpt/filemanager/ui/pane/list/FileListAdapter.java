@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import com.vpt.filemanager.R;
@@ -26,6 +27,7 @@ import com.vpt.filemanager.node.VirtualNode;
  * </ul>
  */
 public final class FileListAdapter extends ListAdapter<VirtualNode, FileViewHolder> {
+    private static final Object SELECTION_PAYLOAD = new Object();
     private final Listener listener;
     private Set<NodePath> selectedPaths = Collections.emptySet();
 
@@ -52,7 +54,7 @@ public final class FileListAdapter extends ListAdapter<VirtualNode, FileViewHold
             boolean wasSelected = previous.contains(path);
             boolean isSelected = next.contains(path);
             if (wasSelected != isSelected) {
-                notifyItemChanged(i);
+                notifyItemChanged(i, SELECTION_PAYLOAD);
             }
         }
     }
@@ -70,6 +72,18 @@ public final class FileListAdapter extends ListAdapter<VirtualNode, FileViewHold
     public void onBindViewHolder(@NonNull FileViewHolder holder, int position) {
         VirtualNode node = getItem(position);
         holder.bind(node, selectedPaths.contains(node.path()));
+    }
+
+    @Override
+    public void onBindViewHolder(
+            @NonNull FileViewHolder holder,
+            int position,
+            @NonNull List<Object> payloads) {
+        if (payloads.contains(SELECTION_PAYLOAD)) {
+            holder.bindSelection(selectedPaths.contains(getItem(position).path()));
+            return;
+        }
+        super.onBindViewHolder(holder, position, payloads);
     }
 
     public interface Listener {

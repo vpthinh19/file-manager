@@ -111,7 +111,7 @@ public final class PaneViewModel extends ViewModel {
         try {
             currentPath = NodePath.parse(saved);
             workspace.retain(currentPath);
-            load(currentPath, false);
+            load(currentPath, LoadMode.NAVIGATE);
         } catch (IllegalArgumentException ignored) {
             savedState.remove(KEY_PATH);
         }
@@ -311,7 +311,7 @@ public final class PaneViewModel extends ViewModel {
         }
         currentPath = path;
         savedState.set(KEY_PATH, path.toString());
-        load(path, false);
+        load(path, LoadMode.NAVIGATE);
     }
 
     private void emitStackState() {
@@ -338,7 +338,7 @@ public final class PaneViewModel extends ViewModel {
 
     public void refresh() {
         if (currentPath != null) {
-            load(currentPath, false);
+            load(currentPath, LoadMode.REFRESH);
         }
     }
 
@@ -357,7 +357,7 @@ public final class PaneViewModel extends ViewModel {
 
     public void reconcile(@NonNull MutationResult mutation) {
         if (currentPath != null && mutation.affectsListing(currentPath)) {
-            load(currentPath, true);
+            load(currentPath, LoadMode.RECONCILE);
         }
     }
 
@@ -476,7 +476,7 @@ public final class PaneViewModel extends ViewModel {
      * stale Content emissions. Post-load state check guards race: slow load finish SAU khi user
      * đã navigate elsewhere → only emit nếu path vừa load === currentPath.
      */
-    private void load(NodePath path, boolean reconcileAfterMutation) {
+    private void load(NodePath path, LoadMode mode) {
         if (pendingLoad != null) {
             pendingLoad.cancel(true);
             pendingLoad = null;
@@ -484,9 +484,14 @@ public final class PaneViewModel extends ViewModel {
         uiState.postValue(new UiState.Loading());
         pendingLoad = executors.io().submit(() -> {
             try {
-                DirectorySnapshot snapshot = reconcileAfterMutation
-                        ? workspace.reconcile(path)
-                        : workspace.reload(path);
+                DirectorySnapshot snapshot;
+                if (mode == LoadMode.RECONCILE) {
+                    snapshot = workspace.reconcile(path);
+                } else if (mode == LoadMode.REFRESH) {
+                    snapshot = workspace.reload(path);
+                } else {
+                    snapshot = workspace.open(path);
+                }
                 List<VirtualNode> nodes = snapshot.children;
                 if (!path.equals(currentPath)) {
                     return;
@@ -509,6 +514,12 @@ public final class PaneViewModel extends ViewModel {
                         e.getMessage() == null ? "Unknown error" : e.getMessage()));
             }
         });
+    }
+
+    private enum LoadMode {
+        NAVIGATE,
+        REFRESH,
+        RECONCILE
     }
 
     /** Runs a workspace command on IO; the dispatcher publishes its mutation output. */

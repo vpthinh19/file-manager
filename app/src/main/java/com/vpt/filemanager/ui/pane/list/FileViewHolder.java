@@ -7,7 +7,8 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.DateFormat;
-import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.ui.pane.icon.FileIconView;
@@ -29,17 +30,24 @@ import com.vpt.filemanager.node.VirtualNode;
  * walk Locale + alloc Calendar, quá nặng cho bind hot path.
  */
 public final class FileViewHolder extends RecyclerView.ViewHolder {
+    private static final int DATE_CACHE_SIZE = 128;
     /**
      * Shared formatter. {@link DateFormat} KHÔNG thread-safe nhưng RV bind luôn trên main thread,
      * nên 1 static instance an toàn + tránh per-bind allocation.
      */
     private static final DateFormat DATE_FMT =
             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+    private static final Map<Long, String> DATE_BY_MINUTE =
+            new LinkedHashMap<>(DATE_CACHE_SIZE + 1, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Long, String> eldest) {
+                    return size() > DATE_CACHE_SIZE;
+                }
+            };
 
     private final FileIconView icon;
     private final TextView name;
     private final TextView meta;
-    private final Date dateBuffer = new Date();
     private VirtualNode currentNode;
 
     public FileViewHolder(@NonNull View itemView, @NonNull FileListAdapter.Listener listener) {
@@ -71,6 +79,10 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
         // Parent marker hiển thị ".." thay vì path.name() (vì path.name() = tên folder thật của parent).
         name.setText(node.isParent() ? ".." : node.name());
         meta.setText(formatMeta(node));
+        bindSelection(selected);
+    }
+
+    public void bindSelection(boolean selected) {
         itemView.setSelected(selected);
     }
 
@@ -83,7 +95,12 @@ public final class FileViewHolder extends RecyclerView.ViewHolder {
         if (mtime <= 0) {
             return size;
         }
-        dateBuffer.setTime(mtime);
-        return size + " · " + DATE_FMT.format(dateBuffer);
+        long minute = mtime / 60000L;
+        String formattedDate = DATE_BY_MINUTE.get(minute);
+        if (formattedDate == null) {
+            formattedDate = DATE_FMT.format(new java.util.Date(minute * 60000L));
+            DATE_BY_MINUTE.put(minute, formattedDate);
+        }
+        return size + " · " + formattedDate;
     }
 }

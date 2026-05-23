@@ -81,6 +81,7 @@ public final class TextEditorActivity extends AppCompatActivity {
     private MenuItem undoAction;
     private MenuItem redoAction;
     private MenuItem searchAction;
+    private SyntaxSetup.LanguageLease languageLease;
 
     private boolean destroyed;
     private boolean documentLoaded;
@@ -216,12 +217,18 @@ public final class TextEditorActivity extends AppCompatActivity {
         }
         languageStatus.setText(getString(R.string.editor_syntax_loading, SyntaxCatalog.displayName(scope)));
         executors.computation().execute(() -> {
+            SyntaxSetup.LanguageLease preparedLease = null;
             try {
-                TextMateLanguage language = SyntaxSetup.createLanguage(getApplicationContext(), scope);
+                preparedLease = SyntaxSetup.acquireLanguage(getApplicationContext(), scope);
                 TextMateColorScheme colorScheme =
                         TextMateColorScheme.create(ThemeRegistry.getInstance());
-                executors.main().execute(() -> applyPreparedSyntax(scope, language, colorScheme));
+                SyntaxSetup.LanguageLease lease = preparedLease;
+                executors.main().execute(() -> applyPreparedSyntax(scope, lease, colorScheme));
             } catch (Exception error) {
+                if (preparedLease != null) {
+                    preparedLease.language().destroy();
+                    preparedLease.close();
+                }
                 timber.log.Timber.w(error, "Syntax setup failed for %s", scope);
                 executors.main().execute(() -> {
                     if (!destroyed) {
@@ -234,16 +241,19 @@ public final class TextEditorActivity extends AppCompatActivity {
 
     private void applyPreparedSyntax(
             String scope,
-            @Nullable TextMateLanguage language,
+            @Nullable SyntaxSetup.LanguageLease lease,
             TextMateColorScheme colorScheme) {
-        if (language == null) {
+        if (lease == null) {
             languageStatus.setText(R.string.editor_plain_text);
             return;
         }
+        TextMateLanguage language = lease.language();
         if (destroyed || editor.isReleased()) {
             language.destroy();
+            lease.close();
             return;
         }
+        languageLease = lease;
         editor.setColorScheme(colorScheme);
         editor.setEditorLanguage(language);
         languageStatus.setText(SyntaxCatalog.displayName(scope));
@@ -502,6 +512,10 @@ public final class TextEditorActivity extends AppCompatActivity {
         }
         if (editor != null && !editor.isReleased()) {
             editor.release();
+        }
+        if (languageLease != null) {
+            languageLease.close();
+            languageLease = null;
         }
         super.onDestroy();
     }
