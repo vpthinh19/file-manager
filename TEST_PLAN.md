@@ -13,6 +13,8 @@ Run:
 Coverage:
 - Pure value logic: `FilePath`, permission parsing, path/category/resolver mapping.
 - Asset contracts that do not need Android runtime, especially lazy TextMate catalog grammar/configuration paths and dependency scopes.
+- Operation mutation contracts: mutating operations report precise `MutationResult` branches.
+- Workspace command dispatch: rule enforcement at execution time and mutation publication.
 
 Current syntax tests:
 - `SyntaxAssetContractTest`: validates catalog grammar/configuration paths, dependency scopes, and expanded language coverage.
@@ -39,12 +41,13 @@ Coverage:
 Current syntax tests:
 - `SyntaxSetupInstrumentedTest`: lazily loads selected catalog grammars and light/dark TextMate themes using real Android assets.
 - `TextEditorActivityInstrumentedTest`: launches `TextEditorActivity` with a real local Java file.
+- `DualPaneHostInstrumentedTest`: launches `MainActivity` with all-files access and verifies both panes plus the command bar instantiate through Hilt.
 
 ## Next Tests To Add
 
 ### Browser Navigation
 
-- Launch `MainActivity`, grant `MANAGE_EXTERNAL_STORAGE`, create a test tree under `/sdcard/Download/file-manager-test`.
+- Extend the existing launch smoke test by creating a test tree under `/sdcard/Download/file-manager-test`.
 - Verify root pane loads, folder tap navigates, Up returns, Back/Forward stacks update.
 - Verify dual-pane active pane switching does not mutate the inactive pane path.
 - Verify `root:///` renders Storage, Trash, and Bookmarks and Up from a top-level branch reaches it.

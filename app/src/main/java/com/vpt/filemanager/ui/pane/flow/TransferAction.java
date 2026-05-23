@@ -26,15 +26,16 @@ import com.vpt.filemanager.operations.transfer.TransferConflictDecision;
 import com.vpt.filemanager.operations.transfer.TransferConflictResolver;
 import com.vpt.filemanager.operations.transfer.TransferKind;
 import com.vpt.filemanager.operations.transfer.TransferOperation;
+import com.vpt.filemanager.rules.WorkspaceRuleState;
 import com.vpt.filemanager.threading.AppExecutors;
-import com.vpt.filemanager.workspace.MutationResult;
-import com.vpt.filemanager.workspace.WorkspaceStore;
+import com.vpt.filemanager.workspace.WorkspaceCommandDispatcher;
 
 /**
  * Android boundary for cross-pane copy/move.
  *
- * <p>Transfer rules live in {@link TransferOperation}. This class snapshots pane state, resolves
- * virtual nodes, supplies an Android dialog-backed conflict resolver, and posts UI effects.
+ * <p>This class snapshots pane state, resolves virtual nodes, supplies an Android dialog-backed
+ * conflict resolver, and posts UI effects. {@link WorkspaceCommandDispatcher} owns rule
+ * enforcement and mutation publication.
  */
 public final class TransferAction {
     private static final int CONFLICT_WAIT_TIMEOUT_SEC = 300;
@@ -42,8 +43,7 @@ public final class TransferAction {
     private final DualPaneHostFragment host;
     private final AppExecutors executors;
     private final NodeFactory nodeFactory;
-    private final TransferOperation transferOperation;
-    private final WorkspaceStore workspace;
+    private final WorkspaceCommandDispatcher commands;
 
     private volatile Future<?> pendingBatch;
     private volatile NodeFileBackend.CancellationToken pendingToken;
@@ -51,13 +51,11 @@ public final class TransferAction {
     public TransferAction(DualPaneHostFragment host,
                           AppExecutors executors,
                           NodeFactory nodeFactory,
-                          TransferOperation transferOperation,
-                          WorkspaceStore workspace) {
+                          WorkspaceCommandDispatcher commands) {
         this.host = host;
         this.executors = executors;
         this.nodeFactory = nodeFactory;
-        this.transferOperation = transferOperation;
-        this.workspace = workspace;
+        this.commands = commands;
     }
 
     public void cancel() {
@@ -95,11 +93,13 @@ public final class TransferAction {
 
         NodeFileBackend.CancellationToken token = new NodeFileBackend.CancellationToken();
         pendingToken = token;
-        pendingBatch = executors.io().submit(() -> runTransfer(mode, snapshot, dstParentPath, token));
+        pendingBatch = executors.io().submit(() -> runTransfer(
+                mode, snapshot, srcParentPath, dstParentPath, token));
     }
 
     private void runTransfer(@NonNull TransferMode mode,
                              @NonNull List<NodePath> snapshot,
+                             @NonNull NodePath srcParentPath,
                              @NonNull NodePath dstParentPath,
                              @NonNull NodeFileBackend.CancellationToken token) {
         try {
@@ -123,27 +123,18 @@ public final class TransferAction {
                 sources.add(nodeFactory.fromPath(path));
             }
 
-            TransferOperation.Result result = transferOperation.execute(new TransferOperation.Input(
+            TransferOperation.Result result = commands.transfer(new TransferOperation.Input(
                     sources,
                     dstParent,
                     mode == TransferMode.COPY ? TransferKind.COPY : TransferKind.MOVE,
                     new DialogConflictResolver(token),
-                    token));
-            MutationResult.Builder mutation = MutationResult.builder()
-                    .changedContainer(dstParentPath);
-            if (mode == TransferMode.MOVE && !snapshot.isEmpty()) {
-                mutation.changedContainer(snapshot.get(0).parent());
-            }
-            workspace.publish(mutation.build());
+                    token),
+                    WorkspaceRuleState.of(Set.copyOf(snapshot), null, srcParentPath, dstParentPath));
             postToast(result.message());
         } catch (NodeException e) {
             postToast(e.getMessage() == null ? "Transfer failed" : e.getMessage());
         } catch (RuntimeException e) {
             timber.log.Timber.e(e, "Transfer batch crashed");
-            try {
-                workspace.publish(MutationResult.allLiveSnapshots());
-            } catch (RuntimeException ignored) {
-            }
             postToast("Transfer crashed: "
                     + (e.getMessage() == null ? "unknown" : e.getMessage()));
             throw e;

@@ -22,7 +22,7 @@ import org.junit.Test;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.workspace.WorkspaceAction;
 
-public final class WorkspaceRulesTest {
+public final class RuleEngineTest {
     private static final NodePath FOO = NodePath.local("/sdcard/foo.txt");
     private static final NodePath BAR = NodePath.local("/sdcard/bar.txt");
     private static final NodePath BAZ_DIR = NodePath.local("/sdcard/baz");
@@ -41,7 +41,7 @@ public final class WorkspaceRulesTest {
     public void singleFile_disablesBookmark_keepsRenameAndOpenWith() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(FOO), Boolean.FALSE, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(BOOKMARK));
         assertFalse(disabled.contains(RENAME));
@@ -53,7 +53,7 @@ public final class WorkspaceRulesTest {
     public void singleFolder_disablesOpenWith_keepsBookmark() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(BAZ_DIR), Boolean.TRUE, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(OPEN_WITH));
         assertFalse(disabled.contains(BOOKMARK));
@@ -64,7 +64,7 @@ public final class WorkspaceRulesTest {
     public void multiSelect_disablesAllSingleTargetActions() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(FOO, BAR), null, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(RENAME));
         assertTrue(disabled.contains(PROPERTIES));
@@ -82,7 +82,7 @@ public final class WorkspaceRulesTest {
         WorkspaceRuleState state = WorkspaceRuleState.of(
                 setOf(ARCHIVE_ENTRY), Boolean.FALSE, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(RENAME));
         assertTrue(disabled.contains(DELETE));
@@ -102,7 +102,7 @@ public final class WorkspaceRulesTest {
         WorkspaceRuleState state = WorkspaceRuleState.of(
                 setOf(bookmarkEntry), Boolean.TRUE, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(OPEN_WITH));
         // Archive-specific rules should NOT fire for non-archive non-local entries.
@@ -114,7 +114,7 @@ public final class WorkspaceRulesTest {
     public void samePathBothPanes_disablesCopyAndMove() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(FOO), Boolean.FALSE, DIR_A, DIR_A);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(COPY));
         assertTrue(disabled.contains(MOVE));
@@ -124,7 +124,7 @@ public final class WorkspaceRulesTest {
     public void differentPathsInPanes_keepsCopyAndMove() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(FOO), Boolean.FALSE, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertFalse(disabled.contains(COPY));
         assertFalse(disabled.contains(MOVE));
@@ -134,7 +134,7 @@ public final class WorkspaceRulesTest {
     public void nullInactivePath_keepsCopyAndMove() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(FOO), Boolean.FALSE, DIR_A, null);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertFalse(disabled.contains(COPY));
         assertFalse(disabled.contains(MOVE));
@@ -144,7 +144,7 @@ public final class WorkspaceRulesTest {
     public void virtualRoot_disablesCreate() {
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(), null, NodePath.ROOT, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(CREATE));
     }
@@ -154,7 +154,7 @@ public final class WorkspaceRulesTest {
         WorkspaceRuleState state = WorkspaceRuleState.of(
                 setOf(FOO), Boolean.FALSE, DIR_A, NodePath.TRASH_ROOT);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(COPY));
         assertTrue(disabled.contains(MOVE));
@@ -166,7 +166,7 @@ public final class WorkspaceRulesTest {
         WorkspaceRuleState state = WorkspaceRuleState.of(
                 setOf(FOO, ARCHIVE_ENTRY), null, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         // From multi-select
         assertTrue(disabled.contains(RENAME));
@@ -185,7 +185,7 @@ public final class WorkspaceRulesTest {
         WorkspaceRuleState state = WorkspaceRuleState.of(
                 setOf(ARCHIVE_ENTRY), null, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertTrue(disabled.contains(RENAME));
         assertTrue(disabled.contains(BOOKMARK));
@@ -196,7 +196,7 @@ public final class WorkspaceRulesTest {
         // Degenerate input — caller (controller) guards before calling, but compute is defensive.
         WorkspaceRuleState state = WorkspaceRuleState.of(setOf(), null, DIR_A, DIR_B);
 
-        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+        EnumSet<WorkspaceAction> disabled = RuleEngine.defaults().disabledActions(state);
 
         assertEquals(EnumSet.noneOf(WorkspaceAction.class), disabled);
     }

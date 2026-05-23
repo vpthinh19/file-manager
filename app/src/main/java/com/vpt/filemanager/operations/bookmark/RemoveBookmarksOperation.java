@@ -10,6 +10,7 @@ import javax.inject.Singleton;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.operations.result.BatchResult;
 import com.vpt.filemanager.operations.bookmark.BookmarkStore;
+import com.vpt.filemanager.workspace.MutationResult;
 
 /**
  * Remove bookmark rows by local path.
@@ -28,7 +29,7 @@ public final class RemoveBookmarksOperation {
     }
 
     @NonNull
-    public BatchResult execute(@NonNull List<NodePath> paths) {
+    public Result execute(@NonNull List<NodePath> paths) {
         int ok = 0;
         int failed = 0;
         String lastError = null;
@@ -42,11 +43,23 @@ public final class RemoveBookmarksOperation {
                 timber.log.Timber.w(e, "Bookmark remove failed: %s", path);
             }
         }
-        return new BatchResult(ok, failed, lastError);
+        return new Result(new BatchResult(ok, failed, lastError), MutationResult.builder()
+                .changedContainer(NodePath.BOOKMARK_ROOT)
+                .build());
     }
 
     @FunctionalInterface
     public interface RemoveBookmark {
         void remove(NodePath path);
+    }
+
+    public static final class Result {
+        @NonNull public final BatchResult batch;
+        @NonNull public final MutationResult mutation;
+
+        private Result(@NonNull BatchResult batch, @NonNull MutationResult mutation) {
+            this.batch = batch;
+            this.mutation = mutation;
+        }
     }
 }

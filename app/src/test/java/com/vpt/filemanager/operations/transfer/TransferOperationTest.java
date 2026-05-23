@@ -57,6 +57,7 @@ public final class TransferOperationTest {
         assertEquals(0, result.failed);
         assertEquals("A", readUtf8(dstDir.resolve("a.txt")));
         assertTrue(Files.exists(src));
+        assertTrue(result.mutation.affectsListing(dstNode.path()));
     }
 
     @Test
@@ -74,6 +75,7 @@ public final class TransferOperationTest {
         assertEquals(1, result.ok);
         assertEquals("old", readUtf8(dstDir.resolve("a.txt")));
         assertEquals("new", readUtf8(dstDir.resolve("a (1).txt")));
+        assertTrue(result.mutation.affectsListing(dstNode.path()));
     }
 
     @Test

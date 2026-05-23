@@ -40,19 +40,20 @@ public final class CreateNodeOperationTest {
 
     @Test
     public void createFile_withoutConflict_createsVirtualChild() throws Exception {
-        VirtualNode created = operation.execute(new CreateNodeOperation.Input(
+        CreateNodeOperation.Result result = operation.execute(new CreateNodeOperation.Input(
                 rootNode, CreateNodeType.FILE, "note.txt", ExistingNamePolicy.FAIL));
 
-        assertEquals("note.txt", created.name());
+        assertEquals("note.txt", result.created.name());
+        assertTrue(result.mutation.affectsListing(rootNode.path()));
         assertTrue(Files.isRegularFile(rootDir.resolve("note.txt")));
     }
 
     @Test
     public void createFolder_withoutConflict_createsVirtualChild() throws Exception {
-        VirtualNode created = operation.execute(new CreateNodeOperation.Input(
+        CreateNodeOperation.Result result = operation.execute(new CreateNodeOperation.Input(
                 rootNode, CreateNodeType.FOLDER, "docs", ExistingNamePolicy.FAIL));
 
-        assertEquals("docs", created.name());
+        assertEquals("docs", result.created.name());
         assertTrue(Files.isDirectory(rootDir.resolve("docs")));
     }
 
@@ -69,10 +70,10 @@ public final class CreateNodeOperationTest {
     public void createFile_keepBoth_usesUniqueVirtualName() throws Exception {
         Files.write(rootDir.resolve("note.txt"), "old".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-        VirtualNode created = operation.execute(new CreateNodeOperation.Input(
+        CreateNodeOperation.Result result = operation.execute(new CreateNodeOperation.Input(
                 rootNode, CreateNodeType.FILE, "note.txt", ExistingNamePolicy.KEEP_BOTH));
 
-        assertEquals("note (1).txt", created.name());
+        assertEquals("note (1).txt", result.created.name());
         assertTrue(Files.isRegularFile(rootDir.resolve("note.txt")));
         assertTrue(Files.isRegularFile(rootDir.resolve("note (1).txt")));
     }

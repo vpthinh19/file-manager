@@ -8,10 +8,12 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.support.NodeFileBackend;
 import com.vpt.filemanager.operations.conflict.UniqueNameGenerator;
 import com.vpt.filemanager.operations.trash.TrashStore;
+import com.vpt.filemanager.workspace.MutationResult;
 
 /**
  * Batch copy/move operation over virtual nodes.
@@ -41,6 +43,7 @@ public final class TransferOperation {
         int failed = 0;
         int cancelledRemaining = 0;
         String lastError = null;
+        MutationResult.Builder mutation = MutationResult.builder();
 
         for (int i = 0; i < input.sources.size(); i++) {
             if (input.token.isCancelled() || Thread.currentThread().isInterrupted()) {
@@ -50,7 +53,7 @@ public final class TransferOperation {
             VirtualNode src = input.sources.get(i);
             try {
                 String targetName = resolveTargetName(input.targetParent, src.name(),
-                        input.resolver, input.token);
+                        input.resolver, input.token, mutation);
                 if (input.token.isCancelled()) {
                     cancelledRemaining = input.sources.size() - i;
                     break;
@@ -60,6 +63,11 @@ public final class TransferOperation {
                 } else {
                     fileBackend.move(src, input.targetParent, targetName, input.token);
                 }
+                mutation.changedContainer(input.targetParent.path());
+                if (input.kind == TransferKind.MOVE) {
+                    mutation.changedContainer(src.path().parent())
+                            .removedSubtree(src.path());
+                }
                 ok++;
             } catch (NodeException e) {
                 failed++;
@@ -67,14 +75,15 @@ public final class TransferOperation {
                 timber.log.Timber.w(e, "Transfer %s failed for %s", input.kind, src.path());
             }
         }
-        return new Result(input.kind, ok, failed, cancelledRemaining, lastError);
+        return new Result(input.kind, ok, failed, cancelledRemaining, lastError, mutation.build());
     }
 
     @NonNull
     private String resolveTargetName(@NonNull VirtualNode targetParent,
                                      @NonNull String requestedName,
                                      @NonNull TransferConflictResolver resolver,
-                                     @NonNull NodeFileBackend.CancellationToken token)
+                                     @NonNull NodeFileBackend.CancellationToken token,
+                                     @NonNull MutationResult.Builder mutation)
             throws NodeException {
         VirtualNode existing = findChild(targetParent, requestedName);
         if (existing == null) {
@@ -89,6 +98,9 @@ public final class TransferOperation {
         }
         if (decision == TransferConflictDecision.REPLACE) {
             trashStore.moveToTrash(existing);
+            mutation.changedContainer(targetParent.path())
+                    .changedContainer(NodePath.TRASH_ROOT)
+                    .removedSubtree(existing.path());
             return requestedName;
         }
         return UniqueNameGenerator.uniqueName(targetParent, requestedName);
@@ -129,14 +141,16 @@ public final class TransferOperation {
         public final int failed;
         public final int cancelledRemaining;
         public final String lastError;
+        @NonNull public final MutationResult mutation;
 
         private Result(@NonNull TransferKind kind, int ok, int failed, int cancelledRemaining,
-                       String lastError) {
+                       String lastError, @NonNull MutationResult mutation) {
             this.kind = kind;
             this.ok = ok;
             this.failed = failed;
             this.cancelledRemaining = cancelledRemaining;
             this.lastError = lastError;
+            this.mutation = mutation;
         }
 
         @NonNull

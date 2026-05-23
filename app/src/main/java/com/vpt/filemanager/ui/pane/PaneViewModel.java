@@ -24,31 +24,25 @@ import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.operations.sort.SortOrder;
 import com.vpt.filemanager.node.NodeFactory;
 import com.vpt.filemanager.node.VirtualNode;
-import com.vpt.filemanager.operations.result.BatchResult;
-import com.vpt.filemanager.operations.bookmark.AddBookmarkOperation;
-import com.vpt.filemanager.operations.bookmark.RemoveBookmarksOperation;
 import com.vpt.filemanager.operations.delete.DeleteNodesOperation;
 import com.vpt.filemanager.operations.rename.RenameNodeOperation;
-import com.vpt.filemanager.operations.trash.EmptyTrashOperation;
-import com.vpt.filemanager.operations.trash.RestoreTrashEntriesOperation;
 import com.vpt.filemanager.event.LiveEvent;
 import com.vpt.filemanager.operations.navigation.NavigateToParentOperation;
 import com.vpt.filemanager.operations.selection.SelectRangeOperation;
 import com.vpt.filemanager.operations.sort.SortNodesOperation;
 import com.vpt.filemanager.workspace.DirectorySnapshot;
 import com.vpt.filemanager.workspace.MutationResult;
+import com.vpt.filemanager.workspace.WorkspaceCommandDispatcher;
 import com.vpt.filemanager.workspace.WorkspaceStore;
+import com.vpt.filemanager.rules.WorkspaceRuleState;
 
 /**
- * Browser pane state machine — holds current location, listing, selection, back/forward stacks.
+ * Browser pane state machine: current virtual location, materialized listing, selection, and
+ * back/forward stacks.
  *
- * <p>Phase R-5b: migrated từ {@code FileNode} + {@code listDirectoryUseCase} + 4 other use cases
- * sang DOM ảo concept: {@link NodeFactory} resolve paths, {@link VirtualNode#children()} list
- * directly. Mutating features are delegated to operation classes.
- *
- * <p>Backbone API contract giữ nguyên cho controllers/actions: {@code navigateTo(NodePath)},
- * {@code rename(NodePath, String)}, selection and navigation state. Creation is delegated to
- * {@code operations/create/CreateNodeOperation} through {@code CreateAction}.
+ * <p>It resolves visible nodes and asks {@link WorkspaceStore} to reconcile snapshots. Mutating
+ * intent is submitted through {@link WorkspaceCommandDispatcher}; this view model does not
+ * publish virtual-tree mutation scopes itself.
  *
  * <p>Process-death restore: {@link SavedStateHandle} lưu currentPath string. Restore kick off
  * load() ngay trong constructor để Fragment không phải re-init.
@@ -59,12 +53,7 @@ public final class PaneViewModel extends ViewModel {
 
     private final SavedStateHandle savedState;
     private final NodeFactory nodeFactory;
-    private final RenameNodeOperation renameNodeOperation;
-    private final DeleteNodesOperation deleteNodesOperation;
-    private final RestoreTrashEntriesOperation restoreTrashEntriesOperation;
-    private final EmptyTrashOperation emptyTrashOperation;
-    private final RemoveBookmarksOperation removeBookmarksOperation;
-    private final AddBookmarkOperation addBookmarkOperation;
+    private final WorkspaceCommandDispatcher commands;
     private final AppExecutors executors;
     private final UserPreferences prefs;
     private final WorkspaceStore workspace;
@@ -94,23 +83,13 @@ public final class PaneViewModel extends ViewModel {
     public PaneViewModel(
             SavedStateHandle savedState,
             NodeFactory nodeFactory,
-            RenameNodeOperation renameNodeOperation,
-            DeleteNodesOperation deleteNodesOperation,
-            RestoreTrashEntriesOperation restoreTrashEntriesOperation,
-            EmptyTrashOperation emptyTrashOperation,
-            RemoveBookmarksOperation removeBookmarksOperation,
-            AddBookmarkOperation addBookmarkOperation,
+            WorkspaceCommandDispatcher commands,
             AppExecutors executors,
             UserPreferences prefs,
             WorkspaceStore workspace) {
         this.savedState = savedState;
         this.nodeFactory = nodeFactory;
-        this.renameNodeOperation = renameNodeOperation;
-        this.deleteNodesOperation = deleteNodesOperation;
-        this.restoreTrashEntriesOperation = restoreTrashEntriesOperation;
-        this.emptyTrashOperation = emptyTrashOperation;
-        this.removeBookmarksOperation = removeBookmarksOperation;
-        this.addBookmarkOperation = addBookmarkOperation;
+        this.commands = commands;
         this.executors = executors;
         this.prefs = prefs;
         this.workspace = workspace;
@@ -387,7 +366,7 @@ public final class PaneViewModel extends ViewModel {
         return prefs.sortOrder();
     }
 
-    public void rename(NodePath path, String newName) {
+    public void rename(NodePath path, String newName, @NonNull WorkspaceRuleState ruleState) {
         if (path == null || newName == null || newName.isBlank()) {
             return;
         }
@@ -395,26 +374,21 @@ public final class PaneViewModel extends ViewModel {
         // Exit mode trước submit — single-target action xong, selected NodePath cũng sắp
         // disappear (replaced bởi name mới); DiffUtil treat = remove+insert.
         exitSelectionMode();
-        runActionAndPublish(() -> {
+        runAction(() -> {
             VirtualNode node = nodeFactory.fromPath(path);
-            return renameNodeOperation.execute(new RenameNodeOperation.Input(node, trimmed));
-        }, "Renamed", MutationResult.builder().changedContainer(path.parent()).build());
+            return commands.rename(new RenameNodeOperation.Input(node, trimmed), ruleState);
+        }, "Renamed");
     }
 
-    public void delete(VirtualNode node) {
+    public void delete(VirtualNode node, @NonNull WorkspaceRuleState ruleState) {
         if (node == null) {
             return;
         }
-        runActionAndPublish(() -> deleteNodesOperation.execute(
-                new DeleteNodesOperation.Input(List.of(node), false)), "Moved to trash",
-                MutationResult.builder()
-                        .changedContainer(node.path().parent())
-                        .changedContainer(NodePath.TRASH_ROOT)
-                        .removedSubtree(node.path())
-                        .build());
+        runAction(() -> commands.delete(
+                new DeleteNodesOperation.Input(List.of(node), false), ruleState), "Moved to trash");
     }
 
-    public void deleteSelected() {
+    public void deleteSelected(@NonNull WorkspaceRuleState ruleState) {
         Set<NodePath> current = selection.getValue();
         if (current == null || current.isEmpty()) {
             return;
@@ -422,19 +396,13 @@ public final class PaneViewModel extends ViewModel {
         List<NodePath> snapshot = List.copyOf(current);
         // Destructive batch xong → items gone → exit mode hẳn (không thể act tiếp).
         exitSelectionMode();
-        MutationResult.Builder mutation = MutationResult.builder()
-                .changedContainer(currentPath)
-                .changedContainer(NodePath.TRASH_ROOT);
-        for (NodePath path : snapshot) {
-            mutation.removedSubtree(path);
-        }
-        runActionAndPublish(() -> {
+        runAction(() -> {
             List<VirtualNode> nodes = new ArrayList<>(snapshot.size());
             for (NodePath p : snapshot) {
                 nodes.add(nodeFactory.fromPath(p));
             }
-            return deleteNodesOperation.execute(new DeleteNodesOperation.Input(nodes, true));
-        }, null, mutation.build());
+            return commands.delete(new DeleteNodesOperation.Input(nodes, true), ruleState);
+        }, null);
     }
 
     public void restoreSelected() {
@@ -449,15 +417,12 @@ public final class PaneViewModel extends ViewModel {
             for (NodePath p : snapshot) {
                 entryIds.add(p.authority());
             }
-            BatchResult result = restoreTrashEntriesOperation.execute(entryIds);
-            events.postValue(result.message("restored"));
-            workspace.publish(MutationResult.allLiveSnapshots());
+            events.postValue(commands.restoreTrashEntries(entryIds).batch.message("restored"));
         });
     }
 
     public void emptyTrash() {
-        runActionAndPublish(() -> { emptyTrashOperation.execute(); return null; }, "Trash emptied",
-                MutationResult.builder().changedContainer(NodePath.TRASH_ROOT).build());
+        runAction(() -> { commands.emptyTrash(); return null; }, "Trash emptied");
     }
 
     public void removeBookmarksSelected() {
@@ -468,15 +433,11 @@ public final class PaneViewModel extends ViewModel {
         List<NodePath> snapshot = List.copyOf(current);
         exitSelectionMode();
         executors.io().submit(() -> {
-            BatchResult result = removeBookmarksOperation.execute(snapshot);
-            events.postValue(result.message("bookmark removed"));
-            workspace.publish(MutationResult.builder()
-                    .changedContainer(NodePath.BOOKMARK_ROOT)
-                    .build());
+            events.postValue(commands.removeBookmarks(snapshot).batch.message("bookmark removed"));
         });
     }
 
-    public void addBookmarkSelected() {
+    public void addBookmarkSelected(@NonNull WorkspaceRuleState ruleState) {
         Set<NodePath> current = selection.getValue();
         if (current == null || current.size() != 1) {
             return;
@@ -486,11 +447,8 @@ public final class PaneViewModel extends ViewModel {
         executors.io().submit(() -> {
             try {
                 VirtualNode node = nodeFactory.fromPath(path);
-                addBookmarkOperation.execute(node);
+                commands.addBookmark(node, ruleState);
                 events.postValue("Bookmarked");
-                workspace.publish(MutationResult.builder()
-                        .changedContainer(NodePath.BOOKMARK_ROOT)
-                        .build());
             } catch (Throwable e) {
                 events.postValue("Bookmark failed: "
                         + (e.getMessage() == null ? "unknown" : e.getMessage()));
@@ -538,10 +496,8 @@ public final class PaneViewModel extends ViewModel {
         });
     }
 
-    /** Runs a mutation on IO, then publishes its affected virtual-tree branches to workspace. */
-    private void runActionAndPublish(ThrowingAction action,
-                                     String successMessage,
-                                     MutationResult mutation) {
+    /** Runs a workspace command on IO; the dispatcher publishes its mutation output. */
+    private void runAction(ThrowingAction action, String successMessage) {
         executors.io().submit(() -> {
             try {
                 Object result = action.run();
@@ -552,7 +508,6 @@ public final class PaneViewModel extends ViewModel {
                 if (message != null) {
                     events.postValue(message);
                 }
-                workspace.publish(mutation);
             } catch (Throwable e) {
                 events.postValue(e.getMessage() == null ? "Action failed" : e.getMessage());
             }

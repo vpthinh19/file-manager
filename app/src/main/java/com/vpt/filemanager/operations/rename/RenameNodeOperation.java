@@ -8,6 +8,7 @@ import javax.inject.Singleton;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.support.NodeFileBackend;
+import com.vpt.filemanager.workspace.MutationResult;
 
 /**
  * Rename one virtual node inside its current parent.
@@ -22,8 +23,12 @@ public final class RenameNodeOperation {
     }
 
     @NonNull
-    public VirtualNode execute(@NonNull Input input) throws NodeException {
-        return fileBackend.rename(input.node, input.newName);
+    public Result execute(@NonNull Input input) throws NodeException {
+        VirtualNode renamed = fileBackend.rename(input.node, input.newName);
+        return new Result(renamed, MutationResult.builder()
+                .changedContainer(input.node.path().parent())
+                .removedSubtree(input.node.path())
+                .build());
     }
 
     public static final class Input {
@@ -33,6 +38,16 @@ public final class RenameNodeOperation {
         public Input(@NonNull VirtualNode node, @NonNull String newName) {
             this.node = node;
             this.newName = newName;
+        }
+    }
+
+    public static final class Result {
+        @NonNull public final VirtualNode renamed;
+        @NonNull public final MutationResult mutation;
+
+        private Result(@NonNull VirtualNode renamed, @NonNull MutationResult mutation) {
+            this.renamed = renamed;
+            this.mutation = mutation;
         }
     }
 }

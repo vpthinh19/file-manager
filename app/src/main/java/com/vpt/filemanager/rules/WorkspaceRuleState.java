@@ -3,17 +3,16 @@ package com.vpt.filemanager.rules;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.util.Collections;
 import java.util.Set;
 
 import com.vpt.filemanager.node.NodePath;
 
 /**
- * Immutable snapshot of workspace state used by {@link WorkspaceRules} to compute the set of
+ * Immutable snapshot of workspace state used by {@link RuleEngine} to compute the set of
  * disabled actions for the More bottom sheet.
  *
  * <p>Holds only primitives + immutable refs — no {@code VirtualNode}, no Android deps. Built at
- * click-time (when More sheet is about to show), passed once to {@link WorkspaceRules#compute},
+ * click-time (when an action is rendered or executed), passed to {@link RuleEngine#disabledActions},
  * then discarded. Not designed to be cached across click events — selection state changes too fast.
  *
  * <p>Why pass primitives instead of the live {@code PaneViewModel}: keeps the constraint layer
@@ -42,7 +41,7 @@ public final class WorkspaceRuleState {
                                      @Nullable NodePath activePath,
                                      @Nullable NodePath inactivePath) {
         return new WorkspaceRuleState(
-                selection == null ? Collections.emptySet() : selection,
+                selection == null ? Set.of() : Set.copyOf(selection),
                 singleIsFolder, activePath, inactivePath);
     }
 }

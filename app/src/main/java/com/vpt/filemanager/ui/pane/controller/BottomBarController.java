@@ -6,7 +6,6 @@ import com.vpt.filemanager.ui.pane.flow.CreateAction;
 import com.vpt.filemanager.operations.pane.SwapActivePaneOperation;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.rules.WorkspaceRuleState;
-import com.vpt.filemanager.rules.WorkspaceRules;
 import com.vpt.filemanager.workspace.WorkspaceAction;
 
 import java.util.Collections;
@@ -54,7 +53,7 @@ public final class BottomBarController {
     }
 
     public void applyLocationState(NodePath activePath, NodePath inactivePath) {
-        boolean canCreate = !WorkspaceRules.compute(WorkspaceRuleState.of(
+        boolean canCreate = !host.disabledActions(WorkspaceRuleState.of(
                 Collections.emptySet(), null, activePath, inactivePath))
                 .contains(WorkspaceAction.CREATE);
         binding.btnAdd.setEnabled(canCreate);

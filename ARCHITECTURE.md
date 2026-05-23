@@ -174,8 +174,8 @@ NonLocalOpenWithRule
 SamePanePathTransferRule
 ```
 
-`RuleEngine` composes rules. `WorkspaceRules` is the default static facade used where custom rule
-sets are not needed.
+`RuleEngine` composes rules. `WorkspaceCommandDispatcher` owns the engine used by the live
+workspace, so the same rule evaluation drives rendered availability and execution-time rejection.
 
 Rules should answer questions like:
 
@@ -199,6 +199,7 @@ DirectorySnapshot
 MutationResult
 WorkspaceStore
 WorkspaceFileWatcher
+WorkspaceCommandDispatcher
 ```
 
 `DirectorySnapshot`
@@ -217,15 +218,21 @@ invalidated snapshot once even when two panes show the same directory.
 : Watches retained local directories with Android `FileObserver`. Its events are only invalidation
 hints; the store always re-reads a source before publishing display state.
 
-Current transition boundary: pane state still lives in `PaneViewModel`, and several existing UI
-flows create `MutationResult` after invoking their operation. The next migration moves command
-dispatch and mutation construction into workspace/operation results so UI only submits intent and
-renders state.
+`WorkspaceCommandDispatcher`
+: The mutation gateway. It evaluates `RuleEngine` at execution time, calls mutating operations,
+and publishes each operation's `MutationResult` to `WorkspaceStore`. Browser UI does not construct
+mutation scopes or call mutating operations directly.
+
+Current transition boundary: pane navigation/selection state still lives in `PaneViewModel`, and
+text-editor save currently publishes its document invalidation directly. A future
+`DocumentSession` will place editor save, external-delete handling, and save conflicts behind the
+same workspace-owned boundary.
 
 ### Reconciliation
 
 ```text
-UI intent -> operation -> MutationResult -> WorkspaceStore invalidates live snapshots
+UI intent -> WorkspaceCommandDispatcher -> rule check -> operation -> MutationResult
+         -> WorkspaceStore invalidates live snapshots
          -> PaneViewModel requests reconcile -> source re-lists affected directory
          -> RecyclerView DiffUtil renders changed rows
 ```
@@ -250,7 +257,7 @@ Allowed responsibilities:
 - collect click/input events
 - launch Android activities/intents
 - observe ViewModels and LiveData
-- call operations and show their result
+- submit commands to workspace and show their result
 
 Forbidden responsibilities:
 
@@ -259,8 +266,8 @@ Forbidden responsibilities:
 - inspect local files directly when a `VirtualNode` or operation can do it
 - duplicate conflict handling policy outside operation/workflow classes
 
-`ui/pane/flow` classes are Android flows. They may show dialogs, gather decisions, and call
-operations. They are not domain operations.
+`ui/pane/flow` classes are Android flows. They may show dialogs, gather decisions, and submit
+workspace commands. They are not domain operations.
 
 ### Text Editor
 

@@ -15,7 +15,6 @@ import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.source.NodeSource;
-import com.vpt.filemanager.operations.result.BatchResult;
 
 public final class BookmarkOperationsTest {
     private static final NodeSource SOURCE = new StubSource();
@@ -57,14 +56,15 @@ public final class BookmarkOperationsTest {
             removed.add(path);
         });
 
-        BatchResult result = operation.execute(List.of(first, bad, last));
+        RemoveBookmarksOperation.Result result = operation.execute(List.of(first, bad, last));
 
         assertEquals(List.of(first, last), removed);
-        assertEquals(2, result.ok);
-        assertEquals(1, result.failed);
-        assertEquals("db locked", result.lastError);
+        assertEquals(2, result.batch.ok);
+        assertEquals(1, result.batch.failed);
+        assertEquals("db locked", result.batch.lastError);
         assertEquals("2 bookmark removed, 1 failed: db locked",
-                result.message("bookmark removed"));
+                result.batch.message("bookmark removed"));
+        assertEquals(true, result.mutation.affectsListing(NodePath.BOOKMARK_ROOT));
     }
 
     private static VirtualNode folder(String path) {

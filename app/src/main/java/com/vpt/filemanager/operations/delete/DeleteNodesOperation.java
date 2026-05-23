@@ -8,8 +8,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.trash.TrashStore;
+import com.vpt.filemanager.workspace.MutationResult;
 
 /**
  * Soft-delete virtual nodes by moving them to Trash.
@@ -25,12 +27,15 @@ public final class DeleteNodesOperation {
 
     @NonNull
     public Result execute(@NonNull Input input) throws NodeException {
+        MutationResult.Builder mutation = MutationResult.builder();
         if (input.nodes.isEmpty()) {
-            return new Result(0, 0, null);
+            return new Result(0, 0, null, mutation.build());
         }
         if (!input.continueOnFailure && input.nodes.size() == 1) {
-            trashStore.moveToTrash(input.nodes.get(0));
-            return new Result(1, 0, null);
+            VirtualNode node = input.nodes.get(0);
+            trashStore.moveToTrash(node);
+            recordDeletedNode(mutation, node);
+            return new Result(1, 0, null, mutation.build());
         }
 
         int ok = 0;
@@ -39,6 +44,7 @@ public final class DeleteNodesOperation {
         for (VirtualNode node : input.nodes) {
             try {
                 trashStore.moveToTrash(node);
+                recordDeletedNode(mutation, node);
                 ok++;
             } catch (NodeException e) {
                 if (!input.continueOnFailure) {
@@ -49,7 +55,13 @@ public final class DeleteNodesOperation {
                 timber.log.Timber.w(e, "Delete failed: %s", node.path());
             }
         }
-        return new Result(ok, failed, lastError);
+        return new Result(ok, failed, lastError, mutation.build());
+    }
+
+    private static void recordDeletedNode(MutationResult.Builder mutation, VirtualNode node) {
+        mutation.changedContainer(node.path().parent())
+                .changedContainer(NodePath.TRASH_ROOT)
+                .removedSubtree(node.path());
     }
 
     public static final class Input {
@@ -66,11 +78,13 @@ public final class DeleteNodesOperation {
         public final int ok;
         public final int failed;
         public final String lastError;
+        @NonNull public final MutationResult mutation;
 
-        private Result(int ok, int failed, String lastError) {
+        private Result(int ok, int failed, String lastError, @NonNull MutationResult mutation) {
             this.ok = ok;
             this.failed = failed;
             this.lastError = lastError;
+            this.mutation = mutation;
         }
 
         @NonNull

@@ -10,6 +10,7 @@ import javax.inject.Singleton;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.operations.result.BatchResult;
 import com.vpt.filemanager.operations.trash.TrashStore;
+import com.vpt.filemanager.workspace.MutationResult;
 
 /**
  * Restore selected trash entries by entry id.
@@ -28,7 +29,7 @@ public final class RestoreTrashEntriesOperation {
     }
 
     @NonNull
-    public BatchResult execute(@NonNull List<String> entryIds) {
+    public Result execute(@NonNull List<String> entryIds) {
         int ok = 0;
         int failed = 0;
         String lastError = null;
@@ -42,11 +43,22 @@ public final class RestoreTrashEntriesOperation {
                 timber.log.Timber.w(e, "Restore failed for entry: %s", id);
             }
         }
-        return new BatchResult(ok, failed, lastError);
+        return new Result(new BatchResult(ok, failed, lastError),
+                MutationResult.allLiveSnapshots());
     }
 
     @FunctionalInterface
     public interface RestoreEntry {
         void restore(String entryId) throws NodeException;
+    }
+
+    public static final class Result {
+        @NonNull public final BatchResult batch;
+        @NonNull public final MutationResult mutation;
+
+        private Result(@NonNull BatchResult batch, @NonNull MutationResult mutation) {
+            this.batch = batch;
+            this.mutation = mutation;
+        }
     }
 }

@@ -16,7 +16,6 @@ import com.vpt.filemanager.ui.dialog.NodeActionsBottomSheet;
 import com.vpt.filemanager.ui.pane.PaneViewModel;
 import com.vpt.filemanager.ui.pane.flow.ShareAction;
 import com.vpt.filemanager.ui.pane.flow.TransferMode;
-import com.vpt.filemanager.rules.WorkspaceRules;
 import com.vpt.filemanager.rules.WorkspaceRuleState;
 import com.vpt.filemanager.ui.dialog.NameInputDialog;
 import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
@@ -35,10 +34,8 @@ import com.vpt.filemanager.ui.properties.PropertiesDialogFragment;
  *       bookmarks trực tiếp</li>
  * </ul>
  *
- * <p>Disable rules cho More sheet đã extract sang {@link
- * com.vpt.filemanager.rules.WorkspaceRules} ở Phase R-11a — controller chỉ build
- * snapshot {@link com.vpt.filemanager.rules.WorkspaceRuleState} và gọi compute, không own
- * rule logic.
+ * <p>The controller snapshots pane state and asks the workspace command boundary for availability;
+ * it does not evaluate or execute constraints itself.
  */
 public final class SelectionBarController {
     private final DualPaneHostFragment host;
@@ -140,19 +137,9 @@ public final class SelectionBarController {
         }
         boolean single = selection.size() == 1;
         NodePath singlePath = single ? selection.iterator().next() : null;
-        VirtualNode singleNode = single ? activeVm.findNode(singlePath) : null;
-        Boolean singleIsFolder = singleNode != null ? singleNode.isFolder() : null;
-
-        // R-11a: rule logic owned by WorkspaceRules — controller chỉ snapshot state.
-        WorkspaceRuleState state = WorkspaceRuleState.of(
-                selection,
-                singleIsFolder,
-                activeVm.currentPath(),
-                host.inactiveVm().currentPath());
-
         NodeActionsBottomSheet sheet = NodeActionsBottomSheet
                 .newInstance(single ? singlePath.name() : selection.size() + " items")
-                .setDisabledActions(WorkspaceRules.compute(state))
+                .setDisabledActions(host.disabledActions(currentRuleState()))
                 .setListener(action -> handleAction(action, singlePath));
         sheet.show(host.getChildFragmentManager(), "selection-more");
     }
@@ -173,7 +160,7 @@ public final class SelectionBarController {
                     final NodePath target = singlePath;
                     NameInputDialog.show(host.requireContext(),
                             R.string.action_rename, R.string.file_name,
-                            newName -> vm.rename(target, newName));
+                            newName -> vm.rename(target, newName, currentRuleState()));
                 }
                 break;
             case PROPERTIES:
@@ -194,7 +181,7 @@ public final class SelectionBarController {
             case BOOKMARK:
                 // R-8: enabled chỉ với single + folder + local (xem computeDisabledActions).
                 // VM lo idempotency qua BookmarkStore.add (duplicate path là no-op).
-                vm.addBookmarkSelected();
+                vm.addBookmarkSelected(currentRuleState());
                 break;
             case COPY:
                 // Phase C-1b: active pane = source, inactive pane = destination. Đúng concept
@@ -225,7 +212,20 @@ public final class SelectionBarController {
                         ? selection.iterator().next().name()
                         : host.getString(R.string.delete_confirm_count, count))
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> vm.deleteSelected())
+                .setPositiveButton(android.R.string.ok,
+                        (dialog, which) -> vm.deleteSelected(currentRuleState()))
                 .show();
+    }
+
+    private WorkspaceRuleState currentRuleState() {
+        PaneViewModel activeVm = host.activeVm();
+        Set<NodePath> selection = activeVm.selection().getValue();
+        Boolean singleIsFolder = null;
+        if (selection != null && selection.size() == 1) {
+            VirtualNode node = activeVm.findNode(selection.iterator().next());
+            singleIsFolder = node == null ? null : node.isFolder();
+        }
+        return WorkspaceRuleState.of(selection, singleIsFolder, activeVm.currentPath(),
+                host.inactiveVm().currentPath());
     }
 }

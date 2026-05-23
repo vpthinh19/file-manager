@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import java.io.File;
+import java.util.EnumSet;
 import java.util.Set;
 
 import javax.inject.Inject;
@@ -34,8 +35,7 @@ import com.vpt.filemanager.node.opener.NodeOpener;
 import com.vpt.filemanager.node.opener.OpenContext;
 import com.vpt.filemanager.node.opener.OpenerRegistry;
 import com.vpt.filemanager.node.NodeNavigator;
-import com.vpt.filemanager.operations.create.CreateNodeOperation;
-import com.vpt.filemanager.operations.transfer.TransferOperation;
+import com.vpt.filemanager.rules.WorkspaceRuleState;
 import com.vpt.filemanager.ui.drawer.DrawerHost;
 import com.vpt.filemanager.ui.pane.flow.CreateAction;
 import com.vpt.filemanager.ui.pane.flow.ShareAction;
@@ -51,6 +51,8 @@ import com.vpt.filemanager.ui.editor.TextEditorActivity;
 import com.vpt.filemanager.operations.openwith.OpenWithRequest;
 import com.vpt.filemanager.operations.openwith.PrepareOpenWithRequestOperation;
 import com.vpt.filemanager.workspace.WorkspaceStore;
+import com.vpt.filemanager.workspace.WorkspaceAction;
+import com.vpt.filemanager.workspace.WorkspaceCommandDispatcher;
 
 /**
  * Host của 2 PaneFragment + bottom toolbar + selection bar. Phase R-5b: click flow migrated sang
@@ -83,10 +85,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     NodeFactory nodeFactory;
 
     @Inject
-    CreateNodeOperation createNodeOperation;
-
-    @Inject
-    TransferOperation transferOperation;
+    WorkspaceCommandDispatcher commands;
 
     private FragmentDualPaneHostBinding binding;
     private PaneViewModel leftVm;
@@ -144,11 +143,9 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
                     .commitNow();
         }
 
-        createAction = new CreateAction(this, executors, nodeFactory, createNodeOperation,
-                workspace);
+        createAction = new CreateAction(this, executors, nodeFactory, commands);
         shareAction = new ShareAction(this);
-        transferAction = new TransferAction(this, executors, nodeFactory, transferOperation,
-                workspace);
+        transferAction = new TransferAction(this, executors, nodeFactory, commands);
         toolbarCtrl = new ToolbarController(this, binding);
         bottomBarCtrl = new BottomBarController(this, binding, createAction);
         selectionBarCtrl = new SelectionBarController(this, binding, shareAction);
@@ -431,6 +428,11 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     @NonNull
     public String activePaneId() {
         return activePaneId;
+    }
+
+    @NonNull
+    public EnumSet<WorkspaceAction> disabledActions(@NonNull WorkspaceRuleState state) {
+        return commands.disabledActions(state);
     }
 
     /**

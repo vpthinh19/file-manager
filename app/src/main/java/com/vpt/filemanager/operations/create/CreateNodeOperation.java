@@ -6,11 +6,13 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.node.NodeException;
+import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.operations.support.NodeFileBackend;
 import com.vpt.filemanager.operations.conflict.UniqueNameGenerator;
 import com.vpt.filemanager.operations.trash.TrashStore;
 import com.vpt.filemanager.operations.conflict.NameConflictException;
+import com.vpt.filemanager.workspace.MutationResult;
 
 /**
  * Create a file or folder under a virtual parent node.
@@ -31,23 +33,28 @@ public final class CreateNodeOperation {
     }
 
     @NonNull
-    public VirtualNode execute(@NonNull Input input) throws NodeException {
+    public Result execute(@NonNull Input input) throws NodeException {
         String name = validateName(input.name);
         VirtualNode existing = findChild(input.parent, name);
         String finalName = name;
+        MutationResult.Builder mutation = MutationResult.builder()
+                .changedContainer(input.parent.path());
         if (existing != null) {
             if (input.policy == ExistingNamePolicy.FAIL) {
                 throw new NameConflictException(name, existing);
             }
             if (input.policy == ExistingNamePolicy.REPLACE) {
                 trashStore.moveToTrash(existing);
+                mutation.changedContainer(NodePath.TRASH_ROOT)
+                        .removedSubtree(existing.path());
             } else if (input.policy == ExistingNamePolicy.KEEP_BOTH) {
                 finalName = UniqueNameGenerator.uniqueName(input.parent, name);
             }
         }
-        return input.type == CreateNodeType.FOLDER
+        VirtualNode created = input.type == CreateNodeType.FOLDER
                 ? fileBackend.createFolder(input.parent, finalName)
                 : fileBackend.createFile(input.parent, finalName);
+        return new Result(created, mutation.build());
     }
 
     private static String validateName(String name) throws NodeException {
@@ -84,6 +91,16 @@ public final class CreateNodeOperation {
             this.type = type;
             this.name = name;
             this.policy = policy;
+        }
+    }
+
+    public static final class Result {
+        @NonNull public final VirtualNode created;
+        @NonNull public final MutationResult mutation;
+
+        private Result(@NonNull VirtualNode created, @NonNull MutationResult mutation) {
+            this.created = created;
+            this.mutation = mutation;
         }
     }
 }

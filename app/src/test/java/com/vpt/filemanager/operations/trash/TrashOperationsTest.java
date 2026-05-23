@@ -9,7 +9,6 @@ import java.util.List;
 import org.junit.Test;
 
 import com.vpt.filemanager.node.NodeException;
-import com.vpt.filemanager.operations.result.BatchResult;
 
 public final class TrashOperationsTest {
     @Test
@@ -22,13 +21,14 @@ public final class TrashOperationsTest {
             restored.add(entryId);
         });
 
-        BatchResult result = operation.execute(List.of("a", "bad", "b"));
+        RestoreTrashEntriesOperation.Result result = operation.execute(List.of("a", "bad", "b"));
 
         assertEquals(List.of("a", "b"), restored);
-        assertEquals(2, result.ok);
-        assertEquals(1, result.failed);
-        assertEquals("blocked", result.lastError);
-        assertEquals("2 restored, 1 failed: blocked", result.message("restored"));
+        assertEquals(2, result.batch.ok);
+        assertEquals(1, result.batch.failed);
+        assertEquals("blocked", result.batch.lastError);
+        assertEquals("2 restored, 1 failed: blocked", result.batch.message("restored"));
+        assertEquals(true, result.mutation.allLiveSnapshots);
     }
 
     @Test
@@ -36,9 +36,11 @@ public final class TrashOperationsTest {
         boolean[] called = { false };
         EmptyTrashOperation operation = new EmptyTrashOperation(() -> called[0] = true);
 
-        operation.execute();
+        EmptyTrashOperation.Result result = operation.execute();
 
         assertEquals(true, called[0]);
+        assertEquals(true,
+                result.mutation.affectsListing(com.vpt.filemanager.node.NodePath.TRASH_ROOT));
     }
 
     @Test

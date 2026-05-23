@@ -41,10 +41,12 @@ public final class RenameNodeOperationTest {
                 "hello".getBytes(StandardCharsets.UTF_8));
         VirtualNode oldNode = localSource.resolve(filePathOf(oldPath));
 
-        VirtualNode renamed = operation.execute(new RenameNodeOperation.Input(
+        RenameNodeOperation.Result result = operation.execute(new RenameNodeOperation.Input(
                 oldNode, "new.txt"));
 
-        assertEquals("new.txt", renamed.name());
+        assertEquals("new.txt", result.renamed.name());
+        assertTrue(result.mutation.affectsListing(filePathOf(rootDir)));
+        assertTrue(result.mutation.affectsListing(oldNode.path()));
         assertFalse(Files.exists(oldPath));
         assertTrue(Files.exists(rootDir.resolve("new.txt")));
         assertEquals("hello", new String(
