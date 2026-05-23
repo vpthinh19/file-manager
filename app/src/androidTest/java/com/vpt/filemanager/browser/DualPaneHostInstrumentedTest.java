@@ -6,11 +6,13 @@ import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.not;
 
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
@@ -58,6 +60,16 @@ public final class DualPaneHostInstrumentedTest {
             onView(withId(R.id.pane_left_container)).check(matches(isDisplayed()));
             onView(withId(R.id.pane_right_container)).check(matches(isDisplayed()));
             onView(withId(R.id.btn_add)).check(matches(isDisplayed()));
+            try {
+                waitForView(allOf(withText("Download"),
+                        isDescendantOfA(withId(R.id.pane_left_container))));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(interrupted);
+            }
+            onView(allOf(withText(".."), isDescendantOfA(withId(R.id.pane_left_container))))
+                    .check(doesNotExist());
+            onView(withId(R.id.btn_up)).check(matches(not(isEnabled())));
         }
     }
 

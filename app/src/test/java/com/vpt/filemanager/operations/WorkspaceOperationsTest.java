@@ -1,6 +1,7 @@
 package com.vpt.filemanager.operations;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -38,6 +39,15 @@ public final class WorkspaceOperationsTest {
                 new NavigateToParentOperation.Input(NodePath.search(scope, "photo")));
 
         assertEquals(scope, output.parentPath);
+    }
+
+    @Test
+    public void navigateToParent_userFacingRoots_doNotExposeInternalRoot() {
+        NavigateToParentOperation operation = new NavigateToParentOperation();
+
+        assertNull(operation.execute(new NavigateToParentOperation.Input(NodePath.STORAGE_ROOT)).parentPath);
+        assertNull(operation.execute(new NavigateToParentOperation.Input(NodePath.TRASH_ROOT)).parentPath);
+        assertNull(operation.execute(new NavigateToParentOperation.Input(NodePath.BOOKMARK_ROOT)).parentPath);
     }
 
     @Test

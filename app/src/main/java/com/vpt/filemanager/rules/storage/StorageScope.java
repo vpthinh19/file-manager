@@ -27,6 +27,13 @@ public final class StorageScope {
         return path != null && path.isLocal() && ROOT_PATH.equals(path.path());
     }
 
+    /** User-visible top-level destinations. The internal workspace root is never navigable UI. */
+    public static boolean isAtUserRoot(@Nullable NodePath path) {
+        return isAtRoot(path)
+                || NodePath.TRASH_ROOT.equals(path)
+                || NodePath.BOOKMARK_ROOT.equals(path);
+    }
+
     /**
      * @return {@code true} when navigating one level up from {@code path} remains inside the scope.
      * Archive paths always allow going up — the parent ultimately lands back in local scope.
@@ -35,9 +42,8 @@ public final class StorageScope {
         if (path == null || path.isRoot()) {
             return false;
         }
-        if (path.equals(NodePath.TRASH_ROOT) || path.equals(NodePath.BOOKMARK_ROOT)
-                || isAtRoot(path)) {
-            return true;
+        if (isAtUserRoot(path)) {
+            return false;
         }
         if (path.isArchive() || path.isSearch()) {
             return true;

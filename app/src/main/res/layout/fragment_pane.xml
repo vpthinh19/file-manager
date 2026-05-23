@@ -12,11 +12,7 @@
     android:foregroundGravity="fill">
 
     <!--
-      No layoutAnimation declared: LayoutAnimationController races with DiffUtil + AsyncListDiffer
-      commit timing — items are laid out at their resting position BEFORE the animation
-      controller resets them to its start state, producing a one-frame flash of new content
-      followed by the cascade. DefaultItemAnimator (configured in PaneFragment) handles per-item
-      add/remove cross-fade synchronously with DiffUtil notifications, no race.
+      No row-level animation: large refreshes animate hundreds of items and degrade frame times.
     -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv"

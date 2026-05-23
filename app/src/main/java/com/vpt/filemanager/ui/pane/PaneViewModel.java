@@ -109,7 +109,12 @@ public final class PaneViewModel extends ViewModel {
             return;
         }
         try {
-            currentPath = NodePath.parse(saved);
+            NodePath restoredPath = NodePath.parse(saved);
+            if (restoredPath.isRoot()) {
+                savedState.remove(KEY_PATH);
+                return;
+            }
+            currentPath = restoredPath;
             workspace.retain(currentPath);
             load(currentPath, LoadMode.NAVIGATE);
         } catch (IllegalArgumentException ignored) {
@@ -265,6 +270,9 @@ public final class PaneViewModel extends ViewModel {
     }
 
     public void navigateTo(NodePath path) {
+        if (path == null || path.isRoot()) {
+            return;
+        }
         if (currentPath != null && !currentPath.equals(path)) {
             backStack.push(currentPath);
             forwardStack.clear();
@@ -300,6 +308,9 @@ public final class PaneViewModel extends ViewModel {
     }
 
     private void switchPath(NodePath path) {
+        if (path == null || path.isRoot()) {
+            return;
+        }
         // Navigate đổi folder → selection của folder cũ không còn hợp lý → exit mode hẳn.
         exitSelectionMode();
         NodePath previous = currentPath;

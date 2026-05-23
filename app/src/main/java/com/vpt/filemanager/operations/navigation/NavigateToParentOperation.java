@@ -18,10 +18,8 @@ public final class NavigateToParentOperation {
         if (path.isSearch()) {
             return new Output(path.searchScope());
         }
-        if (StorageScope.isAtRoot(path)
-                || path.equals(NodePath.TRASH_ROOT)
-                || path.equals(NodePath.BOOKMARK_ROOT)) {
-            return new Output(NodePath.ROOT);
+        if (StorageScope.isAtUserRoot(path)) {
+            return new Output(null);
         }
         if (path.isArchive() && "/".equals(path.path())) {
             NodePath archiveFile = NodePath.parse(path.authority());
