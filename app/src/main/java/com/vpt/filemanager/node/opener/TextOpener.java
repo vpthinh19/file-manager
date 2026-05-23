@@ -21,8 +21,8 @@ import com.vpt.filemanager.ui.editor.TextEditorActivity;
  * <p><b>Archive entry</b>: hiện throw NodeException — sora-editor yêu cầu Path object trên file
  * system, archive entry là stream. Phase 2C-6 sẽ thêm "extract to cache + open" flow.
  *
- * <p><b>Safe-load</b>: TextEditorActivity tự handle size check + binary sniff + decoder replace
- * (đã có sẵn ở `ui/editor/TextEditorActivity`). Opener không duplicate logic.
+ * <p><b>Safe-load</b>: workspace {@code DocumentSession} owns size checks, binary detection,
+ * decoding, savepoints and conflict handling. Opener does not duplicate that logic.
  */
 @Singleton
 public final class TextOpener implements NodeOpener {
@@ -47,7 +47,7 @@ public final class TextOpener implements NodeOpener {
             throw new NodeException("Editing inside archive: coming in Phase 2C");
         }
         Intent intent = new Intent(ctx.context(), TextEditorActivity.class);
-        intent.putExtra(TextEditorActivity.EXTRA_PATH, path.path());
+        intent.putExtra(TextEditorActivity.EXTRA_PATH, path.toString());
         ctx.context().startActivity(intent);
     }
 }

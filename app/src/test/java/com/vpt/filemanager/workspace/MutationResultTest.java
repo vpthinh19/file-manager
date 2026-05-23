@@ -35,4 +35,22 @@ public final class MutationResultTest {
         assertTrue(mutation.affectsListing(NodePath.TRASH_ROOT));
         assertTrue(mutation.affectsListing(NodePath.local("/sdcard/Documents")));
     }
+
+    @Test
+    public void changedParentOrRemovedSubtree_invalidatesOpenDocument() {
+        NodePath document = NodePath.local("/sdcard/Documents/note.txt");
+
+        assertTrue(MutationResult.builder()
+                .changedContainer(document.parent())
+                .build()
+                .affectsNode(document));
+        assertTrue(MutationResult.builder()
+                .removedSubtree(NodePath.local("/sdcard/Documents"))
+                .build()
+                .affectsNode(document));
+        assertFalse(MutationResult.builder()
+                .changedContainer(NodePath.local("/sdcard/Pictures"))
+                .build()
+                .affectsNode(document));
+    }
 }

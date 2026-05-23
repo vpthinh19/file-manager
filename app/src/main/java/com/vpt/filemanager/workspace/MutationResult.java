@@ -50,6 +50,21 @@ public final class MutationResult {
         return false;
     }
 
+    /**
+     * Returns whether an open document must validate its baseline after this mutation.
+     */
+    public boolean affectsNode(@NonNull NodePath nodePath) {
+        if (allLiveSnapshots || changedContainers.contains(nodePath.parent())) {
+            return true;
+        }
+        for (NodePath removed : removedSubtrees) {
+            if (nodePath.isSameOrDescendantOf(removed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static final class Builder {
         private final Set<NodePath> changedContainers = new LinkedHashSet<>();
         private final Set<NodePath> removedSubtrees = new LinkedHashSet<>();

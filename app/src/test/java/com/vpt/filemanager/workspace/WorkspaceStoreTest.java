@@ -51,6 +51,17 @@ public final class WorkspaceStoreTest {
     }
 
     @Test
+    public void documentSession_retainsAndReleasesItsParentWatch() {
+        NodePath document = DOCUMENTS.child("note.txt");
+
+        DocumentSession session = store.openDocument(document);
+        session.close();
+
+        verify(watcher).retain(DOCUMENTS);
+        verify(watcher).release(DOCUMENTS);
+    }
+
+    @Test
     public void rootNode_isStableLogicalTreeEntryPoint() {
         assertSame(store.rootNode(), store.rootNode());
         assertEquals(NodePath.ROOT, store.rootNode().path());

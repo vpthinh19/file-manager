@@ -15,6 +15,7 @@ Coverage:
 - Asset contracts that do not need Android runtime, especially lazy TextMate catalog grammar/configuration paths and dependency scopes.
 - Operation mutation contracts: mutating operations report precise `MutationResult` branches.
 - Workspace command dispatch: rule enforcement at execution time and mutation publication.
+- Document sessions: savepoint comparison, parent invalidation, external rewrite/deletion detection, and conflict-safe saves.
 
 Current syntax tests:
 - `SyntaxAssetContractTest`: validates catalog grammar/configuration paths, dependency scopes, and expanded language coverage.
@@ -40,7 +41,7 @@ Coverage:
 
 Current syntax tests:
 - `SyntaxSetupInstrumentedTest`: lazily loads selected catalog grammars and light/dark TextMate themes using real Android assets.
-- `TextEditorActivityInstrumentedTest`: launches `TextEditorActivity` with a real local Java file.
+- `TextEditorActivityInstrumentedTest`: opens a virtual-path local document, verifies in-file result counts, and reports external deletion through `DocumentSession`.
 - `DualPaneHostInstrumentedTest`: launches `MainActivity` with all-files access and verifies both panes plus the command bar instantiate through Hilt.
 
 ## Next Tests To Add
@@ -69,12 +70,12 @@ Current syntax tests:
 
 ### Editor
 
-- Open UTF-8 file, save, assert file bytes changed.
+- Extend UI coverage for interactive editing and save; savepoint/write/conflict behavior is already JVM-tested through `DocumentSession`.
 - Open read-only or large file, assert Save disabled/read-only.
 - Open binary-looking file, assert confirmation dialog appears.
 - Open `.java`, `.json`, `.xml`, `.md`, `.kt`, assert TextMate registry can create expected language.
-- Verify undo/redo enabled states and dirty marker return to the last savepoint.
-- Existing smoke coverage verifies the find-in-file surface opens; extend it to verify result navigation and count using sora `EditorSearcher`.
+- Verify undo/redo enabled states and dirty marker return to the last savepoint through editor interaction.
+- Extend existing find-result coverage to verify previous/next navigation using sora `EditorSearcher`.
 
 ### Media Viewer And Player
 

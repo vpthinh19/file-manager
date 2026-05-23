@@ -285,7 +285,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             return;
         }
         Intent intent = new Intent(requireContext(), TextEditorActivity.class);
-        intent.putExtra(TextEditorActivity.EXTRA_PATH, path.path());
+        intent.putExtra(TextEditorActivity.EXTRA_PATH, path.toString());
         startActivity(intent);
     }
 

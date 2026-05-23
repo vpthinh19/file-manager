@@ -99,6 +99,12 @@
     <string name="editor_editable">UTF-8</string>
     <string name="editor_saved">Saved</string>
     <string name="editor_modified_title">%1$s *</string>
+    <string name="editor_external_title">File changed outside editor</string>
+    <string name="editor_modified_external_message">This file changed elsewhere while you have local edits. Saving is disabled to avoid overwriting those changes.</string>
+    <string name="editor_deleted_external_message">This file no longer exists. The current content is kept read-only in the editor.</string>
+    <string name="editor_external_reloading">File updated outside editor; reloading</string>
+    <string name="editor_conflict">Conflict</string>
+    <string name="editor_missing">Missing</string>
     <string name="editor_find_hint">Find in file</string>
     <string name="editor_no_query">0 / 0</string>
     <string name="editor_search_result">%1$d / %2$d</string>

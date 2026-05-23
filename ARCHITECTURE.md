@@ -200,6 +200,7 @@ MutationResult
 WorkspaceStore
 WorkspaceFileWatcher
 WorkspaceCommandDispatcher
+DocumentSession
 ```
 
 `DirectorySnapshot`
@@ -223,10 +224,13 @@ hints; the store always re-reads a source before publishing display state.
 and publishes each operation's `MutationResult` to `WorkspaceStore`. Browser UI does not construct
 mutation scopes or call mutating operations directly.
 
-Current transition boundary: pane navigation/selection state still lives in `PaneViewModel`, and
-text-editor save currently publishes its document invalidation directly. A future
-`DocumentSession` will place editor save, external-delete handling, and save conflicts behind the
-same workspace-owned boundary.
+`DocumentSession`
+: A lifecycle-bound open-file session created by `WorkspaceStore`. It reads and writes through
+`VirtualNode`, owns the content savepoint and source fingerprint, prevents external-change
+overwrites, and receives invalidation signals while its parent container is retained for watching.
+
+Current transition boundary: pane navigation/selection state still lives in `PaneViewModel`.
+Search results, writable archive overlays, and media sessions are not implemented yet.
 
 ### Reconciliation
 
@@ -274,7 +278,7 @@ workspace commands. They are not domain operations.
 `ui/editor` owns the Android text editing surface and the adapter to sora-editor/TextMate:
 
 ```text
-TextEditorActivity  toolbar/status/editor lifecycle and asynchronous document I/O
+TextEditorActivity  toolbar/status/editor rendering and Android dialogs
 LanguageResolver    filename to TextMate scope selection
 SyntaxCatalog       immutable scope to asset/config/dependency records
 SyntaxSetup         process-wide theme/provider cache and lazy grammar loading
@@ -285,13 +289,14 @@ to shared themes and the Kotlin grammar not present in the imported TM4E bundle.
 be eagerly loaded as one application startup set. `SyntaxSetup` registers shared infrastructure
 once, then loads the requested scope and required embedded scopes on a computation executor.
 
-`TextEditorActivity` must not perform file probes, decoding, writes, or TextMate parsing on the UI
-thread. It releases its `CodeEditor` in `onDestroy`; process-level registry caches remain reusable
+`TextEditorActivity` delegates file probes, decoding, writes, savepoints and external-change
+conflict policy to `DocumentSession`; it only schedules work and renders its results. It releases
+its `CodeEditor` and closes its session in `onDestroy`; process-level syntax caches remain reusable
 for later editor instances.
 
-The editor currently keeps a content savepoint after load/save, derives its dirty marker from
-content equality so undo/redo can return to a clean state, and exposes in-document find through
-sora `EditorSearcher`.
+The editor derives its dirty marker through `DocumentSession.isDirty(CharSequence)`, so undo/redo
+can return to a clean savepoint without retaining a second sora `Content` tree. In-document find
+uses sora `EditorSearcher`.
 
 ### Viewer And Player Features
 
@@ -313,7 +318,6 @@ placeholder icons for non-media nodes.
 The following capabilities remain planned and must use the same workspace contracts:
 
 ```text
-DocumentSession              editor dirty/savepoint, external-delete and conflict state
 SearchNodesOperation         temporary search:// virtual result node for file/folder search
 ArchiveEditSession           overlay edits for archive virtual branches
 ArchiveCommitOperation       libarchive C++ temp-write, validation, and atomic replacement

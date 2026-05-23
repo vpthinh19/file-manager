@@ -5,7 +5,9 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -31,6 +33,7 @@ public final class WorkspaceStore {
     private final Map<NodePath, DirectorySnapshot> snapshots = new HashMap<>();
     private final Map<NodePath, Integer> retainCounts = new HashMap<>();
     private final Map<NodePath, Long> invalidatedAt = new HashMap<>();
+    private final Set<DocumentSession> documentSessions = new HashSet<>();
     private long revision;
 
     @Inject
@@ -51,6 +54,17 @@ public final class WorkspaceStore {
 
     public LiveData<MutationResult> mutations() {
         return mutations;
+    }
+
+    /**
+     * Opens a workspace-owned editing session and retains observation of the document container.
+     */
+    @NonNull
+    public synchronized DocumentSession openDocument(@NonNull NodePath path) {
+        DocumentSession session = new DocumentSession(path, nodeFactory, this);
+        documentSessions.add(session);
+        retain(path.parent());
+        return session;
     }
 
     public synchronized void retain(@NonNull NodePath path) {
@@ -96,8 +110,34 @@ public final class WorkspaceStore {
      * Invalidates live materialized branches and publishes one workspace mutation event.
      */
     public void publish(@NonNull MutationResult mutation) {
-        invalidateSnapshots(mutation);
+        publish(mutation, null);
+    }
+
+    void publishFromDocument(@NonNull DocumentSession source, @NonNull MutationResult mutation) {
+        publish(mutation, source);
+    }
+
+    private void publish(@NonNull MutationResult mutation, DocumentSession source) {
+        Set<DocumentSession> affected;
+        synchronized (this) {
+            invalidateSnapshots(mutation);
+            affected = new HashSet<>();
+            for (DocumentSession session : documentSessions) {
+                if (session != source && mutation.affectsNode(session.path())) {
+                    affected.add(session);
+                }
+            }
+        }
+        for (DocumentSession session : affected) {
+            session.onExternalInvalidation();
+        }
         mutations.postValue(mutation);
+    }
+
+    synchronized void closeDocument(@NonNull DocumentSession session) {
+        if (documentSessions.remove(session)) {
+            release(session.path().parent());
+        }
     }
 
     synchronized void invalidateSnapshots(@NonNull MutationResult mutation) {

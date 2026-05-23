@@ -25,19 +25,11 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.error.ErrorPresenter;
+import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.threading.AppExecutors;
-import com.vpt.filemanager.workspace.MutationResult;
+import com.vpt.filemanager.workspace.DocumentSession;
 import com.vpt.filemanager.workspace.WorkspaceStore;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import javax.inject.Inject;
 
@@ -50,7 +42,6 @@ import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme;
 import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
 import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry;
 import io.github.rosemoe.sora.text.CharPosition;
-import io.github.rosemoe.sora.text.Content;
 import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.widget.EditorSearcher;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
@@ -59,25 +50,22 @@ import io.github.rosemoe.sora.widget.schemes.SchemeGitHub;
 /**
  * In-app text editor surface backed by sora-editor.
  *
- * <p>All file and TextMate preparation work runs outside the main thread. The activity owns only
- * the editor view and one document language instance; {@link CodeEditor#release()} tears both down
- * when the view lifecycle ends while the process-wide grammar cache remains reusable.
+ * <p>All document I/O and conflict state belongs to {@link DocumentSession}; all TextMate
+ * preparation work runs outside the main thread. The activity owns only Android rendering and one
+ * document language instance; {@link CodeEditor#release()} tears both down when the view lifecycle
+ * ends while the process-wide grammar cache remains reusable.
  */
 @AndroidEntryPoint
 public final class TextEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PATH = "com.vpt.filemanager.extra.PATH";
-
-    private static final long EDITOR_HARD_LIMIT = 8L * 1024 * 1024;
-    private static final int EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
-    private static final int SNIFF_BYTES = 4096;
-    private static final int NULL_SCAN_WINDOW = 512;
 
     @Inject
     WorkspaceStore workspace;
     @Inject
     AppExecutors executors;
 
-    private Path path;
+    private NodePath path;
+    private DocumentSession session;
     private MaterialToolbar toolbar;
     private CodeEditor editor;
     private ProgressBar progress;
@@ -98,7 +86,8 @@ public final class TextEditorActivity extends AppCompatActivity {
     private boolean documentLoaded;
     private boolean writable;
     private boolean modified;
-    private Content savedContent;
+    private boolean externalConflict;
+    private boolean externalAlertShown;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -109,8 +98,15 @@ public final class TextEditorActivity extends AppCompatActivity {
             finish();
             return;
         }
-        path = Paths.get(rawPath);
+        try {
+            path = NodePath.parse(rawPath);
+        } catch (IllegalArgumentException error) {
+            finish();
+            return;
+        }
+        session = workspace.openDocument(path);
         buildUi();
+        session.externalInvalidations().observe(this, ignored -> checkExternalState());
         startSyntaxSetup();
         startLoad();
     }
@@ -145,7 +141,7 @@ public final class TextEditorActivity extends AppCompatActivity {
         searchNext = findViewById(R.id.editor_search_next);
 
         toolbar.setTitle(fileName());
-        toolbar.setSubtitle(path.toString());
+        toolbar.setSubtitle(path.isLocal() ? path.path() : path.toString());
         toolbar.setNavigationOnClickListener(view -> finish());
         toolbar.inflateMenu(R.menu.menu_text_editor);
         saveAction = toolbar.getMenu().findItem(R.id.editor_action_save);
@@ -171,13 +167,20 @@ public final class TextEditorActivity extends AppCompatActivity {
             if (!documentLoaded || event.getAction() == ContentChangeEvent.ACTION_SET_NEW_TEXT) {
                 return;
             }
-            modified = savedContent == null || !editor.getText().equals(savedContent);
+            modified = session.isDirty(editor.getText());
             updateActions();
         });
         editor.subscribeEvent(SelectionChangeEvent.class, (event, unsubscribe) ->
                 renderCursor(event.getLeft()));
-        editor.subscribeEvent(PublishSearchResultEvent.class, (event, unsubscribe) ->
-                renderSearchResult());
+        editor.subscribeEvent(PublishSearchResultEvent.class, (event, unsubscribe) -> {
+            EditorSearcher searcher = editor.getSearcher();
+            if (searcher.hasQuery()
+                    && searcher.getMatchedPositionCount() > 0
+                    && searcher.getCurrentMatchedPositionIndex() < 0) {
+                searcher.gotoNext();
+            }
+            renderSearchResult();
+        });
         setupSearchBar();
         updateActions();
     }
@@ -250,23 +253,19 @@ public final class TextEditorActivity extends AppCompatActivity {
         setLoading(true);
         executors.io().execute(() -> {
             try {
-                long size = Files.size(path);
-                if (size > EDITOR_HARD_LIMIT) {
-                    throw new IOException(getString(R.string.error_file_too_large));
-                }
-                LoadProbe probe = new LoadProbe(size, looksBinary(path));
-                executors.main().execute(() -> acceptProbe(probe));
-            } catch (IOException | SecurityException error) {
+                DocumentSession.LoadResult result = session.load(false);
+                executors.main().execute(() -> acceptLoadResult(result));
+            } catch (NodeException | SecurityException error) {
                 executors.main().execute(() -> failLoad(error));
             }
         });
     }
 
-    private void acceptProbe(LoadProbe probe) {
+    private void acceptLoadResult(DocumentSession.LoadResult result) {
         if (destroyed) {
             return;
         }
-        if (probe.binary) {
+        if (result.binaryApprovalRequired) {
             setLoading(false);
             new AlertDialog.Builder(this)
                     .setTitle(R.string.dialog_binary_title)
@@ -274,31 +273,26 @@ public final class TextEditorActivity extends AppCompatActivity {
                     .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
                     .setOnCancelListener(dialog -> finish())
                     .setPositiveButton(R.string.dialog_open_anyway,
-                            (dialog, which) -> readDocument(probe.size))
+                            (dialog, which) -> loadDocument(true))
                     .show();
             return;
         }
-        readDocument(probe.size);
+        applyDocument(result);
     }
 
-    private void readDocument(long size) {
+    private void loadDocument(boolean allowBinary) {
         setLoading(true);
         executors.io().execute(() -> {
             try {
-                boolean truncated = size > EDITOR_READ_ONLY_THRESHOLD;
-                int charLimit = truncated ? EDITOR_READ_ONLY_THRESHOLD : Integer.MAX_VALUE;
-                DocumentResult result = new DocumentResult(
-                        readDecoded(path, charLimit),
-                        !truncated && Files.isWritable(path),
-                        truncated);
+                DocumentSession.LoadResult result = session.load(allowBinary);
                 executors.main().execute(() -> applyDocument(result));
-            } catch (IOException | SecurityException error) {
+            } catch (NodeException | SecurityException error) {
                 executors.main().execute(() -> failLoad(error));
             }
         });
     }
 
-    private void applyDocument(DocumentResult result) {
+    private void applyDocument(DocumentSession.LoadResult result) {
         if (destroyed) {
             return;
         }
@@ -307,8 +301,9 @@ public final class TextEditorActivity extends AppCompatActivity {
             editor.setText(result.content);
             documentLoaded = true;
             writable = result.writable;
-            savedContent = editor.getText().copyText();
             modified = false;
+            externalConflict = false;
+            externalAlertShown = false;
             editor.setEditable(writable);
             modeStatus.setText(writable ? R.string.editor_editable : R.string.read_only);
             renderCursor(editor.getCursor().left());
@@ -332,39 +327,81 @@ public final class TextEditorActivity extends AppCompatActivity {
     }
 
     private void save() {
-        if (!writable || !modified) {
+        if (!writable || !modified || externalConflict) {
             return;
         }
-        Content savedSnapshot = editor.getText().copyText();
-        String text = savedSnapshot.toString();
+        String text = editor.getText().toString();
         saveAction.setEnabled(false);
         executors.io().execute(() -> {
             try {
-                Files.write(path, text.getBytes(StandardCharsets.UTF_8));
+                session.save(text);
                 executors.main().execute(() -> {
                     if (destroyed) {
                         return;
                     }
-                    savedContent = savedSnapshot;
-                    modified = !editor.getText().equals(savedContent);
+                    modified = session.isDirty(editor.getText());
                     updateActions();
                     toast(getString(R.string.editor_saved));
-                    Path parent = path.getParent();
-                    workspace.publish(parent == null
-                            ? MutationResult.allLiveSnapshots()
-                            : MutationResult.builder()
-                                    .changedContainer(NodePath.local(parent.toString()))
-                                    .build());
                 });
-            } catch (IOException | SecurityException error) {
+            } catch (DocumentSession.ConflictException conflict) {
+                executors.main().execute(() -> handleExternalConflict(
+                        DocumentSession.ExternalState.MODIFIED));
+            } catch (NodeException | SecurityException error) {
+                DocumentSession.ExternalState externalState = session.inspectExternalState();
                 executors.main().execute(() -> {
                     if (!destroyed) {
-                        updateActions();
-                        ErrorPresenter.toast(this, error);
+                        if (externalState == DocumentSession.ExternalState.UNCHANGED) {
+                            updateActions();
+                            ErrorPresenter.toast(this, error);
+                        } else {
+                            handleExternalConflict(externalState);
+                        }
                     }
                 });
             }
         });
+    }
+
+    private void checkExternalState() {
+        if (!documentLoaded || destroyed) {
+            return;
+        }
+        executors.io().execute(() -> {
+            DocumentSession.ExternalState state = session.inspectExternalState();
+            executors.main().execute(() -> {
+                if (!destroyed && state != DocumentSession.ExternalState.UNCHANGED) {
+                    handleExternalConflict(state);
+                }
+            });
+        });
+    }
+
+    private void handleExternalConflict(DocumentSession.ExternalState state) {
+        if (state == DocumentSession.ExternalState.MODIFIED && !modified) {
+            toast(getString(R.string.editor_external_reloading));
+            loadDocument(true);
+            return;
+        }
+        externalConflict = true;
+        if (state == DocumentSession.ExternalState.DELETED) {
+            writable = false;
+            modeStatus.setText(R.string.editor_missing);
+        } else {
+            modeStatus.setText(R.string.editor_conflict);
+        }
+        updateActions();
+        if (externalAlertShown) {
+            return;
+        }
+        externalAlertShown = true;
+        int message = state == DocumentSession.ExternalState.DELETED
+                ? R.string.editor_deleted_external_message
+                : R.string.editor_modified_external_message;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.editor_external_title)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void setLoading(boolean loading) {
@@ -372,7 +409,7 @@ public final class TextEditorActivity extends AppCompatActivity {
     }
 
     private void updateActions() {
-        saveAction.setEnabled(documentLoaded && writable && modified);
+        saveAction.setEnabled(documentLoaded && writable && modified && !externalConflict);
         undoAction.setEnabled(documentLoaded && editor.canUndo());
         redoAction.setEnabled(documentLoaded && editor.canRedo());
         searchAction.setEnabled(documentLoaded);
@@ -449,7 +486,7 @@ public final class TextEditorActivity extends AppCompatActivity {
     }
 
     private String fileName() {
-        return path.getFileName() == null ? path.toString() : path.getFileName().toString();
+        return path.name();
     }
 
     private boolean isNightMode() {
@@ -457,43 +494,12 @@ public final class TextEditorActivity extends AppCompatActivity {
                 == Configuration.UI_MODE_NIGHT_YES;
     }
 
-    private static boolean looksBinary(Path path) throws IOException {
-        try (InputStream input = Files.newInputStream(path)) {
-            byte[] buffer = new byte[SNIFF_BYTES];
-            int read = input.read(buffer);
-            int scanEnd = Math.min(Math.max(read, 0), NULL_SCAN_WINDOW);
-            for (int index = 0; index < scanEnd; index++) {
-                if (buffer[index] == 0) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-
-    private static String readDecoded(Path path, int charLimit) throws IOException {
-        StringBuilder result = new StringBuilder(Math.min(charLimit, 16 * 1024));
-        char[] buffer = new char[4096];
-        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(
-                Files.newInputStream(path),
-                StandardCharsets.UTF_8.newDecoder()
-                        .onMalformedInput(CodingErrorAction.REPLACE)
-                        .onUnmappableCharacter(CodingErrorAction.REPLACE)))) {
-            while (result.length() < charLimit) {
-                int remaining = charLimit - result.length();
-                int count = reader.read(buffer, 0, Math.min(buffer.length, remaining));
-                if (count < 0) {
-                    break;
-                }
-                result.append(buffer, 0, count);
-            }
-        }
-        return result.toString();
-    }
-
     @Override
     protected void onDestroy() {
         destroyed = true;
+        if (session != null) {
+            session.close();
+        }
         if (editor != null && !editor.isReleased()) {
             editor.release();
         }
@@ -504,25 +510,4 @@ public final class TextEditorActivity extends AppCompatActivity {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
-    private static final class LoadProbe {
-        final long size;
-        final boolean binary;
-
-        LoadProbe(long size, boolean binary) {
-            this.size = size;
-            this.binary = binary;
-        }
-    }
-
-    private static final class DocumentResult {
-        final String content;
-        final boolean writable;
-        final boolean truncated;
-
-        DocumentResult(String content, boolean writable, boolean truncated) {
-            this.content = content;
-            this.writable = writable;
-            this.truncated = truncated;
-        }
-    }
 }
