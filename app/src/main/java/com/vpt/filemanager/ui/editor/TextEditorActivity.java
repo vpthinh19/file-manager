@@ -1,10 +1,17 @@
 package com.vpt.filemanager.ui.editor;
 
 import android.app.AlertDialog;
+import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Bundle;
-import android.text.TextUtils;
-import android.view.Gravity;
-import android.widget.LinearLayout;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -14,6 +21,14 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.vpt.filemanager.R;
+import com.vpt.filemanager.error.ErrorPresenter;
+import com.vpt.filemanager.node.NodePath;
+import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.workspace.MutationResult;
+import com.vpt.filemanager.workspace.WorkspaceStore;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -27,51 +42,76 @@ import java.nio.file.Paths;
 import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
+import io.github.rosemoe.sora.event.ContentChangeEvent;
+import io.github.rosemoe.sora.event.PublishSearchResultEvent;
+import io.github.rosemoe.sora.event.SelectionChangeEvent;
 import io.github.rosemoe.sora.lang.EmptyLanguage;
 import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme;
 import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
 import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry;
+import io.github.rosemoe.sora.text.CharPosition;
+import io.github.rosemoe.sora.text.Content;
 import io.github.rosemoe.sora.widget.CodeEditor;
+import io.github.rosemoe.sora.widget.EditorSearcher;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
-
-import com.vpt.filemanager.R;
-import com.vpt.filemanager.event.FileTreeChangeBus;
-import com.vpt.filemanager.format.ThemeUtils;
-import com.vpt.filemanager.error.ErrorPresenter;
+import io.github.rosemoe.sora.widget.schemes.SchemeGitHub;
 
 /**
- * Lightweight wrapper around sora-editor's {@code CodeEditor}.
+ * In-app text editor surface backed by sora-editor.
  *
- * <p>Load pipeline (Phase 2C-7 hardening) is a small state machine: size check → binary sniff →
- * confirm dialog if binary → stream-decode with REPLACE policy → guarded {@code setText}. Every
- * step funnels failures through {@link ErrorPresenter} so the UX matches the rest of the app.
- *
- * <p>Phase R-8: emit {@link FileTreeChangeBus} sau khi save thành công để pane nào đang xem
- * folder cha của file này tự reload (size/mtime cập nhật). Activity scope ngoài Fragment host
- * nên không thể "tell pane refresh" trực tiếp — bus singleton là cầu nối duy nhất.
+ * <p>All file and TextMate preparation work runs outside the main thread. The activity owns only
+ * the editor view and one document language instance; {@link CodeEditor#release()} tears both down
+ * when the view lifecycle ends while the process-wide grammar cache remains reusable.
  */
 @AndroidEntryPoint
 public final class TextEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PATH = "com.vpt.filemanager.extra.PATH";
 
-    private static final long EDITOR_HARD_LIMIT = 8L * 1024 * 1024;   // > this = bail, too risky
-    private static final long EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
+    private static final long EDITOR_HARD_LIMIT = 8L * 1024 * 1024;
+    private static final int EDITOR_READ_ONLY_THRESHOLD = 1024 * 1024;
     private static final int SNIFF_BYTES = 4096;
     private static final int NULL_SCAN_WINDOW = 512;
 
     @Inject
-    FileTreeChangeBus changeBus;
+    WorkspaceStore workspace;
+    @Inject
+    AppExecutors executors;
 
     private Path path;
+    private MaterialToolbar toolbar;
     private CodeEditor editor;
-    private TextView save;
+    private ProgressBar progress;
+    private TextView languageStatus;
+    private TextView cursorStatus;
+    private TextView modeStatus;
+    private View searchBar;
+    private EditText searchInput;
+    private TextView searchResult;
+    private ImageButton searchPrevious;
+    private ImageButton searchNext;
+    private MenuItem saveAction;
+    private MenuItem undoAction;
+    private MenuItem redoAction;
+    private MenuItem searchAction;
+
+    private boolean destroyed;
+    private boolean documentLoaded;
+    private boolean writable;
+    private boolean modified;
+    private Content savedContent;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         applySystemBarIconContrast();
-        path = Paths.get(getIntent().getStringExtra(EXTRA_PATH));
+        String rawPath = getIntent().getStringExtra(EXTRA_PATH);
+        if (rawPath == null) {
+            finish();
+            return;
+        }
+        path = Paths.get(rawPath);
         buildUi();
+        startSyntaxSetup();
         startLoad();
     }
 
@@ -83,172 +123,347 @@ public final class TextEditorActivity extends AppCompatActivity {
     }
 
     private void buildUi() {
-        int colorSurface = ThemeUtils.color(this, com.google.android.material.R.attr.colorSurface);
-        int chromeBg = getColor(R.color.md_chrome_bg);
-        int chromeOn = getColor(R.color.md_chrome_on_bg);
-        int colorPrimary = ThemeUtils.color(this, androidx.appcompat.R.attr.colorPrimary);
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(colorSurface);
-        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+        setContentView(R.layout.activity_text_editor);
+        View root = findViewById(R.id.editor_root);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             int top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
             int bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-            v.setPadding(v.getPaddingLeft(), top, v.getPaddingRight(), bottom);
+            view.setPadding(view.getPaddingLeft(), top, view.getPaddingRight(), bottom);
             return insets;
         });
 
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(24), dp(12), dp(8), dp(12));
-        header.setBackgroundColor(chromeBg);
+        toolbar = findViewById(R.id.editor_toolbar);
+        editor = findViewById(R.id.editor);
+        progress = findViewById(R.id.editor_progress);
+        languageStatus = findViewById(R.id.editor_language);
+        cursorStatus = findViewById(R.id.editor_cursor);
+        modeStatus = findViewById(R.id.editor_mode);
+        searchBar = findViewById(R.id.editor_search_bar);
+        searchInput = findViewById(R.id.editor_search_input);
+        searchResult = findViewById(R.id.editor_search_result);
+        searchPrevious = findViewById(R.id.editor_search_previous);
+        searchNext = findViewById(R.id.editor_search_next);
 
-        TextView title = new TextView(this);
-        title.setText(path.toString());
-        title.setSingleLine(true);
-        title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        title.setTextColor(chromeOn);
-        title.setTextSize(16);
-        title.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        header.addView(title);
+        toolbar.setTitle(fileName());
+        toolbar.setSubtitle(path.toString());
+        toolbar.setNavigationOnClickListener(view -> finish());
+        toolbar.inflateMenu(R.menu.menu_text_editor);
+        saveAction = toolbar.getMenu().findItem(R.id.editor_action_save);
+        undoAction = toolbar.getMenu().findItem(R.id.editor_action_undo);
+        redoAction = toolbar.getMenu().findItem(R.id.editor_action_redo);
+        searchAction = toolbar.getMenu().findItem(R.id.editor_action_search);
+        toolbar.setOnMenuItemClickListener(this::onToolbarAction);
 
-        save = new TextView(this);
-        save.setText(R.string.action_save);
-        save.setTextColor(colorPrimary);
-        save.setTextSize(16);
-        save.setGravity(Gravity.CENTER);
-        save.setPadding(dp(16), dp(8), dp(8), dp(8));
-        save.setOnClickListener(v -> save());
-        header.addView(save);
-        root.addView(header);
-
-        editor = new CodeEditor(this);
+        editor.setColorScheme(isNightMode() ? new SchemeDarcula() : new SchemeGitHub());
+        editor.setEditorLanguage(new EmptyLanguage());
         editor.setTextSize(14);
-        applySyntaxStyling();
-        editor.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
-        root.addView(editor);
-        setContentView(root);
-    }
+        editor.setLineInfoTextSize(12);
+        editor.setLineNumberEnabled(true);
+        editor.setPinLineNumber(true);
+        editor.setHighlightCurrentLine(true);
+        editor.setHighlightBracketPair(true);
+        editor.setBlockLineEnabled(true);
+        editor.setScrollBarEnabled(true);
+        editor.setTabWidth(4);
+        editor.setLineSpacing(2f, 1.04f);
 
-    /**
-     * Phase R-9: setup TextMate grammar + theme cho editor.
-     *
-     * <p>Pipeline:
-     * <ol>
-     *   <li>{@link SyntaxSetup#ensureInitialized} idempotent — load grammars + theme lần đầu</li>
-     *   <li>{@link LanguageResolver#scopeFor} → scope name nullable. Null → fallback Empty + dark</li>
-     *   <li>Match scope → {@link TextMateLanguage#create} + {@link TextMateColorScheme}</li>
-     * </ol>
-     *
-     * <p>Lỗi setup (asset thiếu, OOM...) graceful fallback {@link EmptyLanguage} +
-     * {@link SchemeDarcula} — editor vẫn mở được dù không có syntax highlight.
-     */
-    private void applySyntaxStyling() {
-        String scope = LanguageResolver.scopeFor(
-                path.getFileName() == null ? "" : path.getFileName().toString());
-        try {
-            SyntaxSetup.ensureInitialized(this);
-            if (scope != null) {
-                editor.setColorScheme(TextMateColorScheme.create(ThemeRegistry.getInstance()));
-                editor.setEditorLanguage(TextMateLanguage.create(scope, true));
+        editor.subscribeEvent(ContentChangeEvent.class, (event, unsubscribe) -> {
+            if (!documentLoaded || event.getAction() == ContentChangeEvent.ACTION_SET_NEW_TEXT) {
                 return;
             }
-        } catch (Exception e) {
-            // Asset/grammar load fail (asset corrupt / grammar không parse được / theme JSON
-            // malformed) — fallback plain. KHÔNG bắt Throwable: OutOfMemoryError + linkage error
-            // phải bubble up để crash report bắt được, fallback ở đây sẽ alloc thêm object →
-            // mask root cause. Note: TextMateColorScheme.create() throws checked Exception.
-            timber.log.Timber.w(e, "Syntax setup failed, fallback EmptyLanguage");
-        }
-        editor.setColorScheme(new SchemeDarcula());
-        editor.setEditorLanguage(new EmptyLanguage());
+            modified = savedContent == null || !editor.getText().equals(savedContent);
+            updateActions();
+        });
+        editor.subscribeEvent(SelectionChangeEvent.class, (event, unsubscribe) ->
+                renderCursor(event.getLeft()));
+        editor.subscribeEvent(PublishSearchResultEvent.class, (event, unsubscribe) ->
+                renderSearchResult());
+        setupSearchBar();
+        updateActions();
     }
 
-    /**
-     * Pre-flight before reading: hard size cap + binary sniff. If the content is binary we ask
-     * the user before continuing — this is the path that previously crashed when a user renamed
-     * {@code .zip} → {@code .txt} and tried to open it.
-     */
+    private boolean onToolbarAction(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.editor_action_save) {
+            save();
+            return true;
+        }
+        if (id == R.id.editor_action_search) {
+            showSearchBar();
+            return true;
+        }
+        if (id == R.id.editor_action_undo) {
+            editor.undo();
+            updateActions();
+            return true;
+        }
+        if (id == R.id.editor_action_redo) {
+            editor.redo();
+            updateActions();
+            return true;
+        }
+        return false;
+    }
+
+    private void startSyntaxSetup() {
+        String scope = LanguageResolver.scopeFor(fileName());
+        if (scope == null) {
+            languageStatus.setText(R.string.editor_plain_text);
+            return;
+        }
+        languageStatus.setText(getString(R.string.editor_syntax_loading, SyntaxCatalog.displayName(scope)));
+        executors.computation().execute(() -> {
+            try {
+                TextMateLanguage language = SyntaxSetup.createLanguage(getApplicationContext(), scope);
+                TextMateColorScheme colorScheme =
+                        TextMateColorScheme.create(ThemeRegistry.getInstance());
+                executors.main().execute(() -> applyPreparedSyntax(scope, language, colorScheme));
+            } catch (Exception error) {
+                timber.log.Timber.w(error, "Syntax setup failed for %s", scope);
+                executors.main().execute(() -> {
+                    if (!destroyed) {
+                        languageStatus.setText(R.string.editor_plain_text);
+                    }
+                });
+            }
+        });
+    }
+
+    private void applyPreparedSyntax(
+            String scope,
+            @Nullable TextMateLanguage language,
+            TextMateColorScheme colorScheme) {
+        if (language == null) {
+            languageStatus.setText(R.string.editor_plain_text);
+            return;
+        }
+        if (destroyed || editor.isReleased()) {
+            language.destroy();
+            return;
+        }
+        editor.setColorScheme(colorScheme);
+        editor.setEditorLanguage(language);
+        languageStatus.setText(SyntaxCatalog.displayName(scope));
+    }
+
     private void startLoad() {
-        long size;
-        try {
-            size = Files.size(path);
-        } catch (IOException | SecurityException e) {
-            ErrorPresenter.toast(this, e);
-            finish();
+        setLoading(true);
+        executors.io().execute(() -> {
+            try {
+                long size = Files.size(path);
+                if (size > EDITOR_HARD_LIMIT) {
+                    throw new IOException(getString(R.string.error_file_too_large));
+                }
+                LoadProbe probe = new LoadProbe(size, looksBinary(path));
+                executors.main().execute(() -> acceptProbe(probe));
+            } catch (IOException | SecurityException error) {
+                executors.main().execute(() -> failLoad(error));
+            }
+        });
+    }
+
+    private void acceptProbe(LoadProbe probe) {
+        if (destroyed) {
             return;
         }
-        if (size > EDITOR_HARD_LIMIT) {
-            ErrorPresenter.toast(this, new IOException(getString(R.string.error_file_too_large)));
-            finish();
-            return;
-        }
-        boolean binary;
-        try {
-            binary = looksBinary(path);
-        } catch (IOException | SecurityException e) {
-            ErrorPresenter.toast(this, e);
-            finish();
-            return;
-        }
-        if (binary) {
+        if (probe.binary) {
+            setLoading(false);
             new AlertDialog.Builder(this)
                     .setTitle(R.string.dialog_binary_title)
-                    .setMessage(getString(R.string.dialog_binary_message,
-                            path.getFileName() == null ? path.toString()
-                                    : path.getFileName().toString()))
-                    .setNegativeButton(android.R.string.cancel, (d, w) -> finish())
-                    .setOnCancelListener(d -> finish())
+                    .setMessage(getString(R.string.dialog_binary_message, fileName()))
+                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
+                    .setOnCancelListener(dialog -> finish())
                     .setPositiveButton(R.string.dialog_open_anyway,
-                            (d, w) -> doLoad(size))
+                            (dialog, which) -> readDocument(probe.size))
                     .show();
-        } else {
-            doLoad(size);
+            return;
         }
+        readDocument(probe.size);
     }
 
-    /**
-     * Read the file as UTF-8 with a REPLACE-on-malformed decoder so binary or non-UTF-8 bytes turn
-     * into {@code �} instead of throwing. {@code setText} is wrapped in a Throwable guard
-     * because sora's text-actions pipeline has occasionally crashed on degenerate input.
-     */
-    private void doLoad(long size) {
+    private void readDocument(long size) {
+        setLoading(true);
+        executors.io().execute(() -> {
+            try {
+                boolean truncated = size > EDITOR_READ_ONLY_THRESHOLD;
+                int charLimit = truncated ? EDITOR_READ_ONLY_THRESHOLD : Integer.MAX_VALUE;
+                DocumentResult result = new DocumentResult(
+                        readDecoded(path, charLimit),
+                        !truncated && Files.isWritable(path),
+                        truncated);
+                executors.main().execute(() -> applyDocument(result));
+            } catch (IOException | SecurityException error) {
+                executors.main().execute(() -> failLoad(error));
+            }
+        });
+    }
+
+    private void applyDocument(DocumentResult result) {
+        if (destroyed) {
+            return;
+        }
         try {
-            String content = readDecoded(path);
-            if (size > EDITOR_READ_ONLY_THRESHOLD) {
-                editor.setText(content.substring(0,
-                        Math.min(content.length(), (int) EDITOR_READ_ONLY_THRESHOLD)));
-                lockEditor(getString(R.string.editor_size_limit_read_only));
-                return;
-            }
-            editor.setText(content);
-            boolean writable = Files.isWritable(path);
+            documentLoaded = false;
+            editor.setText(result.content);
+            documentLoaded = true;
+            writable = result.writable;
+            savedContent = editor.getText().copyText();
+            modified = false;
             editor.setEditable(writable);
-            save.setEnabled(writable);
-            if (!writable) {
-                save.setText(R.string.read_only);
+            modeStatus.setText(writable ? R.string.editor_editable : R.string.read_only);
+            renderCursor(editor.getCursor().left());
+            updateActions();
+            setLoading(false);
+            if (result.truncated) {
+                toast(getString(R.string.editor_size_limit_read_only));
             }
-        } catch (Throwable t) {
-            ErrorPresenter.toast(this, t);
-            finish();
+        } catch (RuntimeException error) {
+            failLoad(error);
         }
     }
 
-    /**
-     * Scan up to {@link #SNIFF_BYTES} from the file's prefix; a null byte within the first
-     * {@link #NULL_SCAN_WINDOW} bytes is a strong binary signal (UTF-8 text never contains
-     * {@code 0x00}). Cheap heuristic — false positives for some Windows UTF-16 files, but the user
-     * can still opt in via the confirm dialog.
-     */
+    private void failLoad(Throwable error) {
+        if (destroyed) {
+            return;
+        }
+        setLoading(false);
+        ErrorPresenter.toast(this, error);
+        finish();
+    }
+
+    private void save() {
+        if (!writable || !modified) {
+            return;
+        }
+        Content savedSnapshot = editor.getText().copyText();
+        String text = savedSnapshot.toString();
+        saveAction.setEnabled(false);
+        executors.io().execute(() -> {
+            try {
+                Files.write(path, text.getBytes(StandardCharsets.UTF_8));
+                executors.main().execute(() -> {
+                    if (destroyed) {
+                        return;
+                    }
+                    savedContent = savedSnapshot;
+                    modified = !editor.getText().equals(savedContent);
+                    updateActions();
+                    toast(getString(R.string.editor_saved));
+                    Path parent = path.getParent();
+                    workspace.publish(parent == null
+                            ? MutationResult.allLiveSnapshots()
+                            : MutationResult.builder()
+                                    .changedContainer(NodePath.local(parent.toString()))
+                                    .build());
+                });
+            } catch (IOException | SecurityException error) {
+                executors.main().execute(() -> {
+                    if (!destroyed) {
+                        updateActions();
+                        ErrorPresenter.toast(this, error);
+                    }
+                });
+            }
+        });
+    }
+
+    private void setLoading(boolean loading) {
+        progress.setVisibility(loading ? View.VISIBLE : View.GONE);
+    }
+
+    private void updateActions() {
+        saveAction.setEnabled(documentLoaded && writable && modified);
+        undoAction.setEnabled(documentLoaded && editor.canUndo());
+        redoAction.setEnabled(documentLoaded && editor.canRedo());
+        searchAction.setEnabled(documentLoaded);
+        toolbar.setTitle(modified ? getString(R.string.editor_modified_title, fileName()) : fileName());
+    }
+
+    private void setupSearchBar() {
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable text) {
+                String query = text.toString();
+                if (query.isEmpty()) {
+                    editor.getSearcher().stopSearch();
+                    renderSearchResult();
+                    return;
+                }
+                editor.getSearcher().search(query, new EditorSearcher.SearchOptions(
+                        EditorSearcher.SearchOptions.TYPE_NORMAL, true));
+            }
+        });
+        searchPrevious.setOnClickListener(view -> {
+            if (editor.getSearcher().gotoPrevious()) {
+                renderSearchResult();
+            }
+        });
+        searchNext.setOnClickListener(view -> {
+            if (editor.getSearcher().gotoNext()) {
+                renderSearchResult();
+            }
+        });
+        findViewById(R.id.editor_search_close).setOnClickListener(view -> hideSearchBar());
+    }
+
+    private void showSearchBar() {
+        searchBar.setVisibility(View.VISIBLE);
+        searchInput.requestFocus();
+        InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        keyboard.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    private void hideSearchBar() {
+        editor.getSearcher().stopSearch();
+        searchInput.setText("");
+        searchBar.setVisibility(View.GONE);
+        searchInput.clearFocus();
+        InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        keyboard.hideSoftInputFromWindow(searchInput.getWindowToken(), 0);
+        renderSearchResult();
+    }
+
+    private void renderSearchResult() {
+        EditorSearcher searcher = editor.getSearcher();
+        int total = searcher.hasQuery() ? searcher.getMatchedPositionCount() : 0;
+        int current = total == 0 ? 0 : searcher.getCurrentMatchedPositionIndex() + 1;
+        searchResult.setText(getString(R.string.editor_search_result, current, total));
+        boolean hasMatches = total > 0;
+        searchPrevious.setEnabled(hasMatches);
+        searchNext.setEnabled(hasMatches);
+        searchPrevious.setAlpha(hasMatches ? 1f : 0.38f);
+        searchNext.setAlpha(hasMatches ? 1f : 0.38f);
+    }
+
+    private void renderCursor(CharPosition position) {
+        cursorStatus.setText(getString(R.string.editor_cursor_position,
+                position.line + 1, position.column + 1));
+    }
+
+    private String fileName() {
+        return path.getFileName() == null ? path.toString() : path.getFileName().toString();
+    }
+
+    private boolean isNightMode() {
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+    }
+
     private static boolean looksBinary(Path path) throws IOException {
-        try (InputStream in = Files.newInputStream(path)) {
-            byte[] buf = new byte[SNIFF_BYTES];
-            int read = in.read(buf);
-            int scanEnd = Math.min(read, NULL_SCAN_WINDOW);
-            for (int i = 0; i < scanEnd; i++) {
-                if (buf[i] == 0) {
+        try (InputStream input = Files.newInputStream(path)) {
+            byte[] buffer = new byte[SNIFF_BYTES];
+            int read = input.read(buffer);
+            int scanEnd = Math.min(Math.max(read, 0), NULL_SCAN_WINDOW);
+            for (int index = 0; index < scanEnd; index++) {
+                if (buffer[index] == 0) {
                     return true;
                 }
             }
@@ -256,48 +471,58 @@ public final class TextEditorActivity extends AppCompatActivity {
         }
     }
 
-    private static String readDecoded(Path path) throws IOException {
-        StringBuilder out = new StringBuilder();
-        char[] buf = new char[4096];
-        try (BufferedReader reader = new BufferedReader(
-                new java.io.InputStreamReader(
-                        Files.newInputStream(path),
-                        StandardCharsets.UTF_8.newDecoder()
-                                .onMalformedInput(CodingErrorAction.REPLACE)
-                                .onUnmappableCharacter(CodingErrorAction.REPLACE)))) {
-            int n;
-            while ((n = reader.read(buf)) >= 0) {
-                out.append(buf, 0, n);
+    private static String readDecoded(Path path, int charLimit) throws IOException {
+        StringBuilder result = new StringBuilder(Math.min(charLimit, 16 * 1024));
+        char[] buffer = new char[4096];
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(
+                Files.newInputStream(path),
+                StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPLACE)
+                        .onUnmappableCharacter(CodingErrorAction.REPLACE)))) {
+            while (result.length() < charLimit) {
+                int remaining = charLimit - result.length();
+                int count = reader.read(buffer, 0, Math.min(buffer.length, remaining));
+                if (count < 0) {
+                    break;
+                }
+                result.append(buffer, 0, count);
             }
         }
-        return out.toString();
+        return result.toString();
     }
 
-    private void lockEditor(@Nullable String userMessage) {
-        editor.setEditable(false);
-        save.setEnabled(false);
-        save.setText(R.string.read_only);
-        if (userMessage != null) {
-            toast(userMessage);
+    @Override
+    protected void onDestroy() {
+        destroyed = true;
+        if (editor != null && !editor.isReleased()) {
+            editor.release();
         }
-    }
-
-    private void save() {
-        try {
-            String text = editor.getText().toString();
-            Files.write(path, text.getBytes(StandardCharsets.UTF_8));
-            toast("Saved");
-            changeBus.emit();
-        } catch (IOException | SecurityException e) {
-            ErrorPresenter.toast(this, e);
-        }
-    }
-
-    private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density);
+        super.onDestroy();
     }
 
     private void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    private static final class LoadProbe {
+        final long size;
+        final boolean binary;
+
+        LoadProbe(long size, boolean binary) {
+            this.size = size;
+            this.binary = binary;
+        }
+    }
+
+    private static final class DocumentResult {
+        final String content;
+        final boolean writable;
+        final boolean truncated;
+
+        DocumentResult(String content, boolean writable, boolean truncated) {
+            this.content = content;
+            this.writable = writable;
+            this.truncated = truncated;
+        }
     }
 }

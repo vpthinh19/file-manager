@@ -11,6 +11,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import com.vpt.filemanager.ui.editor.SyntaxSetup;
+
 import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme;
 import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
 import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry;
@@ -24,11 +26,16 @@ public final class SyntaxSetupInstrumentedTest {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
         SyntaxSetup.ensureInitialized(context);
+        TextMateLanguage javaLanguage = SyntaxSetup.createLanguage(context, "source.java");
+        TextMateLanguage jsonLanguage = SyntaxSetup.createLanguage(context, "source.json");
+        TextMateLanguage xmlLanguage = SyntaxSetup.createLanguage(context, "text.xml");
 
         assertNotNull(GrammarRegistry.getInstance().findGrammar("source.java"));
         assertNotNull(GrammarRegistry.getInstance().findGrammar("source.json"));
         assertNotNull(GrammarRegistry.getInstance().findGrammar("text.xml"));
-        assertNotNull(TextMateLanguage.create("source.java", true));
+        assertNotNull(javaLanguage);
+        assertNotNull(jsonLanguage);
+        assertNotNull(xmlLanguage);
         assertNotNull(TextMateColorScheme.create(ThemeRegistry.getInstance()));
     }
 

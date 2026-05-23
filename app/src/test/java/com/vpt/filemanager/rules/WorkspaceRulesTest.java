@@ -3,6 +3,7 @@ package com.vpt.filemanager.rules;
 import static com.vpt.filemanager.workspace.WorkspaceAction.BOOKMARK;
 import static com.vpt.filemanager.workspace.WorkspaceAction.COMPRESS;
 import static com.vpt.filemanager.workspace.WorkspaceAction.COPY;
+import static com.vpt.filemanager.workspace.WorkspaceAction.CREATE;
 import static com.vpt.filemanager.workspace.WorkspaceAction.DELETE;
 import static com.vpt.filemanager.workspace.WorkspaceAction.MOVE;
 import static com.vpt.filemanager.workspace.WorkspaceAction.OPEN_WITH;
@@ -137,6 +138,26 @@ public final class WorkspaceRulesTest {
 
         assertFalse(disabled.contains(COPY));
         assertFalse(disabled.contains(MOVE));
+    }
+
+    @Test
+    public void virtualRoot_disablesCreate() {
+        WorkspaceRuleState state = WorkspaceRuleState.of(setOf(), null, NodePath.ROOT, DIR_B);
+
+        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+
+        assertTrue(disabled.contains(CREATE));
+    }
+
+    @Test
+    public void readOnlyDestination_disablesTransfer() {
+        WorkspaceRuleState state = WorkspaceRuleState.of(
+                setOf(FOO), Boolean.FALSE, DIR_A, NodePath.TRASH_ROOT);
+
+        EnumSet<WorkspaceAction> disabled = WorkspaceRules.compute(state);
+
+        assertTrue(disabled.contains(COPY));
+        assertTrue(disabled.contains(MOVE));
     }
 
     @Test

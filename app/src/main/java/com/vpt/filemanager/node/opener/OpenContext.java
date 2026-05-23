@@ -6,6 +6,8 @@ import android.content.Context;
 
 import androidx.fragment.app.FragmentManager;
 
+import com.vpt.filemanager.node.NodeNavigator;
+
 /**
  * Bag chứa context để {@link NodeOpener#onOpen} thực thi action. Caller (BrowserFragment ở R-5)
  * tạo instance khi user click node + truyền cho opener đã match.

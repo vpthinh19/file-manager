@@ -5,7 +5,6 @@ import androidx.annotation.NonNull;
 import com.vpt.filemanager.ui.pane.DualPaneHostFragment;
 import com.vpt.filemanager.ui.dialog.ConflictDialog;
 import com.vpt.filemanager.ui.dialog.CreateItemDialog;
-import com.vpt.filemanager.event.FileTreeChangeBus;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodeFactory;
@@ -15,6 +14,8 @@ import com.vpt.filemanager.operations.create.CreateNodeOperation;
 import com.vpt.filemanager.operations.create.CreateNodeType;
 import com.vpt.filemanager.operations.create.ExistingNamePolicy;
 import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.workspace.MutationResult;
+import com.vpt.filemanager.workspace.WorkspaceStore;
 
 /**
  * Android boundary for the bottom-bar create button.
@@ -27,18 +28,18 @@ public final class CreateAction {
     private final AppExecutors executors;
     private final NodeFactory nodeFactory;
     private final CreateNodeOperation createNodeOperation;
-    private final FileTreeChangeBus changeBus;
+    private final WorkspaceStore workspace;
 
     public CreateAction(DualPaneHostFragment host,
                         AppExecutors executors,
                         NodeFactory nodeFactory,
                         CreateNodeOperation createNodeOperation,
-                        FileTreeChangeBus changeBus) {
+                        WorkspaceStore workspace) {
         this.host = host;
         this.executors = executors;
         this.nodeFactory = nodeFactory;
         this.createNodeOperation = createNodeOperation;
-        this.changeBus = changeBus;
+        this.workspace = workspace;
     }
 
     public void execute() {
@@ -63,7 +64,9 @@ public final class CreateAction {
                 VirtualNode parent = nodeFactory.fromPath(parentPath);
                 createNodeOperation.execute(new CreateNodeOperation.Input(
                         parent, type, name, policy));
-                changeBus.emit();
+                workspace.publish(MutationResult.builder()
+                        .changedContainer(parentPath)
+                        .build());
                 postToast(type == CreateNodeType.FOLDER ? "Folder created" : "File created");
             } catch (NameConflictException conflict) {
                 showConflict(parentPath, type, conflict.name());

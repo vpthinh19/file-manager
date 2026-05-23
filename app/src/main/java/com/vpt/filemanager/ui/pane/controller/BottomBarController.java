@@ -4,6 +4,12 @@ import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.ui.pane.DualPaneHostFragment;
 import com.vpt.filemanager.ui.pane.flow.CreateAction;
 import com.vpt.filemanager.operations.pane.SwapActivePaneOperation;
+import com.vpt.filemanager.node.NodePath;
+import com.vpt.filemanager.rules.WorkspaceRuleState;
+import com.vpt.filemanager.rules.WorkspaceRules;
+import com.vpt.filemanager.workspace.WorkspaceAction;
+
+import java.util.Collections;
 
 /**
  * 5-button bottom bar: back / forward / add / swap / up. Extract từ DualPaneHostFragment ở Phase
@@ -45,5 +51,13 @@ public final class BottomBarController {
         binding.btnBack.setAlpha(canBack ? 1f : DISABLED_ALPHA);
         binding.btnForward.setEnabled(canForward);
         binding.btnForward.setAlpha(canForward ? 1f : DISABLED_ALPHA);
+    }
+
+    public void applyLocationState(NodePath activePath, NodePath inactivePath) {
+        boolean canCreate = !WorkspaceRules.compute(WorkspaceRuleState.of(
+                Collections.emptySet(), null, activePath, inactivePath))
+                .contains(WorkspaceAction.CREATE);
+        binding.btnAdd.setEnabled(canCreate);
+        binding.btnAdd.setAlpha(canCreate ? 1f : DISABLED_ALPHA);
     }
 }

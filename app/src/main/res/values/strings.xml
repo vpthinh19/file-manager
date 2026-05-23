@@ -12,6 +12,8 @@
     <string name="action_trash">Trash</string>
     <string name="action_create">Create</string>
     <string name="action_save">Save</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_redo">Redo</string>
     <string name="action_delete">Delete</string>
     <string name="action_copy">Copy →</string>
     <string name="action_move">Move →</string>
@@ -89,9 +91,23 @@
     <string name="dialog_binary_message">\"%1$s\" looks binary (contains non-text bytes). Open as text anyway? Content may appear garbled.</string>
     <string name="dialog_open_anyway">Open anyway</string>
     <string name="editor_size_limit_read_only">Large file opened read-only</string>
+    <string name="editor_plain_text">Plain text</string>
+    <string name="editor_syntax_loading">%1$s - loading syntax</string>
+    <string name="editor_initial_cursor">Ln 1, Col 1</string>
+    <string name="editor_cursor_position">Ln %1$d, Col %2$d</string>
+    <string name="editor_loading">Loading</string>
+    <string name="editor_editable">UTF-8</string>
+    <string name="editor_saved">Saved</string>
+    <string name="editor_modified_title">%1$s *</string>
+    <string name="editor_find_hint">Find in file</string>
+    <string name="editor_no_query">0 / 0</string>
+    <string name="editor_search_result">%1$d / %2$d</string>
+    <string name="editor_previous_match">Previous match</string>
+    <string name="editor_next_match">Next match</string>
 
     <!-- Phase 2C-8 — Toolbar overflow menu + sort. -->
     <string name="action_search">Search</string>
+    <string name="action_close">Close</string>
     <string name="action_sort">Sort</string>
     <string name="action_exit">Exit</string>
     <string name="exit_title">Exit File Manager?</string>

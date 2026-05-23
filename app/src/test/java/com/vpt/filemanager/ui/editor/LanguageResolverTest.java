@@ -36,13 +36,13 @@ public final class LanguageResolverTest {
         assertEquals("source.js", LanguageResolver.scopeFor("index.js"));
         assertEquals("source.js", LanguageResolver.scopeFor("module.mjs"));
         assertEquals("source.js", LanguageResolver.scopeFor("legacy.cjs"));
-        assertEquals("source.js", LanguageResolver.scopeFor("Component.jsx"));
+        assertEquals("source.js.jsx", LanguageResolver.scopeFor("Component.jsx"));
     }
 
     @Test
     public void typescript_variants() {
         assertEquals("source.ts", LanguageResolver.scopeFor("types.ts"));
-        assertEquals("source.ts", LanguageResolver.scopeFor("App.tsx"));
+        assertEquals("source.tsx", LanguageResolver.scopeFor("App.tsx"));
     }
 
     @Test
@@ -81,7 +81,7 @@ public final class LanguageResolverTest {
     @Test
     public void json_variants() {
         assertEquals("source.json", LanguageResolver.scopeFor("package.json"));
-        assertEquals("source.json", LanguageResolver.scopeFor("tsconfig.jsonc"));
+        assertEquals("source.json.comments", LanguageResolver.scopeFor("tsconfig.jsonc"));
     }
 
     @Test
@@ -99,6 +99,16 @@ public final class LanguageResolverTest {
         assertEquals("source.dockerfile", LanguageResolver.scopeFor("Dockerfile"));
         assertEquals("source.dockerfile", LanguageResolver.scopeFor("DOCKERFILE"));
         assertEquals("source.dockerfile", LanguageResolver.scopeFor("build.dockerfile"));
+    }
+
+    @Test
+    public void expanded_languages_and_named_files_resolve() {
+        assertEquals("source.powershell", LanguageResolver.scopeFor("setup.ps1"));
+        assertEquals("source.swift", LanguageResolver.scopeFor("Main.swift"));
+        assertEquals("source.cs", LanguageResolver.scopeFor("Program.cs"));
+        assertEquals("source.makefile", LanguageResolver.scopeFor("Makefile"));
+        assertEquals("source.dotenv", LanguageResolver.scopeFor(".env"));
+        assertEquals("source.ignore", LanguageResolver.scopeFor(".gitignore"));
     }
 
     @Test

@@ -12,8 +12,13 @@ import com.vpt.filemanager.rules.storage.StorageScope;
 public final class NavigateToParentOperation {
     public Output execute(Input input) {
         NodePath path = input.path;
-        if (path == null || StorageScope.isAtRoot(path)) {
+        if (path == null || path.isRoot()) {
             return new Output(null);
+        }
+        if (StorageScope.isAtRoot(path)
+                || path.equals(NodePath.TRASH_ROOT)
+                || path.equals(NodePath.BOOKMARK_ROOT)) {
+            return new Output(NodePath.ROOT);
         }
         if (path.isArchive() && "/".equals(path.path())) {
             NodePath archiveFile = NodePath.parse(path.authority());

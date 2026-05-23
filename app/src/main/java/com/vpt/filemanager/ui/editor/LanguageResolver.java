@@ -8,95 +8,134 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Map từ filename → TextMate scope name của grammar tương ứng. Phase R-9.
- *
- * <p>Scope name là contract giữa grammar registry và editor: e.g. file {@code Main.java} sẽ resolve
- * sang {@code source.java}, từ đó sora-editor's {@link
- * io.github.rosemoe.sora.langs.textmate.TextMateLanguage#create} build syntax tree theo grammar
- * tương ứng.
- *
- * <p>Unknown extension → {@code null} → caller fallback {@link
- * io.github.rosemoe.sora.lang.EmptyLanguage} (plain text, không highlight).
- *
- * <p>Special-case: Dockerfile được nhận dạng theo tên file (không có extension), không qua
- * extension map.
+ * Resolves a document name to the stable TextMate scope exposed by {@link SyntaxCatalog}.
  */
 public final class LanguageResolver {
     private static final Map<String, String> EXT_TO_SCOPE = buildMap();
+    private static final Map<String, String> NAME_TO_SCOPE = buildNameMap();
 
     private LanguageResolver() {
     }
 
-    /**
-     * Resolve scope name theo filename. Trả {@code null} nếu không match.
-     *
-     * <p>Caller pass {@code File.getName()} hoặc tương đương — KHÔNG path. Match case-insensitive.
-     */
     @Nullable
     public static String scopeFor(@NonNull String fileName) {
         String name = fileName.toLowerCase(Locale.ROOT);
-        // Dockerfile (no extension) — exact match
-        if ("dockerfile".equals(name) || name.endsWith(".dockerfile")) {
+        String named = NAME_TO_SCOPE.get(name);
+        if (named != null) {
+            return named;
+        }
+        if (name.endsWith(".dockerfile")) {
             return "source.dockerfile";
         }
         int dot = name.lastIndexOf('.');
         if (dot < 0 || dot == name.length() - 1) {
             return null;
         }
-        String ext = name.substring(dot + 1);
-        return EXT_TO_SCOPE.get(ext);
+        return EXT_TO_SCOPE.get(name.substring(dot + 1));
+    }
+
+    private static Map<String, String> buildNameMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put("dockerfile", "source.dockerfile");
+        map.put("makefile", "source.makefile");
+        map.put("gnumakefile", "source.makefile");
+        map.put(".gitignore", "source.ignore");
+        map.put(".dockerignore", "source.ignore");
+        map.put(".env", "source.dotenv");
+        return map;
     }
 
     private static Map<String, String> buildMap() {
-        Map<String, String> m = new HashMap<>(64);
-        m.put("java", "source.java");
-        // Kotlin: bundled grammar có scope source.gradle-kotlin-dsl (VS Code Gradle DSL extension
-        // EXTENDS Kotlin syntax) — vẫn highlight .kt/.kts chuẩn. Defer "real" Kotlin scope đến
-        // khi có grammar source.kotlin chính chủ.
-        m.put("kt", "source.gradle-kotlin-dsl");
-        m.put("kts", "source.gradle-kotlin-dsl");
-        m.put("gradle", "source.gradle-kotlin-dsl");
-        m.put("js", "source.js");
-        m.put("mjs", "source.js");
-        m.put("cjs", "source.js");
-        m.put("jsx", "source.js");
-        m.put("ts", "source.ts");
-        m.put("tsx", "source.ts");
-        m.put("py", "source.python");
-        m.put("pyw", "source.python");
-        m.put("css", "source.css");
-        m.put("html", "text.html.basic");
-        m.put("htm", "text.html.basic");
-        m.put("xhtml", "text.html.basic");
-        m.put("xml", "text.xml");
-        m.put("xsd", "text.xml");
-        m.put("xsl", "text.xml");
-        m.put("xslt", "text.xml");
-        m.put("plist", "text.xml");
-        m.put("md", "text.html.markdown");
-        m.put("markdown", "text.html.markdown");
-        m.put("mdown", "text.html.markdown");
-        m.put("json", "source.json");
-        m.put("jsonc", "source.json");
-        m.put("yaml", "source.yaml");
-        m.put("yml", "source.yaml");
-        m.put("sh", "source.shell");
-        m.put("bash", "source.shell");
-        m.put("zsh", "source.shell");
-        m.put("sql", "source.sql");
-        m.put("c", "source.c");
-        m.put("h", "source.c");
-        m.put("cpp", "source.cpp");
-        m.put("cc", "source.cpp");
-        m.put("cxx", "source.cpp");
-        m.put("hpp", "source.cpp");
-        m.put("hxx", "source.cpp");
-        m.put("hh", "source.cpp");
-        m.put("rs", "source.rust");
-        m.put("go", "source.go");
-        m.put("rb", "source.ruby");
-        m.put("php", "source.php");
-        m.put("lua", "source.lua");
-        return m;
+        Map<String, String> map = new HashMap<>(96);
+        map.put("bat", "source.batchfile");
+        map.put("cmd", "source.batchfile");
+        map.put("clj", "source.clojure");
+        map.put("cljs", "source.clojure");
+        map.put("coffee", "source.coffee");
+        map.put("c", "source.c");
+        map.put("h", "source.c");
+        map.put("cpp", "source.cpp");
+        map.put("cc", "source.cpp");
+        map.put("cxx", "source.cpp");
+        map.put("hpp", "source.cpp");
+        map.put("hxx", "source.cpp");
+        map.put("hh", "source.cpp");
+        map.put("cu", "source.cuda-cpp");
+        map.put("cuh", "source.cuda-cpp");
+        map.put("cs", "source.cs");
+        map.put("css", "source.css");
+        map.put("dart", "source.dart");
+        map.put("diff", "source.diff");
+        map.put("patch", "source.diff");
+        map.put("env", "source.dotenv");
+        map.put("fs", "source.fsharp");
+        map.put("fsx", "source.fsharp");
+        map.put("go", "source.go");
+        map.put("groovy", "source.groovy");
+        map.put("gvy", "source.groovy");
+        map.put("hbs", "text.html.handlebars");
+        map.put("handlebars", "text.html.handlebars");
+        map.put("hlsl", "source.hlsl");
+        map.put("html", "text.html.basic");
+        map.put("htm", "text.html.basic");
+        map.put("xhtml", "text.html.basic");
+        map.put("ini", "source.ini");
+        map.put("cfg", "source.ini");
+        map.put("java", "source.java");
+        map.put("kt", "source.gradle-kotlin-dsl");
+        map.put("kts", "source.gradle-kotlin-dsl");
+        map.put("gradle", "source.gradle-kotlin-dsl");
+        map.put("js", "source.js");
+        map.put("mjs", "source.js");
+        map.put("cjs", "source.js");
+        map.put("jsx", "source.js.jsx");
+        map.put("json", "source.json");
+        map.put("jsonc", "source.json.comments");
+        map.put("jsonl", "source.json.lines");
+        map.put("jl", "source.julia");
+        map.put("tex", "text.tex.latex");
+        map.put("bib", "text.bibtex");
+        map.put("less", "source.css.less");
+        map.put("lua", "source.lua");
+        map.put("mk", "source.makefile");
+        map.put("md", "text.html.markdown");
+        map.put("markdown", "text.html.markdown");
+        map.put("mdown", "text.html.markdown");
+        map.put("m", "source.objc");
+        map.put("mm", "source.objcpp");
+        map.put("pl", "source.perl");
+        map.put("pm", "source.perl");
+        map.put("raku", "source.perl.6");
+        map.put("php", "source.php");
+        map.put("ps1", "source.powershell");
+        map.put("psm1", "source.powershell");
+        map.put("pug", "text.pug");
+        map.put("jade", "text.pug");
+        map.put("py", "source.python");
+        map.put("pyw", "source.python");
+        map.put("r", "source.r");
+        map.put("cshtml", "text.html.cshtml");
+        map.put("rst", "source.rst");
+        map.put("rb", "source.ruby");
+        map.put("rs", "source.rust");
+        map.put("scss", "source.css.scss");
+        map.put("shader", "source.shaderlab");
+        map.put("shaderlab", "source.shaderlab");
+        map.put("sh", "source.shell");
+        map.put("bash", "source.shell");
+        map.put("zsh", "source.shell");
+        map.put("sql", "source.sql");
+        map.put("swift", "source.swift");
+        map.put("ts", "source.ts");
+        map.put("tsx", "source.tsx");
+        map.put("vb", "source.asp.vb.net");
+        map.put("xml", "text.xml");
+        map.put("xsd", "text.xml");
+        map.put("plist", "text.xml");
+        map.put("xsl", "text.xml.xsl");
+        map.put("xslt", "text.xml.xsl");
+        map.put("yaml", "source.yaml");
+        map.put("yml", "source.yaml");
+        return map;
     }
 }

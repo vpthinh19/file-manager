@@ -18,7 +18,6 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
-import com.vpt.filemanager.event.FileTreeChangeBus;
 import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.data.prefs.UserPreferences;
 import com.vpt.filemanager.node.NodePath;
@@ -36,6 +35,9 @@ import com.vpt.filemanager.event.LiveEvent;
 import com.vpt.filemanager.operations.navigation.NavigateToParentOperation;
 import com.vpt.filemanager.operations.selection.SelectRangeOperation;
 import com.vpt.filemanager.operations.sort.SortNodesOperation;
+import com.vpt.filemanager.workspace.DirectorySnapshot;
+import com.vpt.filemanager.workspace.MutationResult;
+import com.vpt.filemanager.workspace.WorkspaceStore;
 
 /**
  * Browser pane state machine — holds current location, listing, selection, back/forward stacks.
@@ -65,7 +67,7 @@ public final class PaneViewModel extends ViewModel {
     private final AddBookmarkOperation addBookmarkOperation;
     private final AppExecutors executors;
     private final UserPreferences prefs;
-    private final FileTreeChangeBus changeBus;
+    private final WorkspaceStore workspace;
     private final NavigateToParentOperation navigateToParentOperation = new NavigateToParentOperation();
     private final SelectRangeOperation selectRangeOperation = new SelectRangeOperation();
     private final SortNodesOperation sortNodesOperation = new SortNodesOperation();
@@ -100,7 +102,7 @@ public final class PaneViewModel extends ViewModel {
             AddBookmarkOperation addBookmarkOperation,
             AppExecutors executors,
             UserPreferences prefs,
-            FileTreeChangeBus changeBus) {
+            WorkspaceStore workspace) {
         this.savedState = savedState;
         this.nodeFactory = nodeFactory;
         this.renameNodeOperation = renameNodeOperation;
@@ -111,7 +113,7 @@ public final class PaneViewModel extends ViewModel {
         this.addBookmarkOperation = addBookmarkOperation;
         this.executors = executors;
         this.prefs = prefs;
-        this.changeBus = changeBus;
+        this.workspace = workspace;
         restoreSavedPath();
     }
 
@@ -127,7 +129,8 @@ public final class PaneViewModel extends ViewModel {
         }
         try {
             currentPath = NodePath.parse(saved);
-            load(currentPath);
+            workspace.retain(currentPath);
+            load(currentPath, false);
         } catch (IllegalArgumentException ignored) {
             savedState.remove(KEY_PATH);
         }
@@ -318,9 +321,16 @@ public final class PaneViewModel extends ViewModel {
     private void switchPath(NodePath path) {
         // Navigate đổi folder → selection của folder cũ không còn hợp lý → exit mode hẳn.
         exitSelectionMode();
+        NodePath previous = currentPath;
+        if (!path.equals(previous)) {
+            workspace.retain(path);
+            if (previous != null) {
+                workspace.release(previous);
+            }
+        }
         currentPath = path;
         savedState.set(KEY_PATH, path.toString());
-        load(path);
+        load(path, false);
     }
 
     private void emitStackState() {
@@ -347,7 +357,13 @@ public final class PaneViewModel extends ViewModel {
 
     public void refresh() {
         if (currentPath != null) {
-            load(currentPath);
+            load(currentPath, false);
+        }
+    }
+
+    public void reconcile(@NonNull MutationResult mutation) {
+        if (currentPath != null && mutation.affectsListing(currentPath)) {
+            load(currentPath, true);
         }
     }
 
@@ -379,18 +395,23 @@ public final class PaneViewModel extends ViewModel {
         // Exit mode trước submit — single-target action xong, selected NodePath cũng sắp
         // disappear (replaced bởi name mới); DiffUtil treat = remove+insert.
         exitSelectionMode();
-        runActionAndEmit(() -> {
+        runActionAndPublish(() -> {
             VirtualNode node = nodeFactory.fromPath(path);
             return renameNodeOperation.execute(new RenameNodeOperation.Input(node, trimmed));
-        }, "Renamed");
+        }, "Renamed", MutationResult.builder().changedContainer(path.parent()).build());
     }
 
     public void delete(VirtualNode node) {
         if (node == null) {
             return;
         }
-        runActionAndEmit(() -> deleteNodesOperation.execute(
-                new DeleteNodesOperation.Input(List.of(node), false)), "Moved to trash");
+        runActionAndPublish(() -> deleteNodesOperation.execute(
+                new DeleteNodesOperation.Input(List.of(node), false)), "Moved to trash",
+                MutationResult.builder()
+                        .changedContainer(node.path().parent())
+                        .changedContainer(NodePath.TRASH_ROOT)
+                        .removedSubtree(node.path())
+                        .build());
     }
 
     public void deleteSelected() {
@@ -401,13 +422,19 @@ public final class PaneViewModel extends ViewModel {
         List<NodePath> snapshot = List.copyOf(current);
         // Destructive batch xong → items gone → exit mode hẳn (không thể act tiếp).
         exitSelectionMode();
-        runActionAndEmit(() -> {
+        MutationResult.Builder mutation = MutationResult.builder()
+                .changedContainer(currentPath)
+                .changedContainer(NodePath.TRASH_ROOT);
+        for (NodePath path : snapshot) {
+            mutation.removedSubtree(path);
+        }
+        runActionAndPublish(() -> {
             List<VirtualNode> nodes = new ArrayList<>(snapshot.size());
             for (NodePath p : snapshot) {
                 nodes.add(nodeFactory.fromPath(p));
             }
             return deleteNodesOperation.execute(new DeleteNodesOperation.Input(nodes, true));
-        }, null);
+        }, null, mutation.build());
     }
 
     public void restoreSelected() {
@@ -424,12 +451,13 @@ public final class PaneViewModel extends ViewModel {
             }
             BatchResult result = restoreTrashEntriesOperation.execute(entryIds);
             events.postValue(result.message("restored"));
-            changeBus.emit();
+            workspace.publish(MutationResult.allLiveSnapshots());
         });
     }
 
     public void emptyTrash() {
-        runActionAndEmit(() -> { emptyTrashOperation.execute(); return null; }, "Trash emptied");
+        runActionAndPublish(() -> { emptyTrashOperation.execute(); return null; }, "Trash emptied",
+                MutationResult.builder().changedContainer(NodePath.TRASH_ROOT).build());
     }
 
     public void removeBookmarksSelected() {
@@ -442,7 +470,9 @@ public final class PaneViewModel extends ViewModel {
         executors.io().submit(() -> {
             BatchResult result = removeBookmarksOperation.execute(snapshot);
             events.postValue(result.message("bookmark removed"));
-            changeBus.emit();
+            workspace.publish(MutationResult.builder()
+                    .changedContainer(NodePath.BOOKMARK_ROOT)
+                    .build());
         });
     }
 
@@ -458,7 +488,9 @@ public final class PaneViewModel extends ViewModel {
                 VirtualNode node = nodeFactory.fromPath(path);
                 addBookmarkOperation.execute(node);
                 events.postValue("Bookmarked");
-                changeBus.emit();
+                workspace.publish(MutationResult.builder()
+                        .changedContainer(NodePath.BOOKMARK_ROOT)
+                        .build());
             } catch (Throwable e) {
                 events.postValue("Bookmark failed: "
                         + (e.getMessage() == null ? "unknown" : e.getMessage()));
@@ -471,7 +503,7 @@ public final class PaneViewModel extends ViewModel {
      * stale Content emissions. Post-load state check guards race: slow load finish SAU khi user
      * đã navigate elsewhere → only emit nếu path vừa load === currentPath.
      */
-    private void load(NodePath path) {
+    private void load(NodePath path, boolean reconcileAfterMutation) {
         if (pendingLoad != null) {
             pendingLoad.cancel(true);
             pendingLoad = null;
@@ -479,8 +511,10 @@ public final class PaneViewModel extends ViewModel {
         uiState.postValue(new UiState.Loading());
         pendingLoad = executors.io().submit(() -> {
             try {
-                VirtualNode currentNode = nodeFactory.fromPath(path);
-                List<VirtualNode> nodes = currentNode.children();
+                DirectorySnapshot snapshot = reconcileAfterMutation
+                        ? workspace.reconcile(path)
+                        : workspace.reload(path);
+                List<VirtualNode> nodes = snapshot.children;
                 if (!path.equals(currentPath)) {
                     return;
                 }
@@ -504,13 +538,10 @@ public final class PaneViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Chạy 1 action trên IO, post toast khi success, rồi emit bus để mọi pane (kể cả chính nó)
-     * reload qua observer ở {@link com.vpt.filemanager.ui.pane.DualPaneHostFragment}. Phase
-     * R-8: thay thế "self-refresh" pattern — pane act không tự gọi {@code refresh()} nữa, bus là
-     * single source of truth.
-     */
-    private void runActionAndEmit(ThrowingAction action, String successMessage) {
+    /** Runs a mutation on IO, then publishes its affected virtual-tree branches to workspace. */
+    private void runActionAndPublish(ThrowingAction action,
+                                     String successMessage,
+                                     MutationResult mutation) {
         executors.io().submit(() -> {
             try {
                 Object result = action.run();
@@ -521,7 +552,7 @@ public final class PaneViewModel extends ViewModel {
                 if (message != null) {
                     events.postValue(message);
                 }
-                changeBus.emit();
+                workspace.publish(mutation);
             } catch (Throwable e) {
                 events.postValue(e.getMessage() == null ? "Action failed" : e.getMessage());
             }
@@ -537,6 +568,9 @@ public final class PaneViewModel extends ViewModel {
     protected void onCleared() {
         if (pendingLoad != null) {
             pendingLoad.cancel(true);
+        }
+        if (currentPath != null) {
+            workspace.release(currentPath);
         }
     }
 

@@ -20,7 +20,7 @@ public final class StorageScope {
 
     @NonNull
     public static NodePath rootPath() {
-        return NodePath.local(ROOT_PATH);
+        return NodePath.STORAGE_ROOT;
     }
 
     public static boolean isAtRoot(@Nullable NodePath path) {
@@ -32,13 +32,17 @@ public final class StorageScope {
      * Archive paths always allow going up — the parent ultimately lands back in local scope.
      */
     public static boolean canGoUp(@Nullable NodePath path) {
-        if (path == null) {
+        if (path == null || path.isRoot()) {
             return false;
+        }
+        if (path.equals(NodePath.TRASH_ROOT) || path.equals(NodePath.BOOKMARK_ROOT)
+                || isAtRoot(path)) {
+            return true;
         }
         if (path.isArchive()) {
             return true;
         }
-        return path.isLocal() && !ROOT_PATH.equals(path.path());
+        return path.isLocal();
     }
 
     /**

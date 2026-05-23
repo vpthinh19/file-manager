@@ -9,12 +9,15 @@ import java.util.Objects;
 import com.vpt.filemanager.format.PathUtils;
 
 public final class NodePath {
+    public static final String SCHEME_ROOT = "root";
     public static final String SCHEME_FILE = "file";
     public static final String SCHEME_ARCHIVE = "archive";
     public static final String SCHEME_TRASH = "trash";
     public static final String SCHEME_BOOKMARK = "bookmark";
 
     /** Virtual roots cho drawer items — không có authority hay path "thật". */
+    public static final NodePath ROOT = new NodePath(SCHEME_ROOT, "", "/");
+    public static final NodePath STORAGE_ROOT = NodePath.local("/storage/emulated/0");
     public static final NodePath TRASH_ROOT = new NodePath(SCHEME_TRASH, "", "/");
     public static final NodePath BOOKMARK_ROOT = new NodePath(SCHEME_BOOKMARK, "", "/");
 
@@ -39,6 +42,9 @@ public final class NodePath {
     public static NodePath parse(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("Path is blank");
+        }
+        if (raw.startsWith("root://")) {
+            return parseSchemeWithAuthority(SCHEME_ROOT, raw.substring("root://".length()));
         }
         if (raw.startsWith("file://")) {
             return local(decode(raw.substring("file://".length())));
@@ -69,6 +75,10 @@ public final class NodePath {
                 "/" + decode(rest.substring(slash + 1)));
     }
 
+    public boolean isRoot() {
+        return SCHEME_ROOT.equals(scheme);
+    }
+
     public boolean isLocal() {
         return SCHEME_FILE.equals(scheme);
     }
@@ -91,6 +101,22 @@ public final class NodePath {
         }
         int index = path.lastIndexOf('/');
         return new NodePath(scheme, authority, index <= 0 ? "/" : path.substring(0, index));
+    }
+
+    /**
+     * Returns true when this address is equal to or below {@code ancestor} in one virtual source.
+     * Relations across sources are represented explicitly by workspace mutation results.
+     */
+    public boolean isSameOrDescendantOf(NodePath ancestor) {
+        if (ancestor == null
+                || !scheme.equals(ancestor.scheme)
+                || !authority.equals(ancestor.authority)) {
+            return false;
+        }
+        if ("/".equals(ancestor.path)) {
+            return true;
+        }
+        return path.equals(ancestor.path) || path.startsWith(ancestor.path + "/");
     }
 
     public NodePath child(String name) {

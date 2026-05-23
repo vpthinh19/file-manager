@@ -3,6 +3,12 @@ package com.vpt.filemanager.app;
 import android.app.Application;
 
 import com.vpt.filemanager.BuildConfig;
+import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.ui.editor.SyntaxSetup;
+
+import java.io.IOException;
+
+import javax.inject.Inject;
 
 import dagger.hilt.android.HiltAndroidApp;
 import timber.log.Timber;
@@ -16,11 +22,21 @@ import timber.log.Timber;
  */
 @HiltAndroidApp
 public class FileManagerApp extends Application {
+    @Inject
+    AppExecutors executors;
+
     @Override
     public void onCreate() {
         super.onCreate();
         if (BuildConfig.DEBUG) {
             Timber.plant(new Timber.DebugTree());
         }
+        executors.computation().execute(() -> {
+            try {
+                SyntaxSetup.prewarm(this);
+            } catch (IOException error) {
+                Timber.w(error, "Unable to prewarm TextMate infrastructure");
+            }
+        });
     }
 }

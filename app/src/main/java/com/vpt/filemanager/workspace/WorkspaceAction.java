@@ -8,6 +8,7 @@ package com.vpt.filemanager.workspace;
  * particular component.
  */
 public enum WorkspaceAction {
+    CREATE,
     COPY,
     MOVE,
     DELETE,

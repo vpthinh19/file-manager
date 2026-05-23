@@ -34,5 +34,22 @@ public final class NodePathTest {
         assertEquals(inner, NodePath.parse(inner.toString()));
         assertEquals(archive.toString(), inner.authority());
     }
+
+    @Test
+    public void virtualRootRoundTrip() {
+        assertTrue(NodePath.ROOT.isRoot());
+        assertEquals(NodePath.ROOT, NodePath.parse(NodePath.ROOT.toString()));
+    }
+
+    @Test
+    public void descendantCheck_requiresSameVirtualSourceAndSegmentBoundary() {
+        NodePath parent = NodePath.local("/sdcard/Documents");
+
+        assertTrue(NodePath.local("/sdcard/Documents/report.txt").isSameOrDescendantOf(parent));
+        assertTrue(parent.isSameOrDescendantOf(parent));
+        assertTrue(!NodePath.local("/sdcard/Documents-old").isSameOrDescendantOf(parent));
+        assertTrue(!NodePath.inArchive(NodePath.local("/sdcard/Documents/a.zip"), "/report.txt")
+                .isSameOrDescendantOf(parent));
+    }
 }
 

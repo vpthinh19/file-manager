@@ -3,73 +3,152 @@ package com.vpt.filemanager.ui.editor;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
+import java.util.Set;
 
+import io.github.rosemoe.sora.langs.textmate.TextMateLanguage;
 import io.github.rosemoe.sora.langs.textmate.registry.FileProviderRegistry;
 import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry;
 import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry;
+import io.github.rosemoe.sora.langs.textmate.registry.model.DefaultGrammarDefinition;
 import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel;
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver;
+
+import org.eclipse.tm4e.core.registry.IGrammarSource;
 import org.eclipse.tm4e.core.registry.IThemeSource;
 
 /**
- * One-time process-wide setup cho TextMate engine: register asset file provider, load grammar
- * index, register active theme. Phase R-9.
+ * Process-wide bridge between app assets and sora-editor's TextMate registries.
  *
- * <p>Pattern: idempotent {@link #ensureInitialized(Context)} — lần đầu chạy load + activate, các
- * lần sau là no-op (guard bằng flag boolean). Theme có thể đổi runtime khi user toggle night mode
- * → gọi lại {@link #applyTheme(Context)} để re-activate (cần thiết khi config change).
- *
- * <p>Không inject qua Hilt — registry là static singleton trong sora-editor library, không cần
- * lifecycle scope. Class này wraps cho discoverability + thread safety.
+ * <p>Theme/provider state is warmed once and shared. Grammars are deliberately lazy: loading all
+ * available TM4E grammars on the first editor open would front-load parser work and retain grammar
+ * data for languages the user never opens.
  */
 public final class SyntaxSetup {
-    private static final String LANGUAGES_INDEX = "editor/textmate/languages.json";
-
-    private static boolean initialized = false;
+    private static boolean providerRegistered;
+    @Nullable
+    private static String activeThemeName;
 
     private SyntaxSetup() {
     }
 
     /**
-     * Lazy init grammars + theme. Safe to call multiple times — initialization chỉ chạy 1 lần
-     * process. Throw {@link IOException} nếu asset bundle bị thiếu (build bug, không recover).
+     * Cheap process warm-up used by the application background executor.
      */
-    public static synchronized void ensureInitialized(@NonNull Context ctx) throws IOException {
-        if (initialized) {
-            applyTheme(ctx);
-            return;
-        }
-        FileProviderRegistry.getInstance().addFileProvider(
-                new AssetsFileResolver(ctx.getApplicationContext().getAssets()));
-        GrammarRegistry.getInstance().loadGrammars(LANGUAGES_INDEX);
-        applyTheme(ctx);
-        initialized = true;
+    public static synchronized void prewarm(@NonNull Context context) throws IOException {
+        ensureInfrastructure(context);
     }
 
     /**
-     * Re-apply theme theo night mode hiện tại. Tách khỏi init để config-change (system toggle
-     * dark) có thể swap theme mà không reload grammars (chi phí cao).
+     * Build a language instance for one document, loading its grammar on demand.
+     *
+     * @return a language instance or {@code null} when no catalog entry exists for the scope.
      */
-    public static synchronized void applyTheme(@NonNull Context ctx) throws IOException {
-        String themeName = SyntaxThemeProvider.themeName(ctx);
-        String assetPath = SyntaxThemeProvider.assetPath(ctx);
-        try (InputStream in = FileProviderRegistry.getInstance().tryGetInputStream(assetPath)) {
-            if (in == null) {
+    @Nullable
+    public static synchronized TextMateLanguage createLanguage(
+            @NonNull Context context,
+            @Nullable String scopeName) throws IOException {
+        SyntaxDefinition definition = SyntaxCatalog.find(scopeName);
+        if (definition == null) {
+            return null;
+        }
+        ensureInfrastructure(context);
+        loadDefinition(definition, new HashSet<>());
+        return TextMateLanguage.create(definition.scopeName, true);
+    }
+
+    /**
+     * Kept for compatibility with instrumentation tests and explicit callers. Unlike the old
+     * implementation, this does not load every grammar.
+     */
+    public static synchronized void ensureInitialized(@NonNull Context context) throws IOException {
+        ensureInfrastructure(context);
+    }
+
+    public static synchronized void applyTheme(@NonNull Context context) throws IOException {
+        ensureProvider(context);
+        applyThemeIfRequired(context);
+    }
+
+    private static void ensureInfrastructure(Context context) throws IOException {
+        ensureProvider(context);
+        applyThemeIfRequired(context);
+    }
+
+    private static void ensureProvider(Context context) {
+        if (providerRegistered) {
+            return;
+        }
+        FileProviderRegistry.getInstance().addFileProvider(
+                new AssetsFileResolver(context.getApplicationContext().getAssets()));
+        providerRegistered = true;
+    }
+
+    private static void applyThemeIfRequired(Context context) throws IOException {
+        String themeName = SyntaxThemeProvider.themeName(context);
+        if (themeName.equals(activeThemeName)
+                && ThemeRegistry.getInstance().getCurrentThemeModel() != null) {
+            return;
+        }
+        String assetPath = SyntaxThemeProvider.assetPath(context);
+        try (InputStream input = FileProviderRegistry.getInstance().tryGetInputStream(assetPath)) {
+            if (input == null) {
                 throw new IOException("Theme asset missing: " + assetPath);
             }
             ThemeModel model = new ThemeModel(
-                    IThemeSource.fromInputStream(in, assetPath, null),
+                    IThemeSource.fromInputStream(input, assetPath, null),
                     themeName);
             ThemeRegistry.getInstance().loadTheme(model);
-        } catch (Exception e) {
-            if (e instanceof IOException) {
-                throw (IOException) e;
+            ThemeRegistry.getInstance().setTheme(themeName);
+            activeThemeName = themeName;
+        } catch (Exception error) {
+            if (error instanceof IOException) {
+                throw (IOException) error;
             }
-            throw new IOException("Theme load failed: " + assetPath, e);
+            throw new IOException("Theme load failed: " + assetPath, error);
         }
-        ThemeRegistry.getInstance().setTheme(themeName);
+    }
+
+    private static void loadDefinition(SyntaxDefinition definition, Set<String> visiting)
+            throws IOException {
+        GrammarRegistry registry = GrammarRegistry.getInstance();
+        if (registry.findGrammar(definition.scopeName, false) != null) {
+            return;
+        }
+        if (!visiting.add(definition.scopeName)) {
+            throw new IOException("Cyclic grammar dependency: " + definition.scopeName);
+        }
+        for (String dependencyScope : definition.dependencies) {
+            SyntaxDefinition dependency = SyntaxCatalog.find(dependencyScope);
+            if (dependency != null) {
+                loadDefinition(dependency, visiting);
+            }
+        }
+        try (InputStream input =
+                     FileProviderRegistry.getInstance().tryGetInputStream(definition.grammarAsset)) {
+            if (input == null) {
+                throw new IOException("Grammar asset missing: " + definition.grammarAsset);
+            }
+            IGrammarSource grammarSource =
+                    IGrammarSource.fromInputStream(input, definition.grammarAsset, null);
+            if (definition.configurationAsset == null) {
+                registry.loadGrammar(DefaultGrammarDefinition.withGrammarSource(
+                        grammarSource, definition.name, definition.scopeName));
+            } else {
+                registry.loadGrammar(DefaultGrammarDefinition.withLanguageConfiguration(
+                        grammarSource,
+                        definition.configurationAsset,
+                        definition.name,
+                        definition.scopeName));
+            }
+        } catch (RuntimeException error) {
+            throw new IOException("Grammar load failed: " + definition.grammarAsset, error);
+        } finally {
+            visiting.remove(definition.scopeName);
+        }
     }
 }

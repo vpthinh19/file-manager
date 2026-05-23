@@ -9,6 +9,7 @@ import com.vpt.filemanager.node.source.BookmarkSource;
 import com.vpt.filemanager.node.source.LocalSource;
 import com.vpt.filemanager.node.source.NodeSource;
 import com.vpt.filemanager.node.source.TrashSource;
+import com.vpt.filemanager.node.source.RootSource;
 
 /**
  * Điểm vào duy nhất để khởi tạo {@link VirtualNode} từ một {@link NodePath}. Dispatch sang đúng
@@ -31,16 +32,19 @@ public final class NodeFactory {
     private final ArchiveSource archiveSource;
     private final TrashSource trashSource;
     private final BookmarkSource bookmarkSource;
+    private final RootSource rootSource;
 
     @Inject
     public NodeFactory(LocalSource localSource,
                        ArchiveSource archiveSource,
                        TrashSource trashSource,
-                       BookmarkSource bookmarkSource) {
+                       BookmarkSource bookmarkSource,
+                       RootSource rootSource) {
         this.localSource = localSource;
         this.archiveSource = archiveSource;
         this.trashSource = trashSource;
         this.bookmarkSource = bookmarkSource;
+        this.rootSource = rootSource;
     }
 
     /**
@@ -49,6 +53,9 @@ public final class NodeFactory {
      * @throws NodeException khi path không tồn tại, scheme không support, hoặc stat fail
      */
     public VirtualNode fromPath(NodePath path) throws NodeException {
+        if (path.isRoot()) {
+            return rootSource.resolve(path);
+        }
         if (path.isLocal()) {
             return localSource.resolve(path);
         }

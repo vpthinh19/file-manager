@@ -23,7 +23,6 @@ import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.event.FileTreeChangeBus;
 import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentDualPaneHostBinding;
 import com.vpt.filemanager.format.FileCategory;
@@ -34,7 +33,7 @@ import com.vpt.filemanager.node.VirtualNode;
 import com.vpt.filemanager.node.opener.NodeOpener;
 import com.vpt.filemanager.node.opener.OpenContext;
 import com.vpt.filemanager.node.opener.OpenerRegistry;
-import com.vpt.filemanager.node.opener.NodeNavigator;
+import com.vpt.filemanager.node.NodeNavigator;
 import com.vpt.filemanager.operations.create.CreateNodeOperation;
 import com.vpt.filemanager.operations.transfer.TransferOperation;
 import com.vpt.filemanager.ui.drawer.DrawerHost;
@@ -51,6 +50,7 @@ import com.vpt.filemanager.ui.dialog.OpenAsDialogFragment;
 import com.vpt.filemanager.ui.editor.TextEditorActivity;
 import com.vpt.filemanager.operations.openwith.OpenWithRequest;
 import com.vpt.filemanager.operations.openwith.PrepareOpenWithRequestOperation;
+import com.vpt.filemanager.workspace.WorkspaceStore;
 
 /**
  * Host của 2 PaneFragment + bottom toolbar + selection bar. Phase R-5b: click flow migrated sang
@@ -72,7 +72,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
     OpenerRegistry openerRegistry;
 
     @Inject
-    FileTreeChangeBus changeBus;
+    WorkspaceStore workspace;
 
     // Phase C-1b: deps cho TransferAction (cross-pane copy/move). Injected qua Hilt thay vì
     // resolve qua activeVm() để TransferAction là true stateless action giống CreateAction/Share.
@@ -145,10 +145,10 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         }
 
         createAction = new CreateAction(this, executors, nodeFactory, createNodeOperation,
-                changeBus);
+                workspace);
         shareAction = new ShareAction(this);
         transferAction = new TransferAction(this, executors, nodeFactory, transferOperation,
-                changeBus);
+                workspace);
         toolbarCtrl = new ToolbarController(this, binding);
         bottomBarCtrl = new BottomBarController(this, binding, createAction);
         selectionBarCtrl = new SelectionBarController(this, binding, shareAction);
@@ -163,31 +163,20 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
 
         observePane(PANE_LEFT, leftVm);
         observePane(PANE_RIGHT, rightVm);
-        observeChangeBus();
+        observeWorkspaceMutations();
 
         applyActivePaneVisual();
         syncFromActive();
     }
 
-    /**
-     * Phase R-8: bus reconciliation. Bất kỳ op nào mutate FS (cả từ {@link
-     * com.vpt.filemanager.ui.editor.TextEditorActivity} cross-Activity) emit qua
-     * {@link FileTreeChangeBus} → cả 2 pane refresh đồng bộ.
-     *
-     * <p>Skip initial value: LiveData fire callback ngay khi attach với current counter; nếu
-     * không skip thì lần mở Fragment đầu sẽ refresh 2 pane vô ích (chúng vừa load xong). Lưu
-     * counter base lúc attach → chỉ react khi counter > base.
-     */
-    private void observeChangeBus() {
-        Long initial = changeBus.changes().getValue();
-        final long[] lastSeen = {initial == null ? 0L : initial};
-        changeBus.changes().observe(getViewLifecycleOwner(), counter -> {
-            if (counter == null || counter <= lastSeen[0]) {
+    /** Reconcile only panes whose live directory snapshot is affected by a mutation. */
+    private void observeWorkspaceMutations() {
+        workspace.mutations().observe(getViewLifecycleOwner(), mutation -> {
+            if (mutation == null) {
                 return;
             }
-            lastSeen[0] = counter;
-            leftVm.refresh();
-            rightVm.refresh();
+            leftVm.reconcile(mutation);
+            rightVm.reconcile(mutation);
         });
     }
 
@@ -349,6 +338,9 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
             if (!vm.isInSelectionMode() && toolbarCtrl != null) {
                 toolbarCtrl.renderState(state);
             }
+            if (bottomBarCtrl != null) {
+                bottomBarCtrl.applyLocationState(vm.currentPath(), inactiveVm().currentPath());
+            }
             // Phase R-7b: active pane đổi path → drawer highlight phải re-sync (Storage/Trash/
             // Bookmarks). uiState là tín hiệu reliable vì mọi navigate đều emit Loading→Content.
             notifyDrawerHost();
@@ -405,6 +397,7 @@ public final class DualPaneHostFragment extends Fragment implements PaneControll
         bottomBarCtrl.applyNavButtonState(
                 Boolean.TRUE.equals(vm.canGoBack().getValue()),
                 Boolean.TRUE.equals(vm.canGoForward().getValue()));
+        bottomBarCtrl.applyLocationState(vm.currentPath(), inactiveVm().currentPath());
     }
 
     private void applyActivePaneVisual() {

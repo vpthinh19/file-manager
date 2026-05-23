@@ -11,12 +11,13 @@ Everything the user can see in a pane is a `VirtualNode`.
 bookmarks, and future sources. UI code renders nodes and sends user intent to workspace/operation
 classes. It does not own filesystem policy, conflict policy, or action availability rules.
 
-The project has four main axes:
+The project has five main axes:
 
 ```text
 node        virtual tree model, sources, and openers
 operations  user-visible features and their supporting feature backends
 rules       external availability/constraint rules
+workspace   retained snapshots, invalidation, sessions, and command coordination
 ui          Android rendering and Android-only effects
 ```
 
@@ -76,7 +77,7 @@ com.vpt.filemanager
 │
 ├── rules/                       external workspace action rules
 │   └── storage/
-├── workspace/                   conceptual workspace snapshots and action ids
+├── workspace/                   live snapshots, invalidation and workspace state
 ├── data/                        Room and preferences
 ├── di/                          Hilt modules
 ├── event/                       app-wide event streams
@@ -91,7 +92,8 @@ com.vpt.filemanager
 
 `NodePath`
 : A virtual path. It is not just a local filesystem path. It supports `file://`, `archive://`,
-`trash://`, and `bookmark://`.
+`trash://`, `bookmark://`, and `root:///`. `root:///` materializes the stable Storage, Trash, and
+Bookmarks branches without loading their descendants.
 
 `NodeSource`
 : Source strategy. A source knows how to resolve, list, read, and optionally write nodes for one
@@ -184,16 +186,59 @@ Rules should answer questions like:
 
 ## Workspace
 
-`workspace` contains concept-level state snapshots and action ids, not Android UI.
+`workspace` is the control boundary for the materialized virtual tree. It does not mirror the
+whole filesystem in memory. It retains only directory snapshots that a pane or a future session is
+actively using; when the last owner releases a path, its snapshot is evicted and its nodes become
+eligible for garbage collection.
 
 ```text
 WorkspaceAction
 PaneSnapshot
 WorkspaceSnapshot
+DirectorySnapshot
+MutationResult
+WorkspaceStore
+WorkspaceFileWatcher
 ```
 
-The package is reserved for the future control center that coordinates panes, rules, and operations.
-It should not become a dumping ground for unrelated commands.
+`DirectorySnapshot`
+: Immutable immediate children of one materialized `NodePath`, tagged with a workspace revision.
+
+`MutationResult`
+: The explicit invalidation scope produced after a mutation or an external change notification. It
+contains changed container paths and removed subtrees. Unknown-scope operations may use the
+deliberate `allLiveSnapshots` fallback; new operations should prefer precise paths.
+
+`WorkspaceStore`
+: Retains/releases live snapshots, reloads fresh data when navigating, and reconciles an
+invalidated snapshot once even when two panes show the same directory.
+
+`WorkspaceFileWatcher`
+: Watches retained local directories with Android `FileObserver`. Its events are only invalidation
+hints; the store always re-reads a source before publishing display state.
+
+Current transition boundary: pane state still lives in `PaneViewModel`, and several existing UI
+flows create `MutationResult` after invoking their operation. The next migration moves command
+dispatch and mutation construction into workspace/operation results so UI only submits intent and
+renders state.
+
+### Reconciliation
+
+```text
+UI intent -> operation -> MutationResult -> WorkspaceStore invalidates live snapshots
+         -> PaneViewModel requests reconcile -> source re-lists affected directory
+         -> RecyclerView DiffUtil renders changed rows
+```
+
+For external local-file changes:
+
+```text
+FileObserver -> MutationResult -> same reconcile path
+```
+
+Backends that cannot reliably emit events, such as future provider/cloud implementations, must
+reload on navigation, foreground entry, or explicit refresh and may additionally expose their own
+observation adapter.
 
 ## UI
 
@@ -217,6 +262,57 @@ Forbidden responsibilities:
 `ui/pane/flow` classes are Android flows. They may show dialogs, gather decisions, and call
 operations. They are not domain operations.
 
+### Text Editor
+
+`ui/editor` owns the Android text editing surface and the adapter to sora-editor/TextMate:
+
+```text
+TextEditorActivity  toolbar/status/editor lifecycle and asynchronous document I/O
+LanguageResolver    filename to TextMate scope selection
+SyntaxCatalog       immutable scope to asset/config/dependency records
+SyntaxSetup         process-wide theme/provider cache and lazy grammar loading
+```
+
+Grammar assets live under `assets/syntaxes`; the older `editor/textmate` asset directory is limited
+to shared themes and the Kotlin grammar not present in the imported TM4E bundle. Grammars must not
+be eagerly loaded as one application startup set. `SyntaxSetup` registers shared infrastructure
+once, then loads the requested scope and required embedded scopes on a computation executor.
+
+`TextEditorActivity` must not perform file probes, decoding, writes, or TextMate parsing on the UI
+thread. It releases its `CodeEditor` in `onDestroy`; process-level registry caches remain reusable
+for later editor instances.
+
+The editor currently keeps a content savepoint after load/save, derives its dirty marker from
+content equality so undo/redo can return to a clean state, and exposes in-document find through
+sora `EditorSearcher`.
+
+### Viewer And Player Features
+
+Image, video, and audio are opener implementations under `node/opener` with Android surfaces under
+`ui`, not new architecture roots:
+
+```text
+ImageOpener  -> ui/viewer/ImageViewerActivity  -> Glide full-resolution image rendering
+VideoOpener  -> ui/player/MediaPlayerActivity  -> Jetpack Media3 video playback
+AudioOpener  -> ui/player/MediaPlayerActivity  -> Jetpack Media3 audio playback
+```
+
+Glide and Media3 dependencies are already declared. Their UI and opener wiring remain to be
+implemented. Media thumbnails in pane rows should also use Glide with recycling-safe requests and
+placeholder icons for non-media nodes.
+
+### Planned Capabilities
+
+The following capabilities remain planned and must use the same workspace contracts:
+
+```text
+DocumentSession              editor dirty/savepoint, external-delete and conflict state
+SearchNodesOperation         temporary search:// virtual result node for file/folder search
+ArchiveEditSession           overlay edits for archive virtual branches
+ArchiveCommitOperation       libarchive C++ temp-write, validation, and atomic replacement
+Image/video/audio openers    Glide image viewer and Media3 playback
+```
+
 ## Dependency Injection
 
 The project uses Hilt.
@@ -231,7 +327,7 @@ Default rule:
 Current DI style:
 
 ```text
-UI -> Workspace snapshots/rules -> Operations -> Node/Store/Backend -> Data/NodeSource
+UI -> Workspace/Rules -> Operations -> Node/Store/Backend -> Data/NodeSource
 ```
 
 Recommended future DI improvements:

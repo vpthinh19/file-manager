@@ -13,7 +13,8 @@ public final class RuleEngine {
             new SelectionShapeRule(),
             new ArchiveReadOnlyRule(),
             new NonLocalOpenWithRule(),
-            new SamePanePathTransferRule());
+            new SamePanePathTransferRule(),
+            new ReadOnlyLocationRule());
 
     private final List<WorkspaceRule> rules;
 

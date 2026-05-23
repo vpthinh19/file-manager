@@ -16,7 +16,6 @@ import com.vpt.filemanager.R;
 import com.vpt.filemanager.ui.pane.DualPaneHostFragment;
 import com.vpt.filemanager.ui.pane.PaneViewModel;
 import com.vpt.filemanager.ui.dialog.ConflictDialog;
-import com.vpt.filemanager.event.FileTreeChangeBus;
 import com.vpt.filemanager.node.NodePath;
 import com.vpt.filemanager.node.NodeException;
 import com.vpt.filemanager.node.NodeFactory;
@@ -28,6 +27,8 @@ import com.vpt.filemanager.operations.transfer.TransferConflictResolver;
 import com.vpt.filemanager.operations.transfer.TransferKind;
 import com.vpt.filemanager.operations.transfer.TransferOperation;
 import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.workspace.MutationResult;
+import com.vpt.filemanager.workspace.WorkspaceStore;
 
 /**
  * Android boundary for cross-pane copy/move.
@@ -42,7 +43,7 @@ public final class TransferAction {
     private final AppExecutors executors;
     private final NodeFactory nodeFactory;
     private final TransferOperation transferOperation;
-    private final FileTreeChangeBus changeBus;
+    private final WorkspaceStore workspace;
 
     private volatile Future<?> pendingBatch;
     private volatile NodeFileBackend.CancellationToken pendingToken;
@@ -51,12 +52,12 @@ public final class TransferAction {
                           AppExecutors executors,
                           NodeFactory nodeFactory,
                           TransferOperation transferOperation,
-                          FileTreeChangeBus changeBus) {
+                          WorkspaceStore workspace) {
         this.host = host;
         this.executors = executors;
         this.nodeFactory = nodeFactory;
         this.transferOperation = transferOperation;
-        this.changeBus = changeBus;
+        this.workspace = workspace;
     }
 
     public void cancel() {
@@ -128,14 +129,19 @@ public final class TransferAction {
                     mode == TransferMode.COPY ? TransferKind.COPY : TransferKind.MOVE,
                     new DialogConflictResolver(token),
                     token));
-            changeBus.emit();
+            MutationResult.Builder mutation = MutationResult.builder()
+                    .changedContainer(dstParentPath);
+            if (mode == TransferMode.MOVE && !snapshot.isEmpty()) {
+                mutation.changedContainer(snapshot.get(0).parent());
+            }
+            workspace.publish(mutation.build());
             postToast(result.message());
         } catch (NodeException e) {
             postToast(e.getMessage() == null ? "Transfer failed" : e.getMessage());
         } catch (RuntimeException e) {
             timber.log.Timber.e(e, "Transfer batch crashed");
             try {
-                changeBus.emit();
+                workspace.publish(MutationResult.allLiveSnapshots());
             } catch (RuntimeException ignored) {
             }
             postToast("Transfer crashed: "
