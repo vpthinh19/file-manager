@@ -4,6 +4,11 @@
     <string name="action_back">Back</string>
     <string name="action_forward">Forward</string>
     <string name="action_swap">Swap panes</string>
+    <string name="action_use_dark_theme">Use dark theme</string>
+    <string name="action_use_light_theme">Use light theme</string>
+    <string name="media_image">Image preview</string>
+    <string name="media_video">Video</string>
+    <string name="media_audio">Audio</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_new_folder">New folder</string>
     <string name="action_new_file">New text file</string>
@@ -35,7 +40,7 @@
     <string name="stats_with_disk">"Folders: %1$d  Files: %2$d  Disk: %3$s / %4$s"</string>
     <string name="stats_archive">Entries: %1$d</string>
     <string name="stats_search_results">Results: %1$d</string>
-    <string name="stats_roots">%1$d storage locations</string>
+    <string name="stats_roots">%1$d storage paths</string>
     <string name="error_listing_denied">Permission denied. You may not be allowed to list this directory.</string>
     <string name="archive_path_format">%1$s/</string>
     <string name="forward_not_implemented">Forward history is not implemented yet</string>
@@ -136,6 +141,6 @@
     <string name="trash_empty_title">Empty trash?</string>
     <string name="trash_empty_message">All items in the trash will be permanently deleted.</string>
     <string name="trash_empty_placeholder">Trash is empty</string>
-    <string name="trash_restore_confirm">Restore \"%1$s\" to its original location?</string>
+    <string name="trash_restore_confirm">Restore \"%1$s\" to its original path?</string>
     <string name="trash_meta_format">%1$s · %2$s</string>
 </resources>

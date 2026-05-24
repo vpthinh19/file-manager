@@ -17,7 +17,7 @@
     </queries>
 
     <application
-        android:name=".app.FileManagerApp"
+        android:name=".FileManagerApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
@@ -29,7 +29,7 @@
         tools:targetApi="36">
 
         <activity
-            android:name=".ui.main.MainActivity"
+            android:name=".browser.ui.main.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.FileManager.NoActionBar">
             <intent-filter>
@@ -39,7 +39,15 @@
         </activity>
 
         <activity
-            android:name=".ui.editor.TextEditorActivity"
+            android:name=".texteditor.ui.TextEditorActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".media.image.ImageViewerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".media.playback.MediaPlayerActivity"
             android:exported="false" />
 
         <provider

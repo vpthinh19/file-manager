@@ -1,0 +1,32 @@
+package com.vpt.filemanager.browser.action;
+
+public enum ActionKey {
+    ACTIVATE_PANE,
+    ACTIVATE_ITEM,
+    BACK,
+    FORWARD,
+    UP,
+    REFRESH,
+    SEARCH,
+    SORT,
+    CREATE,
+    SELECT,
+    SELECT_ALL,
+    SELECT_RANGE,
+    CLEAR_SELECTION,
+    EXIT_SELECTION,
+    SWAP_PANE,
+    COPY,
+    MOVE,
+    DELETE,
+    RENAME,
+    PROPERTIES,
+    SHARE,
+    OPEN_WITH,
+    BOOKMARK,
+    TOOLS,
+    COMPRESS,
+    REMOVE_BOOKMARK,
+    RESTORE_TRASH,
+    EMPTY_TRASH
+}
