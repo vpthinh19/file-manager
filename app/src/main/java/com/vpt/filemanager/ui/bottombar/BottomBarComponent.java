@@ -19,7 +19,7 @@ import androidx.lifecycle.LifecycleOwner;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.entry.Entry;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.operation.FileOperations;
 import com.vpt.filemanager.ui.dialog.InputDialogs;
 import com.vpt.filemanager.ui.format.MimeTypes;
@@ -132,7 +132,7 @@ public final class BottomBarComponent {
                 activity.getString(R.string.properties)
         };
         Entry single = selected.size() == 1 ? selected.get(0) : null;
-        Location destination = state.inactiveState().location;
+        Path destination = state.inactiveState().location;
         boolean transfer = operations.canWrite(destination)
                 && !destination.equals(state.activeState().location);
         boolean[] enabled = {
@@ -142,9 +142,9 @@ public final class BottomBarComponent {
                 single != null,
                 selected.stream().anyMatch(entry -> !entry.isFolder()),
                 single != null && !single.isFolder(),
-                single != null && single.isFolder() && !single.isArchiveEntry()
+                single != null && single.isFolder() && !single.isInsideArchive()
                         && single.localPathOrNull() != null,
-                single != null && !single.isArchiveEntry()
+                single != null && !single.isInsideArchive()
         };
         new AlertDialog.Builder(activity).setTitle(single == null
                         ? activity.getString(R.string.selected_count, selected.size()) : single.name())
@@ -154,7 +154,7 @@ public final class BottomBarComponent {
 
     private void selectAction(int action, List<Entry> selected) {
         Entry single = selected.size() == 1 ? selected.get(0) : null;
-        Location destination = state.inactiveState().location;
+        Path destination = state.inactiveState().location;
         if (action == 0 || action == 1) {
             if (destination.equals(state.activeState().location)) {
                 toast(activity.getString(R.string.transfer_same_folder));
@@ -177,7 +177,7 @@ public final class BottomBarComponent {
             openWith(single);
         } else if (action == 6 && single != null) {
             run(() -> operations.bookmark(single), "Bookmarked");
-        } else if (action == 7 && single != null && !single.isArchiveEntry()) {
+        } else if (action == 7 && single != null && !single.isInsideArchive()) {
             showProperties(single);
         } else {
             toast(activity.getString(R.string.selection_single_only));

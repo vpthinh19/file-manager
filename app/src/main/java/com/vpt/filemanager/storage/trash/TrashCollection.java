@@ -29,7 +29,7 @@ public final class TrashCollection {
     }
 
     public void put(@NonNull Entry entry) throws FileOperationException {
-        if (entry.localPathOrNull() == null || entry.isArchiveEntry()) {
+        if (entry.localPathOrNull() == null || entry.isInsideArchive()) {
             throw new FileOperationException("Entry cannot be moved to trash");
         }
         File source = new File(entry.localPath());

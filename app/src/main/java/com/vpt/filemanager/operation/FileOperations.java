@@ -4,7 +4,7 @@ import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.entry.Entry;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 import com.vpt.filemanager.storage.archive.ArchiveAccess;
 import com.vpt.filemanager.storage.bookmarks.BookmarkCollection;
@@ -33,15 +33,15 @@ public final class FileOperations {
         this.bookmarks = bookmarks;
     }
 
-    public boolean canWrite(@NonNull Location location) {
-        return location.isStorage() && (!location.isArchiveEntry() || archive.canWrite(location));
+    public boolean canWrite(@NonNull Path location) {
+        return location.isStorage() && (!location.isInsideArchive() || archive.canWrite(location));
     }
 
-    public void create(@NonNull Location parent, @NonNull String name, boolean folder)
+    public void create(@NonNull Path parent, @NonNull String name, boolean folder)
             throws FileOperationException {
         validName(name);
-        if (!canWrite(parent)) throw new FileOperationException("Location is read-only");
-        if (parent.isArchiveEntry()) {
+        if (!canWrite(parent)) throw new FileOperationException("Path is read-only");
+        if (parent.isInsideArchive()) {
             archive.create(parent, name.trim(), folder);
         } else {
             local.create(local.fileAtStoragePath(parent.storagePath()), name.trim(), folder);
@@ -50,16 +50,16 @@ public final class FileOperations {
 
     public void rename(@NonNull Entry entry, @NonNull String name) throws FileOperationException {
         validName(name);
-        if (entry.isArchiveEntry()) archive.rename(entry, name.trim());
+        if (entry.isInsideArchive()) archive.rename(entry, name.trim());
         else if (entry.localPathOrNull() != null) local.rename(new File(entry.localPath()), name.trim());
         else throw new FileOperationException("Entry cannot be renamed");
     }
 
     public void delete(@NonNull List<Entry> selected) throws FileOperationException {
-        List<Entry> archiveItems = selected.stream().filter(Entry::isArchiveEntry).toList();
+        List<Entry> archiveItems = selected.stream().filter(Entry::isInsideArchive).toList();
         if (!archiveItems.isEmpty()) archive.delete(archiveItems);
         for (Entry entry : selected) {
-            if (entry.isArchiveEntry() || entry.isParent()) continue;
+            if (entry.isInsideArchive() || entry.isParent()) continue;
             if (entry.isTrashItem()) trash.deletePermanently(entry); else trash.put(entry);
         }
     }
@@ -82,21 +82,21 @@ public final class FileOperations {
         for (Entry entry : selected) bookmarks.remove(entry);
     }
 
-    public void transfer(@NonNull List<Entry> selected, @NonNull Location destination, boolean move)
+    public void transfer(@NonNull List<Entry> selected, @NonNull Path destination, boolean move)
             throws FileOperationException {
         if (!canWrite(destination)) throw new FileOperationException("Destination is read-only");
         for (Entry source : selected) {
             if (source.isParent()) continue;
             String name = uniqueName(destination, source.name());
-            if (destination.isArchiveEntry()) {
-                if (source.isArchiveEntry()) {
+            if (destination.isInsideArchive()) {
+                if (source.isInsideArchive()) {
                     archive.importFromArchive(destination, source, name, false);
                     if (move) archive.delete(List.of(source));
                 } else {
                     archive.importFromStorage(destination, source, name, false);
                     if (move) local.deletePermanently(new File(source.localPath()));
                 }
-            } else if (source.isArchiveEntry()) {
+            } else if (source.isInsideArchive()) {
                 archive.extractToStorage(source,
                         new File(local.fileAtStoragePath(destination.storagePath()), name).getAbsolutePath());
                 if (move) archive.delete(List.of(source));
@@ -109,11 +109,11 @@ public final class FileOperations {
     }
 
     public String materializeIfRequired(@NonNull Entry entry) throws FileOperationException {
-        return entry.isArchiveEntry() ? archive.materialize(entry) : entry.localPath();
+        return entry.isInsideArchive() ? archive.materialize(entry) : entry.localPath();
     }
 
-    private String uniqueName(Location destination, String name) throws FileOperationException {
-        if (destination.isArchiveEntry()) {
+    private String uniqueName(Path destination, String name) throws FileOperationException {
+        if (destination.isInsideArchive()) {
             if (!archive.exists(destination, name)) return name;
         } else if (!new File(local.fileAtStoragePath(destination.storagePath()), name).exists()) {
             return name;
@@ -125,7 +125,7 @@ public final class FileOperations {
         String candidate;
         do {
             candidate = stem + " (" + index++ + ")" + suffix;
-        } while (destination.isArchiveEntry() ? archive.exists(destination, candidate)
+        } while (destination.isInsideArchive() ? archive.exists(destination, candidate)
                 : new File(local.fileAtStoragePath(destination.storagePath()), candidate).exists());
         return candidate;
     }

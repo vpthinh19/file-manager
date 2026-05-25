@@ -10,7 +10,7 @@ import android.content.Context;
 import androidx.test.core.app.ApplicationProvider;
 
 import com.vpt.filemanager.content.ContentType;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.ui.content.OpenedContent;
 import com.vpt.filemanager.ui.pane.PaneId;
@@ -33,22 +33,22 @@ public final class StateViewModelTest {
 
     @Test
     public void contentBackRestoresActualPreviousCollection() {
-        state.navigate(PaneId.LEFT, Location.bookmarks());
-        Location file = Location.storage("/Documents/report.txt");
+        state.navigate(PaneId.LEFT, Path.bookmarks());
+        Path file = Path.storage("/Documents/report.txt");
         state.navigate(PaneId.LEFT, file);
         state.showContent(new OpenedContent(PaneId.LEFT, file, "/tmp/report.txt", "report.txt",
                 ContentType.TEXT, false, null));
         assertTrue(state.back(PaneId.LEFT));
-        assertEquals(Location.bookmarks(), state.current(PaneId.LEFT).location);
+        assertEquals(Path.bookmarks(), state.current(PaneId.LEFT).location);
         assertNull(state.contentValue());
     }
 
     @Test
     public void paneActivationAndHistoryStayIndependent() {
-        Location leftFolder = Location.storage("/Download");
+        Path leftFolder = Path.storage("/Download");
         state.navigate(PaneId.LEFT, leftFolder);
         state.activate(PaneId.RIGHT);
-        assertEquals(Location.storageRoot(), state.current(PaneId.RIGHT).location);
+        assertEquals(Path.storageRoot(), state.current(PaneId.RIGHT).location);
         assertTrue(state.current(PaneId.LEFT).canGoBack);
         assertFalse(state.current(PaneId.RIGHT).canGoBack);
     }

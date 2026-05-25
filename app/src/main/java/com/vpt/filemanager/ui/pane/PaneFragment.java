@@ -20,9 +20,9 @@ import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
 import com.vpt.filemanager.entry.Entry;
 import com.vpt.filemanager.entry.SortOption;
-import com.vpt.filemanager.navigation.Location;
-import com.vpt.filemanager.navigation.LocationResolver;
-import com.vpt.filemanager.navigation.NavigationResult;
+import com.vpt.filemanager.core.path.Path;
+import com.vpt.filemanager.core.path.PathResolver;
+import com.vpt.filemanager.core.path.NavigationResult;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 import com.vpt.filemanager.ui.content.OpenedContent;
 import com.vpt.filemanager.ui.state.StateViewModel;
@@ -44,14 +44,14 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             | FileObserver.MOVED_FROM | FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE
             | FileObserver.DELETE_SELF | FileObserver.MOVE_SELF;
 
-    @Inject LocationResolver resolver;
+    @Inject PathResolver resolver;
     @Inject AppExecutors executors;
     @Inject LocalStorageAdapter storage;
     private StateViewModel state;
     private FragmentPaneBinding binding;
     private EntryAdapter adapter;
     @Nullable private FileObserver observer;
-    @Nullable private Location requested;
+    @Nullable private Path requested;
 
     public static PaneFragment newInstance(PaneId pane) {
         PaneFragment fragment = new PaneFragment();
@@ -102,7 +102,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         });
     }
 
-    private void load(Location location, SortOption sort) {
+    private void load(Path location, SortOption sort) {
         requested = location;
         installObserver(location);
         long request = state.beginLoading(pane(), location);
@@ -117,7 +117,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         });
     }
 
-    private void applyResult(Location source, SortOption sort, long request,
+    private void applyResult(Path source, SortOption sort, long request,
                              NavigationResult result) {
         if (result instanceof NavigationResult.Redirect replace) {
             state.replaceResolvedLocation(pane(), replace.target());
@@ -139,7 +139,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         if (paneState.selectionMode || paneState.location.isTrash()) {
             state.toggleSelection(pane(), entry);
         } else {
-            state.navigate(pane(), entry.location());
+            state.navigate(pane(), entry.path());
         }
     }
 
@@ -149,11 +149,11 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         state.toggleSelection(pane(), entry);
     }
 
-    private void installObserver(Location location) {
+    private void installObserver(Path location) {
         if (observer != null) observer.stopWatching();
         File watched = null;
         if (location.isSearch()) watched = storage.fileAtStoragePath(location.storagePath());
-        else if (location.isArchiveEntry()) watched =
+        else if (location.isInsideArchive()) watched =
                 storage.fileAtStoragePath(location.storagePath()).getParentFile();
         else if (location.isStorage()) {
             File current = storage.fileAtStoragePath(location.storagePath());

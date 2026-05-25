@@ -8,7 +8,7 @@ import androidx.lifecycle.ViewModel;
 
 import com.vpt.filemanager.entry.Entry;
 import com.vpt.filemanager.entry.SortOption;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.ui.content.OpenedContent;
 import com.vpt.filemanager.ui.pane.PaneId;
@@ -40,8 +40,8 @@ public final class StateViewModel extends ViewModel {
     @Inject
     public StateViewModel(UserPreferences preferences) {
         SortOption initialSort = preferences.sortOption();
-        left = new MutablePane(Location.storageRoot(), initialSort);
-        right = new MutablePane(Location.storageRoot(), initialSort);
+        left = new MutablePane(Path.storageRoot(), initialSort);
+        right = new MutablePane(Path.storageRoot(), initialSort);
         publish(PaneId.LEFT);
         publish(PaneId.RIGHT);
     }
@@ -88,7 +88,7 @@ public final class StateViewModel extends ViewModel {
         active.setValue(pane);
     }
 
-    public void navigate(@NonNull PaneId pane, @NonNull Location target) {
+    public void navigate(@NonNull PaneId pane, @NonNull Path target) {
         MutablePane value = value(pane);
         if (target.equals(value.location)) return;
         value.back.push(value.location);
@@ -102,7 +102,7 @@ public final class StateViewModel extends ViewModel {
     }
 
     /** Replaces a file location with its resolved archive mount without creating a history step. */
-    public void replaceResolvedLocation(@NonNull PaneId pane, @NonNull Location target) {
+    public void replaceResolvedLocation(@NonNull PaneId pane, @NonNull Path target) {
         MutablePane value = value(pane);
         value.location = target;
         value.resetRows();
@@ -134,11 +134,11 @@ public final class StateViewModel extends ViewModel {
     }
 
     public void up(@NonNull PaneId pane) {
-        Location parent = value(pane).location.parent();
+        Path parent = value(pane).location.parent();
         if (parent != null) navigate(pane, parent);
     }
 
-    public long beginLoading(@NonNull PaneId pane, @NonNull Location requested) {
+    public long beginLoading(@NonNull PaneId pane, @NonNull Path requested) {
         MutablePane value = value(pane);
         if (!requested.equals(value.location)) return -1L;
         value.loading = true;
@@ -233,10 +233,10 @@ public final class StateViewModel extends ViewModel {
     }
 
     private static final class MutablePane {
-        private final ArrayDeque<Location> back = new ArrayDeque<>();
-        private final ArrayDeque<Location> forward = new ArrayDeque<>();
+        private final ArrayDeque<Path> back = new ArrayDeque<>();
+        private final ArrayDeque<Path> forward = new ArrayDeque<>();
         private final LinkedHashSet<String> selection = new LinkedHashSet<>();
-        private Location location;
+        private Path location;
         private List<Entry> entries = List.of();
         private SortOption sort;
         private boolean loading = true;
@@ -244,7 +244,7 @@ public final class StateViewModel extends ViewModel {
         private boolean selectionMode;
         private long generation;
 
-        MutablePane(Location location, SortOption sort) {
+        MutablePane(Path location, SortOption sort) {
             this.location = location;
             this.sort = sort;
         }

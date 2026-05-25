@@ -1,4 +1,4 @@
-package com.vpt.filemanager.navigation;
+package com.vpt.filemanager.core.path;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -8,8 +8,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
-/** Immutable virtual address shown by one pane. It never stores a physical filesystem path. */
-public final class Location {
+/** Immutable virtual address shown by one pane. It never stores a physical filesystem location. */
+public final class Path {
     public enum Scheme {
         STORAGE,
         TRASH,
@@ -22,8 +22,8 @@ public final class Location {
     @Nullable private final String archiveInnerPath;
     @Nullable private final String query;
 
-    private Location(Scheme scheme, @Nullable String storagePath,
-                     @Nullable String archiveInnerPath, @Nullable String query) {
+    private Path(Scheme scheme, @Nullable String storagePath,
+                 @Nullable String archiveInnerPath, @Nullable String query) {
         this.scheme = Objects.requireNonNull(scheme, "scheme");
         this.storagePath = storagePath;
         this.archiveInnerPath = archiveInnerPath;
@@ -31,34 +31,34 @@ public final class Location {
     }
 
     @NonNull
-    public static Location storageRoot() {
+    public static Path storageRoot() {
         return storage("");
     }
 
     @NonNull
-    public static Location storage(@NonNull String virtualPath) {
-        return new Location(Scheme.STORAGE, normalizeStoragePath(virtualPath), null, null);
+    public static Path storage(@NonNull String virtualPath) {
+        return new Path(Scheme.STORAGE, normalizeStoragePath(virtualPath), null, null);
     }
 
     @NonNull
-    public static Location archive(@NonNull String containerPath, @NonNull String innerPath) {
-        return new Location(Scheme.STORAGE, normalizeStoragePath(containerPath),
+    public static Path archive(@NonNull String containerPath, @NonNull String innerPath) {
+        return new Path(Scheme.STORAGE, normalizeStoragePath(containerPath),
                 normalizeInnerPath(innerPath), null);
     }
 
     @NonNull
-    public static Location trash() {
-        return new Location(Scheme.TRASH, null, null, null);
+    public static Path trash() {
+        return new Path(Scheme.TRASH, null, null, null);
     }
 
     @NonNull
-    public static Location bookmarks() {
-        return new Location(Scheme.BOOKMARKS, null, null, null);
+    public static Path bookmarks() {
+        return new Path(Scheme.BOOKMARKS, null, null, null);
     }
 
     @NonNull
-    public static Location search(@NonNull String scopePath, @NonNull String query) {
-        return new Location(Scheme.SEARCH, normalizeStoragePath(scopePath), null,
+    public static Path search(@NonNull String scopePath, @NonNull String query) {
+        return new Path(Scheme.SEARCH, normalizeStoragePath(scopePath), null,
                 Objects.requireNonNull(query, "query"));
     }
 
@@ -82,19 +82,20 @@ public final class Location {
         return scheme == Scheme.SEARCH;
     }
 
-    public boolean isArchiveEntry() {
+    /** True when this path points inside a mounted archive (has an inner path after `!/`). */
+    public boolean isInsideArchive() {
         return archiveInnerPath != null;
     }
 
     public boolean isStorageRoot() {
-        return isStorage() && !isArchiveEntry() && storagePath().isEmpty();
+        return isStorage() && !isInsideArchive() && storagePath().isEmpty();
     }
 
-    /** Virtual storage path, empty for `storage:` and `/...` below that root. */
+    /** Virtual storage location, empty for `storage:` and `/...` below that root. */
     @NonNull
     public String storagePath() {
         if (storagePath == null) {
-            throw new IllegalStateException("Location has no storage path: " + scheme);
+            throw new IllegalStateException("Path has no storage component: " + scheme);
         }
         return storagePath;
     }
@@ -102,7 +103,7 @@ public final class Location {
     @NonNull
     public String archiveInnerPath() {
         if (archiveInnerPath == null) {
-            throw new IllegalStateException("Location is not mounted archive content");
+            throw new IllegalStateException("Path is not mounted archive content");
         }
         return archiveInnerPath;
     }
@@ -110,14 +111,14 @@ public final class Location {
     @NonNull
     public String query() {
         if (query == null) {
-            throw new IllegalStateException("Location is not a search");
+            throw new IllegalStateException("Path is not a search");
         }
         return query;
     }
 
     @Nullable
-    public Location parent() {
-        if (isArchiveEntry()) {
+    public Path parent() {
+        if (isInsideArchive()) {
             if ("/".equals(archiveInnerPath())) {
                 return storage(parentPath(storagePath()));
             }
@@ -128,9 +129,9 @@ public final class Location {
     }
 
     @NonNull
-    public Location child(@NonNull String name) {
+    public Path child(@NonNull String name) {
         String child = cleanName(name);
-        if (isArchiveEntry()) {
+        if (isInsideArchive()) {
             String prefix = "/".equals(archiveInnerPath()) ? "" : archiveInnerPath();
             return archive(storagePath(), prefix + "/" + child);
         }
@@ -147,17 +148,17 @@ public final class Location {
         if (isSearch()) {
             return "search:?scope=" + encode(storagePath()) + "&query=" + encode(query());
         }
-        if (isArchiveEntry()) return "storage:" + storagePath() + "!" + archiveInnerPath();
+        if (isInsideArchive()) return "storage:" + storagePath() + "!" + archiveInnerPath();
         return "storage:" + storagePath();
     }
 
     @NonNull
-    public static Location parse(@NonNull String serialized) {
+    public static Path parse(@NonNull String serialized) {
         if ("trash:".equals(serialized) || "trash".equals(serialized)) return trash();
         if ("bookmarks:".equals(serialized) || "bookmarks".equals(serialized)) return bookmarks();
         if (serialized.startsWith("search:?scope=")) {
             int queryStart = serialized.indexOf("&query=");
-            if (queryStart < 0) throw new IllegalArgumentException("Malformed search location");
+            if (queryStart < 0) throw new IllegalArgumentException("Malformed search path");
             String scope = serialized.substring("search:?scope=".length(), queryStart);
             return search(decode(scope), decode(serialized.substring(queryStart + 7)));
         }
@@ -169,7 +170,7 @@ public final class Location {
 
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof Location other)) return false;
+        if (!(object instanceof Path other)) return false;
         return scheme == other.scheme
                 && Objects.equals(storagePath, other.storagePath)
                 && Objects.equals(archiveInnerPath, other.archiveInnerPath)

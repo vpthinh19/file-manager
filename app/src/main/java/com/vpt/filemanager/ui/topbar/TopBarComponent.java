@@ -16,7 +16,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.entry.SortOption;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.operation.FileOperations;
 import com.vpt.filemanager.ui.dialog.InputDialogs;
 import com.vpt.filemanager.ui.drawer.DrawerComponent;
@@ -70,13 +70,13 @@ public final class TopBarComponent {
         if (id == R.id.action_refresh) {
             state.refreshVisiblePanes();
         } else if (id == R.id.action_search) {
-            Location scope = state.activeState().location;
-            if (scope.isArchiveEntry()) scope = Location.storage(scope.storagePath());
-            if (!scope.isStorage() || scope.isArchiveEntry()) scope = Location.storageRoot();
-            Location finalScope = scope;
+            Path scope = state.activeState().location;
+            if (scope.isInsideArchive()) scope = Path.storage(scope.storagePath());
+            if (!scope.isStorage() || scope.isInsideArchive()) scope = Path.storageRoot();
+            Path finalScope = scope;
             InputDialogs.prompt(activity, R.string.action_search, R.string.search_files_hint, "",
                     query -> state.navigate(state.activePaneValue(),
-                            Location.search(finalScope.storagePath(), query)));
+                            Path.search(finalScope.storagePath(), query)));
         } else if (id == R.id.action_sort) {
             showSort();
         } else if (id == R.id.action_empty_trash) {
@@ -113,7 +113,7 @@ public final class TopBarComponent {
     }
 
     private void render(PaneState pane) {
-        Location location = pane.location;
+        Path location = pane.location;
         MenuItem empty = toolbar.getMenu().findItem(R.id.action_empty_trash);
         if (empty != null) empty.setVisible(location.isTrash());
         if (pane.selectionMode) {
@@ -129,11 +129,11 @@ public final class TopBarComponent {
         } else subtitle.setText(activity.getString(R.string.stats_basic, pane.folderCount, pane.fileCount));
     }
 
-    private String display(Location location) {
+    private String display(Path location) {
         if (location.isTrash()) return activity.getString(R.string.action_trash);
         if (location.isBookmarks()) return activity.getString(R.string.menu_bookmarks);
         if (location.isSearch()) return activity.getString(R.string.search_title, location.query());
-        if (location.isArchiveEntry()) return new File(location.storagePath()).getName()
+        if (location.isInsideArchive()) return new File(location.storagePath()).getName()
                 + location.archiveInnerPath();
         String virtual = location.serialize();
         return "storage:".equals(virtual) ? activity.getString(R.string.menu_storage) : virtual;

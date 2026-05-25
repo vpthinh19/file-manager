@@ -6,7 +6,7 @@ import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.storage.persistence.dao.BookmarkDao;
 import com.vpt.filemanager.storage.persistence.entity.BookmarkRecord;
 import com.vpt.filemanager.entry.Entry;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 
 import java.io.File;
@@ -30,7 +30,7 @@ public final class BookmarkCollection {
     }
 
     public void add(@NonNull Entry entry) throws FileOperationException {
-        if (entry.localPathOrNull() == null || !entry.isFolder() || entry.isArchiveEntry()) {
+        if (entry.localPathOrNull() == null || !entry.isFolder() || entry.isInsideArchive()) {
             throw new FileOperationException("Only physical folders can be bookmarked");
         }
         if (dao.findByPath(entry.localPath()) != null) return;
@@ -58,7 +58,7 @@ public final class BookmarkCollection {
                 continue;
             }
             try {
-                result.add(Entry.bookmark(storage.locationOf(target), record.path, target.getName(),
+                result.add(Entry.bookmark(storage.pathOf(target), record.path, target.getName(),
                         -1L, target.lastModified()));
             } catch (FileOperationException invalidPath) {
                 timber.log.Timber.w("Skipping bookmark outside storage: %s", record.path);

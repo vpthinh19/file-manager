@@ -5,7 +5,7 @@ import android.os.Environment;
 import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
@@ -38,31 +37,31 @@ public final class LocalStorageAdapter {
     }
 
     @NonNull
-    public File resolve(@NonNull Location location) throws FileOperationException {
-        if (!location.isStorage() || location.isArchiveEntry()) {
-            throw new FileOperationException("Location does not identify one physical file");
+    public File resolve(@NonNull Path path) throws FileOperationException {
+        if (!path.isStorage() || path.isInsideArchive()) {
+            throw new FileOperationException("Path does not identify one physical file");
         }
-        File file = fileAtStoragePath(location.storagePath());
+        File file = fileAtStoragePath(path.storagePath());
         if (!file.exists()) throw new FileOperationException("Path not found: " + file);
         return file;
     }
 
-    /** Maps a virtual path from a storage/search/archive location to its raw physical file. */
+    /** Maps a virtual storage path to its raw physical file. */
     @NonNull
     public File fileAtStoragePath(@NonNull String virtualPath) {
         return virtualPath.isEmpty() ? root : new File(root, virtualPath.substring(1));
     }
 
-    /** Maps a physical child read by this adapter back to its virtual pane location. */
+    /** Maps a physical child read by this adapter back to its virtual pane path. */
     @NonNull
-    public Location locationOf(@NonNull File file) throws FileOperationException {
+    public Path pathOf(@NonNull File file) throws FileOperationException {
         String base = root.getAbsolutePath().replace('\\', '/');
         String target = file.getAbsolutePath().replace('\\', '/');
-        if (target.equals(base)) return Location.storageRoot();
+        if (target.equals(base)) return Path.storageRoot();
         if (!target.startsWith(base + "/")) {
             throw new FileOperationException("File is outside storage: " + file);
         }
-        return Location.storage(target.substring(base.length()));
+        return Path.storage(target.substring(base.length()));
     }
 
     @NonNull
@@ -152,27 +151,27 @@ public final class LocalStorageAdapter {
         return new File(parent, name.trim());
     }
 
-    private static void copyRecursively(Path source, Path destination) throws IOException {
+    private static void copyRecursively(java.nio.file.Path source, java.nio.file.Path destination) throws IOException {
         if (Files.isDirectory(source) && !Files.isSymbolicLink(source)) {
             Files.createDirectory(destination);
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(source)) {
-                for (Path child : stream) copyRecursively(child, destination.resolve(child.getFileName()));
+            try (DirectoryStream<java.nio.file.Path> stream = Files.newDirectoryStream(source)) {
+                for (java.nio.file.Path child : stream) copyRecursively(child, destination.resolve(child.getFileName()));
             }
         } else {
             Files.copy(source, destination);
         }
     }
 
-    private static void deleteRecursively(Path path) throws IOException {
+    private static void deleteRecursively(java.nio.file.Path path) throws IOException {
         if (Files.isDirectory(path) && !Files.isSymbolicLink(path)) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
-                for (Path child : stream) deleteRecursively(child);
+            try (DirectoryStream<java.nio.file.Path> stream = Files.newDirectoryStream(path)) {
+                for (java.nio.file.Path child : stream) deleteRecursively(child);
             }
         }
         Files.deleteIfExists(path);
     }
 
-    private static void movePath(Path source, Path destination) throws IOException {
+    private static void movePath(java.nio.file.Path source, java.nio.file.Path destination) throws IOException {
         try {
             Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException ignored) {

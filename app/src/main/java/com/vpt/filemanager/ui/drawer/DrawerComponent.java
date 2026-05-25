@@ -12,7 +12,7 @@ import androidx.lifecycle.LifecycleOwner;
 import com.google.android.material.navigation.NavigationView;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.settings.UserPreferences;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.ui.pane.PaneId;
 import com.vpt.filemanager.ui.state.StateViewModel;
 
@@ -43,11 +43,11 @@ public final class DrawerComponent {
         });
         navigation.setNavigationItemSelectedListener(menu -> {
             if (menu.getItemId() == R.id.menu_storage) {
-                state.navigate(state.activePaneValue(), Location.storageRoot());
+                state.navigate(state.activePaneValue(), Path.storageRoot());
             } else if (menu.getItemId() == R.id.menu_trash) {
-                state.navigate(state.activePaneValue(), Location.trash());
+                state.navigate(state.activePaneValue(), Path.trash());
             } else if (menu.getItemId() == R.id.menu_bookmarks) {
-                state.navigate(state.activePaneValue(), Location.bookmarks());
+                state.navigate(state.activePaneValue(), Path.bookmarks());
             }
             close();
             return true;
@@ -77,7 +77,7 @@ public final class DrawerComponent {
     }
 
     private void renderSelection() {
-        Location location = state.activeState().location;
+        Path location = state.activeState().location;
         navigation.setCheckedItem(location.isTrash() ? R.id.menu_trash
                 : location.isBookmarks() ? R.id.menu_bookmarks : R.id.menu_storage);
     }

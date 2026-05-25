@@ -27,7 +27,7 @@ import me.zhanghai.android.libarchive.ArchiveEntry;
 import me.zhanghai.android.libarchive.ArchiveException;
 
 import com.vpt.filemanager.entry.Entry;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.error.ArchiveOperationException;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.error.NameConflictException;
@@ -51,7 +51,7 @@ public final class ArchiveAccess {
     }
 
     @NonNull
-    public List<Entry> list(@NonNull Location location) throws FileOperationException {
+    public List<Entry> list(@NonNull Path location) throws FileOperationException {
         requireArchive(location);
         String prefix = prefix(location);
         Map<String, ListedEntry> children = new LinkedHashMap<>();
@@ -86,7 +86,7 @@ public final class ArchiveAccess {
         List<Entry> result = new ArrayList<>(children.size());
         for (ListedEntry entry : children.values()) {
             String child = child(location.archiveInnerPath(), entry.name);
-            result.add(Entry.archive(Location.archive(location.storagePath(), child), entry.name,
+            result.add(Entry.archive(Path.archive(location.storagePath(), child), entry.name,
                     entry.folder, entry.size, entry.modifiedAt));
         }
         return result;
@@ -108,7 +108,7 @@ public final class ArchiveAccess {
         }
     }
 
-    public boolean isDirectory(@NonNull Location location) throws FileOperationException {
+    public boolean isDirectory(@NonNull Path location) throws FileOperationException {
         requireArchive(location);
         if ("/".equals(location.archiveInnerPath())) return true;
         String wanted = entryName(location.archiveInnerPath());
@@ -132,15 +132,15 @@ public final class ArchiveAccess {
         }
     }
 
-    public boolean exists(@NonNull Location directory, @NonNull String name) throws FileOperationException {
+    public boolean exists(@NonNull Path directory, @NonNull String name) throws FileOperationException {
         for (Entry child : list(directory)) {
             if (child.name().equals(name)) return true;
         }
         return false;
     }
 
-    public boolean canWrite(@NonNull Location location) {
-        if (!location.isArchiveEntry() || !ArchiveFormat.isWritable(location.storagePath())) return false;
+    public boolean canWrite(@NonNull Path location) {
+        if (!location.isInsideArchive() || !ArchiveFormat.isWritable(location.storagePath())) return false;
         long archive = 0L;
         try {
             archive = openReader(containerPath(location));
@@ -155,7 +155,7 @@ public final class ArchiveAccess {
         }
     }
 
-    public void create(@NonNull Location directory, @NonNull String name, boolean folder)
+    public void create(@NonNull Path directory, @NonNull String name, boolean folder)
             throws FileOperationException {
         requireWritable(directory);
         String pathname = entryName(child(directory.archiveInnerPath(), name));
@@ -165,13 +165,13 @@ public final class ArchiveAccess {
     }
 
     public void rename(@NonNull Entry item, @NonNull String newName) throws FileOperationException {
-        Location source = requireEntry(item);
+        Path source = requireEntry(item);
         requireWritable(source);
         String oldName = entryName(source.archiveInnerPath());
         String parent = parentInner(source.archiveInnerPath());
         String replacement = entryName(child(parent, newName));
         if (oldName.equals(replacement)) return;
-        if (exists(Location.archive(source.storagePath(), parent), newName)) {
+        if (exists(Path.archive(source.storagePath(), parent), newName)) {
             throw new NameConflictException(newName);
         }
         rewrite(containerPath(source), original -> {
@@ -185,11 +185,11 @@ public final class ArchiveAccess {
 
     public void delete(@NonNull List<Entry> selected) throws FileOperationException {
         if (selected.isEmpty()) return;
-        Location first = requireEntry(selected.get(0));
+        Path first = requireEntry(selected.get(0));
         requireWritable(first);
         List<String> removed = new ArrayList<>();
         for (Entry item : selected) {
-            Location entry = requireEntry(item);
+            Path entry = requireEntry(item);
             if (!entry.storagePath().equals(first.storagePath())) {
                 throw new ArchiveOperationException("Archive selection crosses containers");
             }
@@ -203,17 +203,17 @@ public final class ArchiveAccess {
         }, null);
     }
 
-    public void importFromStorage(@NonNull Location destination, @NonNull Entry source,
+    public void importFromStorage(@NonNull Path destination, @NonNull Entry source,
                                   @NonNull String name, boolean replace)
             throws FileOperationException {
-        if (source.localPathOrNull() == null || source.isArchiveEntry()) {
+        if (source.localPathOrNull() == null || source.isInsideArchive()) {
             throw new ArchiveOperationException("Only local items can be imported into an archive");
         }
         requireWritable(destination);
         importPath(destination, java.nio.file.Paths.get(source.localPath()), name, replace);
     }
 
-    public void importFromArchive(@NonNull Location destination, @NonNull Entry source,
+    public void importFromArchive(@NonNull Path destination, @NonNull Entry source,
                                   @NonNull String name, boolean replace)
             throws FileOperationException {
         requireWritable(destination);
@@ -232,7 +232,7 @@ public final class ArchiveAccess {
         }
     }
 
-    private void importPath(Location destination, java.nio.file.Path source, String name, boolean replace)
+    private void importPath(Path destination, java.nio.file.Path source, String name, boolean replace)
             throws FileOperationException {
         String importedRoot = entryName(child(destination.archiveInnerPath(), name));
         rewrite(containerPath(destination), original -> {
@@ -242,7 +242,7 @@ public final class ArchiveAccess {
         }, output -> appendStorage(output, source, importedRoot));
     }
 
-    public void updateFromMaterialized(@NonNull Location target, @NonNull String materialized)
+    public void updateFromMaterialized(@NonNull Path target, @NonNull String materialized)
             throws FileOperationException {
         requireWritable(target);
         String entry = entryName(target.archiveInnerPath());
@@ -253,7 +253,7 @@ public final class ArchiveAccess {
 
     public void extractToStorage(@NonNull Entry source, @NonNull String destination)
             throws FileOperationException {
-        Location entryPath = requireEntry(source);
+        Path entryPath = requireEntry(source);
         String rootName = entryName(entryPath.archiveInnerPath());
         java.nio.file.Path target = java.nio.file.Paths.get(destination);
         long archive = 0L;
@@ -296,7 +296,7 @@ public final class ArchiveAccess {
 
     @NonNull
     public String materialize(@NonNull Entry item) throws FileOperationException {
-        Location target = requireEntry(item);
+        Path target = requireEntry(item);
         if (item.isFolder()) throw new ArchiveOperationException("Cannot open an archive folder as a file");
         String wanted = entryName(target.archiveInnerPath());
         long archive = 0L;
@@ -504,27 +504,27 @@ public final class ArchiveAccess {
         }
     }
 
-    private static Location requireEntry(Entry item) throws FileOperationException {
-        if (!item.isArchiveEntry()) throw new ArchiveOperationException("Item is not an archive entry");
-        return item.location();
+    private static Path requireEntry(Entry item) throws FileOperationException {
+        if (!item.isInsideArchive()) throw new ArchiveOperationException("Item is not an archive entry");
+        return item.path();
     }
 
-    private static void requireArchive(Location path) throws FileOperationException {
-        if (!path.isArchiveEntry()) throw new ArchiveOperationException("Location is not archive content");
+    private static void requireArchive(Path path) throws FileOperationException {
+        if (!path.isInsideArchive()) throw new ArchiveOperationException("Path is not archive content");
     }
 
-    private void requireWritable(Location path) throws FileOperationException {
+    private void requireWritable(Path path) throws FileOperationException {
         requireArchive(path);
         if (!canWrite(path)) {
             throw new ArchiveOperationException("This archive format is read-only");
         }
     }
 
-    private String containerPath(Location location) {
+    private String containerPath(Path location) {
         return storage.fileAtStoragePath(location.storagePath()).getAbsolutePath();
     }
 
-    private static String prefix(Location path) {
+    private static String prefix(Path path) {
         String name = entryName(path.archiveInnerPath());
         return name.isEmpty() ? "" : name + "/";
     }

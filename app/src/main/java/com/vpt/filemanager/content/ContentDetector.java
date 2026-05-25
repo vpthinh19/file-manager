@@ -1,9 +1,8 @@
-package com.vpt.filemanager.navigation;
+package com.vpt.filemanager.content;
 
 import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.content.ContentType;
 import com.vpt.filemanager.storage.archive.ArchiveAccess;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 

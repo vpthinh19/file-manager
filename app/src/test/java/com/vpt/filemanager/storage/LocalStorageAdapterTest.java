@@ -3,7 +3,7 @@ package com.vpt.filemanager.storage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -27,7 +27,7 @@ public final class LocalStorageAdapterTest {
         File copied = new File(root, "copy.txt");
         storage.copy(renamed, copied);
         assertTrue(copied.exists());
-        assertEquals(source, storage.resolve(Location.storage("/source")));
-        assertEquals(Location.storage("/source"), storage.locationOf(source));
+        assertEquals(source, storage.resolve(Path.storage("/source")));
+        assertEquals(Path.storage("/source"), storage.pathOf(source));
     }
 }

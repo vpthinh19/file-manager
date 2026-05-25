@@ -27,7 +27,7 @@ import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.error.DocumentConflictException;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.archive.ArchiveAccess;
 import com.vpt.filemanager.ui.content.FullScreenContent;
 import com.vpt.filemanager.ui.content.OpenedContent;
@@ -64,7 +64,7 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
     private StateViewModel state;
     private String path;
     private String displayName;
-    @Nullable private Location archiveEntry;
+    @Nullable private Path archiveEntry;
     private MaterialToolbar toolbar;
     private CodeEditor editor;
     private ProgressBar progress;
@@ -109,7 +109,7 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
         path = requireArguments().getString(ARG_PATH);
         displayName = requireArguments().getString(ARG_NAME);
         String serialized = requireArguments().getString(ARG_ARCHIVE);
-        archiveEntry = serialized == null ? null : Location.parse(serialized);
+        archiveEntry = serialized == null ? null : Path.parse(serialized);
         session = documents.open(path);
         toolbar = view.findViewById(R.id.editor_toolbar);
         editor = view.findViewById(R.id.editor);

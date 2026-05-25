@@ -4,7 +4,7 @@ import androidx.annotation.Nullable;
 
 import com.vpt.filemanager.entry.Entry;
 import com.vpt.filemanager.entry.SortOption;
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -13,7 +13,7 @@ import java.util.Set;
 
 /** Immutable rendering state published for one pane component. */
 public final class PaneState {
-    public final Location location;
+    public final Path location;
     public final List<Entry> entries;
     public final Set<String> selection;
     public final SortOption sort;
@@ -25,7 +25,7 @@ public final class PaneState {
     public final int folderCount;
     public final int fileCount;
 
-    public PaneState(Location location, List<Entry> entries, Set<String> selection, SortOption sort,
+    public PaneState(Path location, List<Entry> entries, Set<String> selection, SortOption sort,
                      boolean loading, @Nullable String error, boolean selectionMode,
                      boolean canGoBack, boolean canGoForward) {
         this.location = location;

@@ -3,7 +3,7 @@ package com.vpt.filemanager.entry;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.core.path.Path;
 
 import java.util.Objects;
 
@@ -11,18 +11,18 @@ import java.util.Objects;
 public final class Entry {
     private final String key;
     private final String name;
-    private final Location location;
+    private final Path path;
     private final EntryType type;
     @Nullable private final String localPath;
     @Nullable private final String recordId;
     private final long size;
     private final long modifiedAt;
 
-    private Entry(String key, String name, Location location, EntryType type,
+    private Entry(String key, String name, Path path, EntryType type,
                   @Nullable String localPath, @Nullable String recordId, long size, long modifiedAt) {
         this.key = Objects.requireNonNull(key);
         this.name = Objects.requireNonNull(name);
-        this.location = Objects.requireNonNull(location);
+        this.path = Objects.requireNonNull(path);
         this.type = Objects.requireNonNull(type);
         this.localPath = localPath;
         this.recordId = recordId;
@@ -30,25 +30,25 @@ public final class Entry {
         this.modifiedAt = modifiedAt;
     }
 
-    public static Entry parent(Location parent) {
+    public static Entry parent(Path parent) {
         return new Entry("parent:" + parent.serialize(), "..", parent, EntryType.PARENT,
                 null, null, -1L, 0L);
     }
 
-    public static Entry local(Location target, String physicalPath, String name, boolean folder,
+    public static Entry local(Path target, String physicalPath, String name, boolean folder,
                               long size, long modifiedAt) {
         return new Entry("local:" + target.serialize(), name, target,
                 folder ? EntryType.LOCAL_FOLDER : EntryType.LOCAL_FILE, physicalPath, null,
                 size, modifiedAt);
     }
 
-    public static Entry archive(Location target, String name, boolean folder, long size, long modifiedAt) {
+    public static Entry archive(Path target, String name, boolean folder, long size, long modifiedAt) {
         return new Entry("archive:" + target.serialize(), name, target,
                 folder ? EntryType.ARCHIVE_FOLDER : EntryType.ARCHIVE_FILE,
                 null, null, size, modifiedAt);
     }
 
-    public static Entry bookmark(Location target, String physicalPath, String name,
+    public static Entry bookmark(Path target, String physicalPath, String name,
                                  long size, long modifiedAt) {
         return new Entry("bookmark:" + target.serialize(), name, target, EntryType.BOOKMARK_FOLDER,
                 physicalPath, null, size, modifiedAt);
@@ -56,18 +56,18 @@ public final class Entry {
 
     public static Entry trash(String id, String storedPath, String name, boolean folder,
                               long size, long deletedAt) {
-        return new Entry("trash:" + id, name, Location.trash(),
+        return new Entry("trash:" + id, name, Path.trash(),
                 folder ? EntryType.TRASH_FOLDER : EntryType.TRASH_FILE, storedPath, id,
                 size, deletedAt);
     }
 
     public String key() { return key; }
     public String name() { return name; }
-    public Location location() { return location; }
+    public Path path() { return path; }
     public EntryType type() { return type; }
     public boolean isParent() { return type == EntryType.PARENT; }
     public boolean isFolder() { return type.isFolder(); }
-    public boolean isArchiveEntry() { return type.isArchive(); }
+    public boolean isInsideArchive() { return type.isArchive(); }
     public boolean isTrashItem() { return type.isTrash(); }
     public long size() { return size; }
     public long modifiedAt() { return modifiedAt; }
