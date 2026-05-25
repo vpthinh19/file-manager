@@ -206,16 +206,40 @@ public final class ArchiveAccess {
     public void importFromStorage(@NonNull Location destination, @NonNull Entry source,
                                   @NonNull String name, boolean replace)
             throws FileOperationException {
-        requireWritable(destination);
         if (source.localPathOrNull() == null || source.isArchiveEntry()) {
             throw new ArchiveOperationException("Only local items can be imported into an archive");
         }
+        requireWritable(destination);
+        importPath(destination, java.nio.file.Paths.get(source.localPath()), name, replace);
+    }
+
+    public void importFromArchive(@NonNull Location destination, @NonNull Entry source,
+                                  @NonNull String name, boolean replace)
+            throws FileOperationException {
+        requireWritable(destination);
+        requireEntry(source);
+        java.nio.file.Path transferRoot = null;
+        try {
+            Files.createDirectories(extractionDirectory);
+            transferRoot = Files.createTempDirectory(extractionDirectory, "transfer-");
+            java.nio.file.Path extracted = transferRoot.resolve(safeFileName(source.name()));
+            extractToStorage(source, extracted.toString());
+            importPath(destination, extracted, name, replace);
+        } catch (IOException error) {
+            throw failure("Cannot prepare archive transfer: " + source.name(), error);
+        } finally {
+            deleteTemporaryTree(transferRoot);
+        }
+    }
+
+    private void importPath(Location destination, java.nio.file.Path source, String name, boolean replace)
+            throws FileOperationException {
         String importedRoot = entryName(child(destination.archiveInnerPath(), name));
         rewrite(containerPath(destination), original -> {
             if (replace && (original.equals(importedRoot)
                     || original.startsWith(importedRoot + "/"))) return null;
             return original;
-        }, output -> appendStorage(output, java.nio.file.Paths.get(source.localPath()), importedRoot));
+        }, output -> appendStorage(output, source, importedRoot));
     }
 
     public void updateFromMaterialized(@NonNull Location target, @NonNull String materialized)
@@ -545,6 +569,19 @@ public final class ArchiveAccess {
             throw new ArchiveOperationException("Archive contains an unsafe entry path");
         }
         return resolved;
+    }
+
+    private static void deleteTemporaryTree(java.nio.file.Path root) {
+        if (root == null) return;
+        try (java.util.stream.Stream<java.nio.file.Path> contents = Files.walk(root)) {
+            contents.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
     }
 
     private static ArchiveOperationException failure(String message, Exception cause) {

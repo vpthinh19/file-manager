@@ -69,6 +69,13 @@ public final class ArchiveAccessInstrumentedTest {
 
         archives.delete(List.of(named(archives.list(location), "renamed.txt")));
         assertFalse(archives.exists(location, "renamed.txt"));
+
+        Path secondZip = root.resolve("second.zip");
+        fixture(secondZip);
+        Location second = Location.archive("/second.zip", "/");
+        archives.importFromArchive(second, named(archives.list(location), "docs"), "copied-docs", false);
+        Entry nested = named(archives.list(Location.archive("/second.zip", "/copied-docs")), "note.txt");
+        assertEquals("note", read(Path.of(archives.materialize(nested))).trim());
     }
 
     private static Entry named(List<Entry> items, String name) {

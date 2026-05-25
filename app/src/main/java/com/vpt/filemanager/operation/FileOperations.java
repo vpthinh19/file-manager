@@ -89,9 +89,13 @@ public final class FileOperations {
             if (source.isParent()) continue;
             String name = uniqueName(destination, source.name());
             if (destination.isArchiveEntry()) {
-                if (source.isArchiveEntry()) throw new FileOperationException("Archive to archive transfer is unavailable");
-                archive.importFromStorage(destination, source, name, false);
-                if (move) local.deletePermanently(new File(source.localPath()));
+                if (source.isArchiveEntry()) {
+                    archive.importFromArchive(destination, source, name, false);
+                    if (move) archive.delete(List.of(source));
+                } else {
+                    archive.importFromStorage(destination, source, name, false);
+                    if (move) local.deletePermanently(new File(source.localPath()));
+                }
             } else if (source.isArchiveEntry()) {
                 archive.extractToStorage(source,
                         new File(local.fileAtStoragePath(destination.storagePath()), name).getAbsolutePath());

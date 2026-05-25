@@ -118,6 +118,9 @@ Search returns there rather than inferring a physical parent.
 
 `storage.archive.ArchiveAccess` is a specialized access layer for a physical archive container.
 It reads entries fresh on navigation and applies supported mutations by writing and validating a
-replacement archive before replacing the original file. RAR remains read-only. The current
-Android libarchive Java bridge is retained until an owned official-libarchive JNI bridge is
-implemented.
+replacement archive before replacing the original file. Entry transfers between mounted
+archives stage the source content in cache, then commit a validated replacement for the
+destination container. A cross-container move deletes the source in a second transaction; it
+does not yet roll back the destination if that deletion fails. RAR remains read-only. The
+current Android libarchive Java bridge is retained until an owned official-libarchive JNI bridge
+is implemented.
