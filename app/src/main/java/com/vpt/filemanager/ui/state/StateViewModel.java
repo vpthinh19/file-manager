@@ -101,14 +101,6 @@ public final class StateViewModel extends ViewModel {
         publish(pane);
     }
 
-    /** Replaces a file location with its resolved archive mount without creating a history step. */
-    public void replaceResolvedLocation(@NonNull PaneId pane, @NonNull Path target) {
-        MutablePane value = value(pane);
-        value.location = target;
-        value.resetRows();
-        publish(pane);
-    }
-
     public boolean back(@NonNull PaneId pane) {
         MutablePane value = value(pane);
         if (value.back.isEmpty()) return false;

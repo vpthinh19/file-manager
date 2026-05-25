@@ -22,7 +22,7 @@ import com.vpt.filemanager.entry.Entry;
 import com.vpt.filemanager.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.path.PathResolver;
-import com.vpt.filemanager.core.path.NavigationResult;
+import com.vpt.filemanager.handler.HandlerResult;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 import com.vpt.filemanager.ui.content.OpenedContent;
 import com.vpt.filemanager.ui.state.StateViewModel;
@@ -30,7 +30,6 @@ import com.vpt.filemanager.ui.state.StateViewModel;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 
 import javax.inject.Inject;
 
@@ -109,26 +108,29 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         if (request < 0) return;
         executors.io().execute(() -> {
             try {
-                NavigationResult result = resolver.open(location);
-                executors.main().execute(() -> applyResult(location, sort, request, result));
+                HandlerResult result = resolver.open(location);
+                executors.main().execute(() -> applyResult(sort, request, result));
             } catch (FileOperationException | RuntimeException error) {
                 executors.main().execute(() -> state.showFailure(pane(), request, error.getMessage()));
             }
         });
     }
 
-    private void applyResult(Path source, SortOption sort, long request,
-                             NavigationResult result) {
-        if (result instanceof NavigationResult.Redirect replace) {
-            state.replaceResolvedLocation(pane(), replace.target());
-        } else if (result instanceof NavigationResult.Entries directory) {
+    private void applyResult(SortOption sort, long request, HandlerResult result) {
+        if (result instanceof HandlerResult.Entries directory) {
             List<Entry> entries = new ArrayList<>(directory.entries());
             entries.sort(sort.comparator());
             state.showEntries(pane(), request, entries);
-        } else if (result instanceof NavigationResult.OpenContent content) {
+        } else if (result instanceof HandlerResult.OpenContent content) {
             state.showEntries(pane(), request, List.of());
+            Path archiveEntry = content.source().isInsideArchive() ? content.source() : null;
             state.showContent(new OpenedContent(pane(), content.source(), content.localPath(),
-                    content.displayName(), content.type(), content.readOnly(), content.archiveEntry()));
+                    content.displayName(), content.type(), content.readOnly(), archiveEntry));
+        } else if (result instanceof HandlerResult.LaunchIntent launch) {
+            state.showEntries(pane(), request, List.of());
+            state.showContent(new OpenedContent(pane(), launch.source(), launch.localPath(),
+                    new File(launch.localPath()).getName(),
+                    com.vpt.filemanager.content.ContentType.EXTERNAL, true, null));
         }
     }
 
