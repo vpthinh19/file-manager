@@ -1,7 +1,34 @@
 # Refactor Plan — file-manager
 
-> Approved by user 2026-05-25 on branch `refactor/architecture`. All naming
-> and scope decisions in this document are confirmed.
+> Approved by user on branch `refactor/architecture`. All naming and scope
+> decisions in this document are confirmed.
+
+## ⚑ STATUS (read this first)
+
+This is the **current** roadmap — not a stale doc. The old `ARCHITECTURE.md` and
+`TEST_PLAN.md` were deleted because they described the pre-refactor
+`Location`/`Redirect`/`ui` design and would mislead.
+
+| Phase | What | Commit | State |
+| --- | --- | --- | --- |
+| 0 | This plan | `6a295f1` | ✅ done |
+| 1 | `navigation/Location` → `core/path/Path` (+ method renames) | `7fa17cf` | ✅ done |
+| 2 | `Storage` interface + `StorageRegistry` + 5 impls + `StorageModule` | `0f43d7d` | ✅ done |
+| 3 | `Handler` + `HandlerRegistry` + sealed `HandlerResult` + 5 handlers | `554d12f` | ✅ done |
+| 4 | Slim `PathResolver`; delete `NavigationResult`/`Redirect`/`replaceResolvedLocation` | `12342b8` | ✅ done |
+| 5 | move `content/ContentDetector` → `core/detect/`; drop archive sniffing | — | ⏳ pending |
+| 6 | `Entry`/`EntryType` → `core/entry/`; type = PARENT/FOLDER/FILE only | — | ⏳ pending |
+| 7 | `ui/` → `component/`; `settings/`+`ui/format/` → `core/`; `FileOperations` → `Operations` | — | ⏳ pending |
+| 8 | `Operations` facade uses `StorageRegistry` polymorphically | — | ⏳ pending |
+| 9 | verify `PaneFragment`/`ContentHostComponent` on new flow (mostly done in P4) | — | ⏳ pending |
+| 10 | update tests + `assembleDebug` + `testDebugUnitTest` clean | — | ⏳ pending |
+| 11 | fix runtime so app launches (missing mipmap icon, Hilt, theme — see §12) | — | ⏳ pending |
+
+Build compiles clean (`./gradlew :app:compileDebugJavaWithJavac --no-daemon`)
+through Phase 4. Runtime is **not** yet validated. Old adapters
+(`LocalStorageAdapter`, `ArchiveAccess`, `BookmarkCollection`, `TrashCollection`,
+`FileOperations`) still exist; the new `Storage` impls wrap them. Do not push;
+the user pushes.
 
 ## 1. Why we refactor
 
