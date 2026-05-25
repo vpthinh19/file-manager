@@ -7,8 +7,5 @@ local.properties
 *.iml
 *.log
 
-docs/
 .vscode/
 .claude/
-ARCHITECTURE.md
-TEST_PLAN.md
