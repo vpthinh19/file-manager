@@ -106,6 +106,8 @@
     <string name="editor_loading">Loading</string>
     <string name="editor_editable">UTF-8</string>
     <string name="editor_saved">Saved</string>
+    <string name="editor_unsaved_message">Save changes before closing?</string>
+    <string name="editor_discard">Discard</string>
     <string name="editor_modified_title">%1$s *</string>
     <string name="editor_external_title">File changed outside editor</string>
     <string name="editor_modified_external_message">This file changed elsewhere while you have local edits. Saving is disabled to avoid overwriting those changes.</string>

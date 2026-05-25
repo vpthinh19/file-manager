@@ -20,10 +20,19 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="false">
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/fragment_container"
+    <FrameLayout
+        android:id="@+id/main_surface"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+
+        <include layout="@layout/view_browser_host" />
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/content_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+    </FrameLayout>
 
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/nav_view"

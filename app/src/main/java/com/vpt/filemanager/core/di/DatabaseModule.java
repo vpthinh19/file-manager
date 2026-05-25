@@ -12,9 +12,9 @@ import dagger.hilt.InstallIn;
 import dagger.hilt.android.qualifiers.ApplicationContext;
 import dagger.hilt.components.SingletonComponent;
 
-import com.vpt.filemanager.data.persistence.AppDatabase;
-import com.vpt.filemanager.data.persistence.dao.BookmarkDao;
-import com.vpt.filemanager.data.persistence.dao.TrashDao;
+import com.vpt.filemanager.storage.persistence.AppDatabase;
+import com.vpt.filemanager.storage.persistence.dao.BookmarkDao;
+import com.vpt.filemanager.storage.persistence.dao.TrashDao;
 
 @Module
 @InstallIn(SingletonComponent.class)
