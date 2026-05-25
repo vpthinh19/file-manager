@@ -18,13 +18,14 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.model.Entry;
-import com.vpt.filemanager.model.Location;
-import com.vpt.filemanager.state.PaneState;
-import com.vpt.filemanager.state.StateViewModel;
-import com.vpt.filemanager.storage.EntryOperations;
+import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.operation.FileOperations;
 import com.vpt.filemanager.ui.dialog.InputDialogs;
 import com.vpt.filemanager.ui.format.MimeTypes;
+import com.vpt.filemanager.ui.pane.PaneId;
+import com.vpt.filemanager.ui.pane.PaneState;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ public final class BottomBarComponent {
     private static final float DISABLED_ALPHA = 0.38f;
     private final AppCompatActivity activity;
     private final StateViewModel state;
-    private final EntryOperations operations;
+    private final FileOperations operations;
     private final AppExecutors executors;
     private final View normal;
     private final View selection;
@@ -46,7 +47,7 @@ public final class BottomBarComponent {
     private final ImageButton more;
 
     public BottomBarComponent(AppCompatActivity activity, StateViewModel state,
-                              EntryOperations operations, AppExecutors executors) {
+                              FileOperations operations, AppExecutors executors) {
         this.activity = activity;
         this.state = state;
         this.operations = operations;
@@ -79,8 +80,8 @@ public final class BottomBarComponent {
                 state.selectRange(state.activePaneValue()));
         more.setOnClickListener(view -> showSelectionActions());
         state.activePane().observe(owner, ignored -> render(state.activeState()));
-        state.pane(com.vpt.filemanager.state.PaneId.LEFT).observe(owner, ignored -> renderIfActive());
-        state.pane(com.vpt.filemanager.state.PaneId.RIGHT).observe(owner, ignored -> renderIfActive());
+        state.pane(PaneId.LEFT).observe(owner, ignored -> renderIfActive());
+        state.pane(PaneId.RIGHT).observe(owner, ignored -> renderIfActive());
     }
 
     private void renderIfActive() {
@@ -117,7 +118,7 @@ public final class BottomBarComponent {
         if (pane.location.isBookmarks()) {
             operations.removeBookmarks(selected);
             state.clearSelection(state.activePaneValue(), true);
-            state.invalidate(pane.location);
+            state.refreshVisiblePanes();
             return;
         }
         String[] labels = {
@@ -229,7 +230,7 @@ public final class BottomBarComponent {
                 operation.run();
                 executors.main().execute(() -> {
                     state.clearSelection(state.activePaneValue(), true);
-                    state.invalidate(state.activeState().location);
+                    state.refreshVisiblePanes();
                     toast(success);
                 });
             } catch (Exception error) {

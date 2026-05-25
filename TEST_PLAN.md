@@ -2,20 +2,21 @@
 
 ## Unit Tests
 
-- `model/LocationTest`: roots, mounted archive serialization and parent boundary.
-- `model/SortOptionTest`: ephemeral row ordering.
-- `storage/LocalStorageAdapterTest`: raw `java.io.File` listing and physical mutations.
+- `navigation/LocationTest`: location serialization, archive mount and root boundary.
+- `entry/SortOptionTest`: visible entry ordering.
+- `storage/LocalStorageAdapterTest`: primitive physical file mutations.
+- `ui/state/StateViewModelTest`: independent pane history and full-screen back behavior.
 - `ui/content/editor/*Test`: TextMate catalog/assets and language selection.
 
 ## Instrumentation Tests
 
-- `ui/pane/PaneInstrumentedTest`: dual-pane render, storage root boundary, search refresh and
-  rename prefill.
-- `ui/content/editor/SyntaxSetupInstrumentedTest`: packaged TextMate setup.
-- `handler/archive/ArchiveHandlerInstrumentedTest`: ZIP browse, transactional rewrite, import,
-  extract and editor-style save-back.
+- `ui/pane/PaneInstrumentedTest`: dual-pane render, root navigation boundary, search refresh,
+  rename prefill, full-screen editor opening and disabled action policy.
+- `ui/content/editor/SyntaxSetupInstrumentedTest`: packaged TextMate grammar setup.
+- `storage/archive/ArchiveAccessInstrumentedTest`: archive browse, transactional mutation,
+  extraction/import and editor save-back.
 
-## Verification
+## Verification Command
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:connectedDebugAndroidTest --no-daemon
@@ -23,6 +24,6 @@
 
 ## Deferred Capability
 
-- transferring directly between two mounted archive containers with two-container rollback;
-- replacing the currently bundled Android libarchive bridge with an owned JNI bridge to official
+- Transfer directly between two mounted archives with two-container rollback.
+- Replace the bundled Android archive bridge with an owned JNI bridge built from official
   libarchive source.

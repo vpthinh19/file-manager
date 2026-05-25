@@ -15,14 +15,14 @@ import androidx.lifecycle.LifecycleOwner;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.model.Location;
-import com.vpt.filemanager.model.SortOption;
-import com.vpt.filemanager.state.PaneState;
-import com.vpt.filemanager.state.StateViewModel;
-import com.vpt.filemanager.storage.EntryOperations;
+import com.vpt.filemanager.entry.SortOption;
+import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.operation.FileOperations;
 import com.vpt.filemanager.ui.dialog.InputDialogs;
 import com.vpt.filemanager.ui.drawer.DrawerComponent;
-import com.vpt.filemanager.ui.format.ByteSize;
+import com.vpt.filemanager.ui.pane.PaneId;
+import com.vpt.filemanager.ui.pane.PaneState;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 import java.io.File;
 
@@ -30,7 +30,7 @@ import java.io.File;
 public final class TopBarComponent {
     private final AppCompatActivity activity;
     private final StateViewModel state;
-    private final EntryOperations operations;
+    private final FileOperations operations;
     private final AppExecutors executors;
     private final DrawerComponent drawer;
     private final MaterialToolbar toolbar;
@@ -38,7 +38,7 @@ public final class TopBarComponent {
     private final TextView subtitle;
 
     public TopBarComponent(AppCompatActivity activity, StateViewModel state,
-                           EntryOperations operations, AppExecutors executors,
+                           FileOperations operations, AppExecutors executors,
                            DrawerComponent drawer) {
         this.activity = activity;
         this.state = state;
@@ -61,22 +61,22 @@ public final class TopBarComponent {
         }
         toolbar.setOnMenuItemClickListener(this::onMenu);
         state.activePane().observe(owner, ignored -> render(state.activeState()));
-        state.pane(com.vpt.filemanager.state.PaneId.LEFT).observe(owner, ignored -> refreshIfActive());
-        state.pane(com.vpt.filemanager.state.PaneId.RIGHT).observe(owner, ignored -> refreshIfActive());
+        state.pane(PaneId.LEFT).observe(owner, ignored -> refreshIfActive());
+        state.pane(PaneId.RIGHT).observe(owner, ignored -> refreshIfActive());
     }
 
     private boolean onMenu(MenuItem menu) {
         int id = menu.getItemId();
         if (id == R.id.action_refresh) {
-            state.invalidate(state.activeState().location);
+            state.refreshVisiblePanes();
         } else if (id == R.id.action_search) {
             Location scope = state.activeState().location;
-            if (scope.isArchiveEntry()) scope = Location.storage(scope.physicalPath());
+            if (scope.isArchiveEntry()) scope = Location.storage(scope.storagePath());
             if (!scope.isStorage() || scope.isArchiveEntry()) scope = Location.storageRoot();
             Location finalScope = scope;
             InputDialogs.prompt(activity, R.string.action_search, R.string.search_files_hint, "",
                     query -> state.navigate(state.activePaneValue(),
-                            Location.search(finalScope.physicalPath(), query)));
+                            Location.search(finalScope.storagePath(), query)));
         } else if (id == R.id.action_sort) {
             showSort();
         } else if (id == R.id.action_empty_trash) {
@@ -126,9 +126,6 @@ public final class TopBarComponent {
         else if (location.isSearch()) {
             subtitle.setText(activity.getString(R.string.stats_search_results,
                     pane.folderCount + pane.fileCount));
-        } else if (pane.totalBytes > 0) {
-            subtitle.setText(activity.getString(R.string.stats_with_disk, pane.folderCount,
-                    pane.fileCount, ByteSize.format(pane.freeBytes), ByteSize.format(pane.totalBytes)));
         } else subtitle.setText(activity.getString(R.string.stats_basic, pane.folderCount, pane.fileCount));
     }
 
@@ -136,7 +133,7 @@ public final class TopBarComponent {
         if (location.isTrash()) return activity.getString(R.string.action_trash);
         if (location.isBookmarks()) return activity.getString(R.string.menu_bookmarks);
         if (location.isSearch()) return activity.getString(R.string.search_title, location.query());
-        if (location.isArchiveEntry()) return new File(location.physicalPath()).getName()
+        if (location.isArchiveEntry()) return new File(location.storagePath()).getName()
                 + location.archiveInnerPath();
         String virtual = location.serialize();
         return "storage:".equals(virtual) ? activity.getString(R.string.menu_storage) : virtual;
@@ -147,7 +144,7 @@ public final class TopBarComponent {
             try {
                 task.run();
                 executors.main().execute(() -> {
-                    state.invalidate(state.activeState().location);
+                    state.refreshVisiblePanes();
                     Toast.makeText(activity, success, Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception error) {

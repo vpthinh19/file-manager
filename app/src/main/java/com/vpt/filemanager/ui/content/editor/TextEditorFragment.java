@@ -27,11 +27,11 @@ import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.error.DocumentConflictException;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.handler.archive.ArchiveHandler;
-import com.vpt.filemanager.model.Location;
-import com.vpt.filemanager.state.ContentState;
-import com.vpt.filemanager.state.StateViewModel;
+import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.storage.archive.ArchiveAccess;
 import com.vpt.filemanager.ui.content.FullScreenContent;
+import com.vpt.filemanager.ui.content.OpenedContent;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 import javax.inject.Inject;
 
@@ -59,7 +59,7 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
 
     @Inject DocumentService documents;
     @Inject AppExecutors executors;
-    @Inject ArchiveHandler archives;
+    @Inject ArchiveAccess archives;
     private DocumentSession session;
     private StateViewModel state;
     private String path;
@@ -85,7 +85,7 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
     private boolean destroyed;
     private boolean closeAfterSave;
 
-    public static TextEditorFragment newInstance(ContentState content) {
+    public static TextEditorFragment newInstance(OpenedContent content) {
         TextEditorFragment fragment = new TextEditorFragment();
         Bundle arguments = new Bundle();
         arguments.putString(ARG_PATH, content.localPath());
@@ -265,7 +265,7 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
                 executors.main().execute(() -> {
                     modified = session.isDirty(editor.getText());
                     updateActions();
-                    state.invalidate(state.activeState().location);
+                    state.refreshVisiblePanes();
                     if (closeAfterSave) close(); else toast(getString(R.string.editor_saved));
                 });
             } catch (DocumentConflictException conflict) {

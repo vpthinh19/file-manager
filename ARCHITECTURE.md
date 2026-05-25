@@ -1,29 +1,71 @@
 # File Manager Architecture
 
-## Principle
+## Core Flow
 
-The app renders two independent panes from observable locations. It does not retain a virtual
-filesystem tree. Opening an entry updates one pane location; resolving that location either
-produces a fresh list of rows or one full-screen content component.
+The application has no retained virtual filesystem tree and no central command/rule engine.
+Each pane observes shared Android UI state and opens exactly one `Location` at a time:
 
 ```text
-UI component -> StateViewModel.navigate(Location)
-PaneFragment -> EntryResolver.resolve(Location)
-EntryResolver -> handler / storage adapter
-result -> StateViewModel entries or full-screen content state
+tap an Entry
+  -> StateViewModel changes that pane Location
+  -> PaneFragment observes it
+  -> LocationResolver opens it on a worker thread
+  -> pane renders Entries or ContentHost renders an OpenedContent
 ```
 
-Components do not invoke one another. They observe and write shared state through
-`StateViewModel`. Technical backends do not hold a ViewModel reference.
+Components share state through `ui.state.StateViewModel`; they do not invoke each other.
+Storage and navigation code never holds a ViewModel.
 
-## Location Model
+## Read The Source
 
-`model/Location` is the canonical pane address:
+```text
+com.vpt.filemanager
+|-- entry/                    visible pane items and their sorting
+|-- navigation/               Location, content detection and LocationResolver.open()
+|-- operation/                user-requested file mutations across backends
+|-- settings/                 persisted UI preferences only
+|-- storage/
+|   |-- LocalStorageAdapter   direct java.io.File operations
+|   |-- archive/              archive container access and transactions
+|   |-- bookmarks/            persisted bookmark collection
+|   |-- trash/                persisted trash collection and payload moves
+|   `-- persistence/          Room schema/DAO/entity implementation
+|-- ui/
+|   |-- state/                shared LiveData StateViewModel
+|   |-- pane/                 pane state, RecyclerView and PaneFragment
+|   |-- content/              full-screen opened content and editor/media/image components
+|   |-- topbar/               active-pane toolbar behavior
+|   |-- bottombar/            browsing/selection behavior and button validity
+|   |-- drawer/               roots and theme control
+|   `-- dialog/               input prompts
+`-- core/                     DI, exceptions and executors
+```
+
+Code-reading entry points:
+
+| Question | Open |
+| --- | --- |
+| What can be shown in a list? | `entry/Entry.java`, `entry/EntryType.java` |
+| What does a path mean? | `navigation/Location.java` |
+| What happens after tapping an item? | `ui/pane/PaneFragment.java`, `navigation/LocationResolver.java` |
+| What state connects independent components? | `ui/state/StateViewModel.java` |
+| Where does physical I/O happen? | `storage/LocalStorageAdapter.java` |
+| Where are copy/delete/rename implemented? | `operation/FileOperations.java` |
+| How are archives accessed? | `storage/archive/ArchiveAccess.java` |
+| Why is an action disabled? | `ui/bottombar/BottomBarComponent.java` or `ui/topbar/TopBarComponent.java` |
+
+## Entries And Locations
+
+`Entry` is an ephemeral visible item, not a node retained in a tree. It exists only in the list
+currently rendered by a pane. `EntryType` contains both source and directory/file shape, so
+folder state is not duplicated in a separate field.
+
+`Location` is the only navigation address:
 
 ```text
 storage:
 storage:/Download
-storage:/Download/note.txt
+storage:/Download/readme.txt
 storage:/Download/files.zip!/
 storage:/Download/files.zip!/docs/readme.txt
 trash:
@@ -31,129 +73,51 @@ bookmarks:
 search:?scope=...&query=...
 ```
 
-Storage, Trash, Bookmarks and Search are pane roots or collection views. An archive is not a
-root. It is a physical file mounted below `storage:` using `!/`, and behaves as a folder when
-the archive handler successfully reads it.
+Storage, Trash, Bookmarks and Search are pane locations. Archive content is mounted beneath the
+physical archive file and is never a separate root. A `..` row is an `Entry.parent(...)` built
+from validated `Location.parent()`; no component can navigate above `storage:`, `trash:` or
+`bookmarks:`.
 
-`..` is a synthetic `Entry.parent()` pointing to a validated parent `Location`; it is never
-passed to physical storage as a path. `storage:`, `trash:` and `bookmarks:` have no parent
-row.
+## Navigation
 
-## Package Map
-
-```text
-com.vpt.filemanager
-|-- FileManagerApp.java
-|-- model/                    Location, Entry, ContentKind and SortOption
-|-- state/                    StateViewModel, pane/history state and full-screen content state
-|-- storage/
-|   |-- LocalStorageAdapter   ordinary physical filesystem adapter returning java.io.File
-|   |-- EntryOperations       guarded write operations requested by UI components
-|   |-- index/                bookmark and trash collection indexes
-|   `-- persistence/          Room database, records, DAOs and user preferences
-|-- resolver/
-|   |-- EntryResolver         resolves the current location
-|   |-- ContentProbe          content/magic-byte classification at open time
-|   `-- ResolveResult         directory/content/location-replacement results
-|-- handler/
-|   |-- FolderHandler         physical directory listing
-|   |-- Text/Image/Media/...  content strategies
-|   `-- archive/              libarchive container handling and rewrite transactions
-|-- ui/
-|   |-- main/                 Android Activity host only
-|   |-- pane/                 pane fragment, RecyclerView and row icons
-|   |-- topbar/               toolbar and overflow behavior
-|   |-- bottombar/            normal/selection/trash/bookmark control modes
-|   |-- drawer/               root navigation and theme toggle
-|   |-- dialog/               input surfaces owned by commands
-|   `-- content/              full-screen image, media and editor components
-`-- core/                     DI, errors and executors
-```
-
-## State And Components
-
-`StateViewModel` holds observable state only:
-
-- active pane;
-- each pane's `Location`, rows, selection, sort option and back/forward history;
-- currently resolved full-screen content;
-- refresh invalidation sequence.
-
-It does not access files, call libarchive, open Android intents or decide button availability.
-
-Each component owns the logic visible in that component:
-
-- `PaneFragment` resolves and renders its own location, writes selection/navigation, and watches
-  its visible physical directory for outside changes.
-- `TopBarComponent` renders the active title/stats and owns refresh, search, sort and empty-trash.
-- `BottomBarComponent` swaps normal and selection controls, computes enabled states from the
-  active/inactive pane, and requests mutations.
-- `DrawerComponent` changes the active pane root and owns theme toggle UI.
-- `ContentHostComponent` hides the browser surface and installs one full-screen content fragment.
-
-Internal mutations call `StateViewModel.invalidate(...)`. External physical changes are detected
-by the watcher in each visible pane. If two panes show the same folder, both observe invalidation
-and independently reload it.
-
-## Storage And Resolution
-
-`LocalStorageAdapter` is the only ordinary filesystem gateway. It resolves physical storage
-locations to `java.io.File`, lists raw children, and performs direct create/copy/move/delete/read/
-write operations. It does not know entries, panes, viewers or archives.
-
-`EntryResolver` interprets a location:
+`LocationResolver` is the complete read/open route:
 
 ```text
-physical directory -> FolderHandler -> List<Entry>
-physical file      -> ContentProbe -> appropriate content handler
-archive file       -> ArchiveHandler -> mount storage:...!/
-mounted archive dir -> ArchiveHandler -> List<Entry>
-mounted archive file -> materialize cache file -> content handler
-trash/bookmarks/search -> corresponding collection/index query -> List<Entry>
+storage directory       -> raw File children -> List<Entry>
+storage file            -> ContentDetector -> OpenedContent or archive mount redirect
+mounted archive folder  -> ArchiveAccess.list() -> List<Entry>
+mounted archive file    -> ArchiveAccess materializes cache file -> OpenedContent
+bookmarks / trash       -> their collection backend -> List<Entry>
+search                  -> raw storage scan -> List<Entry>
 ```
 
-`ContentProbe` runs when a file is opened, not while each RecyclerView row is rendered. Archive
-acceptance is performed by libarchive format bidding over file content. Image/audio/video/text
-are recognized from content signatures or a conservative text heuristic. Extension is a display
-hint and an explicit external-document preference for compound formats such as DOCX/XLSX/PPTX,
-not proof that arbitrary bytes are an archive.
+`ContentDetector` examines content on open, rather than relying on a filename extension or
+probing every row while scrolling. Known ZIP-based document formats are left to external apps
+instead of being mounted as folders.
 
-## Archive Handling
+## Mutation And Action Validity
 
-`handler/archive/ArchiveHandler` receives a physical container file plus an inner path. It reads
-fresh entries on each resolution and never retains an archive tree. For writable formats it
-applies create/rename/delete/import/editor-save operations to a temporary replacement container,
-validates it, and atomically replaces the physical original when possible.
+`operation.FileOperations` contains the cross-backend writes required by user commands:
+create, rename, delete, restore, bookmark, transfer and materialization for sharing/open-with.
+It delegates physical writes to `LocalStorageAdapter`, archive transactions to `ArchiveAccess`,
+and collection changes to bookmark/trash storage.
 
-RAR and formats without a configured safe writer remain read-only. A file inside an archive is
-materialized to cache for editor/image/media viewing; a successful text save writes back through
-the archive transaction immediately.
+The UI component displaying an action owns its validity policy. For example,
+`BottomBarComponent` disables bookmark for files and copy/move when the inactive pane cannot be
+a destination. Backends still reject invalid or unsafe writes so a stale UI state cannot damage
+data.
 
-## Full-Screen Content And Back
+## Full-Screen Content
 
-Text, image, audio and video are fragments rendered in `content_container` inside
-`MainActivity`. The two pane states remain alive but are hidden while content is visible.
-The viewer/editor has its own toolbar; browser controls and drawer are hidden or locked.
+Text, image, video and audio content replaces the browser surface inside `MainActivity`; the two
+pane states remain alive in `StateViewModel`. `OpenedContent` describes the currently visible
+full-screen file. Back returns through the originating pane history, so opening from Bookmarks or
+Search returns there rather than inferring a physical parent.
 
-Back follows interaction history, not physical parent inference:
+## Archive Boundary
 
-```text
-bookmarks: -> storage:/Documents/report.txt -> Back -> bookmarks:
-search:... -> storage:/Download/note.txt     -> Back -> search:...
-```
-
-For an edited document, Back first requests save or discard. Otherwise full-screen Back restores
-the active pane's preceding location. In browser mode Back closes selection/history before
-finishing the activity.
-
-## Read The Code
-
-| Task | Start at |
-| --- | --- |
-| Understand a pane address | `model/Location.java` |
-| Understand shared UI state | `state/StateViewModel.java` |
-| Trace tapping/opening an item | `ui/pane/PaneFragment.java`, then `resolver/EntryResolver.java` |
-| Trace physical file I/O | `storage/LocalStorageAdapter.java` |
-| Trace copy/delete/bookmark actions | `ui/bottombar/BottomBarComponent.java`, then `storage/EntryOperations.java` |
-| Trace archive behavior | `handler/archive/ArchiveHandler.java` |
-| Trace editor/viewer rendering | `ui/content/ContentHostComponent.java` |
+`storage.archive.ArchiveAccess` is a specialized access layer for a physical archive container.
+It reads entries fresh on navigation and applies supported mutations by writing and validating a
+replacement archive before replacing the original file. RAR remains read-only. The current
+Android libarchive Java bridge is retained until an owned official-libarchive JNI bridge is
+implemented.

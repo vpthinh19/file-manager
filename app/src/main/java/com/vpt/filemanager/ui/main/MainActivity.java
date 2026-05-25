@@ -20,14 +20,14 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.storage.persistence.UserPreferences;
-import com.vpt.filemanager.state.PaneId;
-import com.vpt.filemanager.state.StateViewModel;
-import com.vpt.filemanager.storage.EntryOperations;
+import com.vpt.filemanager.operation.FileOperations;
+import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.ui.bottombar.BottomBarComponent;
 import com.vpt.filemanager.ui.content.ContentHostComponent;
 import com.vpt.filemanager.ui.drawer.DrawerComponent;
+import com.vpt.filemanager.ui.pane.PaneId;
 import com.vpt.filemanager.ui.pane.PaneFragment;
+import com.vpt.filemanager.ui.state.StateViewModel;
 import com.vpt.filemanager.ui.topbar.TopBarComponent;
 
 import javax.inject.Inject;
@@ -38,7 +38,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public final class MainActivity extends AppCompatActivity {
     @Inject UserPreferences preferences;
-    @Inject EntryOperations operations;
+    @Inject FileOperations operations;
     @Inject AppExecutors executors;
     private StateViewModel state;
     private DrawerComponent drawer;

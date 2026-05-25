@@ -18,14 +18,14 @@ import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
-import com.vpt.filemanager.model.Entry;
-import com.vpt.filemanager.model.Location;
-import com.vpt.filemanager.resolver.EntryResolver;
-import com.vpt.filemanager.resolver.ResolveResult;
-import com.vpt.filemanager.state.ContentState;
-import com.vpt.filemanager.state.PaneId;
-import com.vpt.filemanager.state.PaneState;
-import com.vpt.filemanager.state.StateViewModel;
+import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.entry.SortOption;
+import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.navigation.LocationResolver;
+import com.vpt.filemanager.navigation.NavigationResult;
+import com.vpt.filemanager.storage.LocalStorageAdapter;
+import com.vpt.filemanager.ui.content.OpenedContent;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -44,8 +44,9 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             | FileObserver.MOVED_FROM | FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE
             | FileObserver.DELETE_SELF | FileObserver.MOVE_SELF;
 
-    @Inject EntryResolver resolver;
+    @Inject LocationResolver resolver;
     @Inject AppExecutors executors;
+    @Inject LocalStorageAdapter storage;
     private StateViewModel state;
     private FragmentPaneBinding binding;
     private EntryAdapter adapter;
@@ -95,20 +96,20 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         });
         state.activePane().observe(getViewLifecycleOwner(), ignored ->
                 binding.paneRoot.setActivated(state.activePaneValue() == pane()));
-        state.invalidation().observe(getViewLifecycleOwner(), ignored -> {
+        state.visibleRefresh().observe(getViewLifecycleOwner(), ignored -> {
             PaneState current = state.current(pane());
             load(current.location, current.sort);
         });
     }
 
-    private void load(Location location, com.vpt.filemanager.model.SortOption sort) {
+    private void load(Location location, SortOption sort) {
         requested = location;
         installObserver(location);
         long request = state.beginLoading(pane(), location);
         if (request < 0) return;
         executors.io().execute(() -> {
             try {
-                ResolveResult result = resolver.resolve(location);
+                NavigationResult result = resolver.open(location);
                 executors.main().execute(() -> applyResult(location, sort, request, result));
             } catch (FileOperationException | RuntimeException error) {
                 executors.main().execute(() -> state.showFailure(pane(), request, error.getMessage()));
@@ -116,18 +117,18 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         });
     }
 
-    private void applyResult(Location source, com.vpt.filemanager.model.SortOption sort, long request,
-                             ResolveResult result) {
-        if (result instanceof ResolveResult.ReplaceLocation replace) {
+    private void applyResult(Location source, SortOption sort, long request,
+                             NavigationResult result) {
+        if (result instanceof NavigationResult.Redirect replace) {
             state.replaceResolvedLocation(pane(), replace.target());
-        } else if (result instanceof ResolveResult.Directory directory) {
+        } else if (result instanceof NavigationResult.Entries directory) {
             List<Entry> entries = new ArrayList<>(directory.entries());
             entries.sort(sort.comparator());
             state.showEntries(pane(), request, entries);
-        } else if (result instanceof ResolveResult.Content content) {
+        } else if (result instanceof NavigationResult.OpenContent content) {
             state.showEntries(pane(), request, List.of());
-            state.showContent(new ContentState(pane(), content.source(), content.localPath(),
-                    content.displayName(), content.kind(), content.readOnly(), content.archiveEntry()));
+            state.showContent(new OpenedContent(pane(), content.source(), content.localPath(),
+                    content.displayName(), content.type(), content.readOnly(), content.archiveEntry()));
         }
     }
 
@@ -151,10 +152,11 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     private void installObserver(Location location) {
         if (observer != null) observer.stopWatching();
         File watched = null;
-        if (location.isSearch()) watched = new File(location.physicalPath());
-        else if (location.isArchiveEntry()) watched = new File(location.physicalPath()).getParentFile();
+        if (location.isSearch()) watched = storage.fileAtStoragePath(location.storagePath());
+        else if (location.isArchiveEntry()) watched =
+                storage.fileAtStoragePath(location.storagePath()).getParentFile();
         else if (location.isStorage()) {
-            File current = new File(location.physicalPath());
+            File current = storage.fileAtStoragePath(location.storagePath());
             watched = current.isDirectory() ? current : current.getParentFile();
         }
         if (watched == null || !watched.isDirectory()) {
@@ -163,7 +165,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         }
         observer = new FileObserver(watched, WATCH_EVENTS) {
             @Override public void onEvent(int event, @Nullable String name) {
-                executors.main().execute(() -> state.invalidate(location));
+                executors.main().execute(state::refreshVisiblePanes);
             }
         };
         observer.startWatching();

@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.model.Entry;
+import com.vpt.filemanager.entry.Entry;
 
 public final class EntryAdapter extends ListAdapter<Entry, EntryViewHolder> {
     private static final Object SELECTION_PAYLOAD = new Object();

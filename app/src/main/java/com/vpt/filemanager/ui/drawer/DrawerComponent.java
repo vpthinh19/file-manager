@@ -11,9 +11,10 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.google.android.material.navigation.NavigationView;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.storage.persistence.UserPreferences;
-import com.vpt.filemanager.model.Location;
-import com.vpt.filemanager.state.StateViewModel;
+import com.vpt.filemanager.settings.UserPreferences;
+import com.vpt.filemanager.navigation.Location;
+import com.vpt.filemanager.ui.pane.PaneId;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 /** Owns drawer UI and writes root navigation into whichever pane is active. */
 public final class DrawerComponent {
@@ -52,8 +53,8 @@ public final class DrawerComponent {
             return true;
         });
         state.activePane().observe(owner, ignored -> renderSelection());
-        state.pane(com.vpt.filemanager.state.PaneId.LEFT).observe(owner, ignored -> renderSelection());
-        state.pane(com.vpt.filemanager.state.PaneId.RIGHT).observe(owner, ignored -> renderSelection());
+        state.pane(PaneId.LEFT).observe(owner, ignored -> renderSelection());
+        state.pane(PaneId.RIGHT).observe(owner, ignored -> renderSelection());
     }
 
     public void open() {

@@ -9,16 +9,14 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.model.ContentKind;
-import com.vpt.filemanager.state.ContentState;
-import com.vpt.filemanager.state.StateViewModel;
+import com.vpt.filemanager.content.ContentType;
 import com.vpt.filemanager.ui.drawer.DrawerComponent;
 import com.vpt.filemanager.ui.format.MimeTypes;
 import com.vpt.filemanager.ui.content.editor.TextEditorFragment;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 import java.io.File;
 
@@ -30,7 +28,7 @@ public final class ContentHostComponent {
     private final DrawerComponent drawer;
     private final View browser;
     private final View host;
-    private ContentState shown;
+    private OpenedContent shown;
 
     public ContentHostComponent(AppCompatActivity activity, StateViewModel state, DrawerComponent drawer) {
         this.activity = activity;
@@ -49,7 +47,7 @@ public final class ContentHostComponent {
         return fragment instanceof FullScreenContent content && content.onBackPressed();
     }
 
-    private void render(ContentState content) {
+    private void render(OpenedContent content) {
         if (content == null) {
             shown = null;
             host.setVisibility(View.GONE);
@@ -60,7 +58,7 @@ public final class ContentHostComponent {
                     .remove(present).commitAllowingStateLoss();
             return;
         }
-        if (content.kind() == ContentKind.EXTERNAL) {
+        if (content.type() == ContentType.EXTERNAL) {
             openExternal(content);
             state.back(content.pane());
             return;
@@ -70,7 +68,7 @@ public final class ContentHostComponent {
         browser.setVisibility(View.GONE);
         host.setVisibility(View.VISIBLE);
         drawer.setLocked(true);
-        Fragment fragment = switch (content.kind()) {
+        Fragment fragment = switch (content.type()) {
             case TEXT -> TextEditorFragment.newInstance(content);
             case IMAGE -> ImageContentFragment.newInstance(content.localPath());
             case AUDIO -> MediaContentFragment.newInstance(content.localPath(), false);
@@ -81,7 +79,7 @@ public final class ContentHostComponent {
                 .replace(R.id.content_container, fragment, TAG).commit();
     }
 
-    private void openExternal(ContentState content) {
+    private void openExternal(OpenedContent content) {
         try {
             Uri uri = FileProvider.getUriForFile(activity,
                     activity.getPackageName() + ".fileprovider", new File(content.localPath()));

@@ -1,9 +1,11 @@
 package com.vpt.filemanager.storage;
 
+import android.os.Environment;
+
 import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.model.Location;
+import com.vpt.filemanager.navigation.Location;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,8 +25,16 @@ import javax.inject.Singleton;
 /** The only adapter performing ordinary physical filesystem reads and mutations. */
 @Singleton
 public final class LocalStorageAdapter {
+    private final File root;
+
     @Inject
     public LocalStorageAdapter() {
+        this(Environment.getExternalStorageDirectory());
+    }
+
+    /** Alternate root used by host-side tests. */
+    public LocalStorageAdapter(@NonNull File root) {
+        this.root = root;
     }
 
     @NonNull
@@ -32,9 +42,32 @@ public final class LocalStorageAdapter {
         if (!location.isStorage() || location.isArchiveEntry()) {
             throw new FileOperationException("Location does not identify one physical file");
         }
-        File file = new File(location.physicalPath());
+        File file = fileAtStoragePath(location.storagePath());
         if (!file.exists()) throw new FileOperationException("Path not found: " + file);
         return file;
+    }
+
+    /** Maps a virtual path from a storage/search/archive location to its raw physical file. */
+    @NonNull
+    public File fileAtStoragePath(@NonNull String virtualPath) {
+        return virtualPath.isEmpty() ? root : new File(root, virtualPath.substring(1));
+    }
+
+    /** Maps a physical child read by this adapter back to its virtual pane location. */
+    @NonNull
+    public Location locationOf(@NonNull File file) throws FileOperationException {
+        String base = root.getAbsolutePath().replace('\\', '/');
+        String target = file.getAbsolutePath().replace('\\', '/');
+        if (target.equals(base)) return Location.storageRoot();
+        if (!target.startsWith(base + "/")) {
+            throw new FileOperationException("File is outside storage: " + file);
+        }
+        return Location.storage(target.substring(base.length()));
+    }
+
+    @NonNull
+    public File rootDirectory() {
+        return root;
     }
 
     @NonNull

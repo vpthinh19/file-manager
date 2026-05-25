@@ -16,7 +16,7 @@ import androidx.media3.ui.PlayerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.state.StateViewModel;
+import com.vpt.filemanager.ui.state.StateViewModel;
 
 import java.io.File;
 
