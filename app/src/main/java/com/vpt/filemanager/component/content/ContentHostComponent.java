@@ -13,7 +13,7 @@ import androidx.lifecycle.LifecycleOwner;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.component.drawer.DrawerComponent;
-import com.vpt.filemanager.core.format.MimeTypes;
+import com.vpt.filemanager.core.format.MimeType;
 import com.vpt.filemanager.component.content.editor.TextEditorFragment;
 import com.vpt.filemanager.state.StateViewModel;
 
@@ -120,7 +120,7 @@ public final class ContentHostComponent {
     private void openExternal(OpenedContent content) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(Uri.parse(content.contentUri()), MimeTypes.detect(content.displayName()))
+                    .setDataAndType(Uri.parse(content.contentUri()), MimeType.detect(content.displayName()))
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(intent, activity.getString(R.string.action_open_with)));
         } catch (ActivityNotFoundException | IllegalArgumentException error) {

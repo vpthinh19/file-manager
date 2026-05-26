@@ -4,11 +4,13 @@ import android.content.Context;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.FileProvider;
 
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.error.NameConflictException;
+import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.handler.OpenResult;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
@@ -50,15 +52,19 @@ public final class StorageFacade {
 
     @NonNull
     public OpenResult open(@NonNull Path path) throws FileOperationException {
-        return open(path, OpenMode.DEFAULT);
+        return open(path, null);
     }
 
-    /** Routes the path to its backend, then lets the resolved {@link com.vpt.filemanager.handler.Handler} open it. */
+    /**
+     * Routes the path to its backend, then lets the resolved
+     * {@link com.vpt.filemanager.handler.Handler} open it. A non-null {@code as} forces the type
+     * ("open as"); null resolves by extension.
+     */
     @NonNull
-    public OpenResult open(@NonNull Path path, @NonNull OpenMode mode)
+    public OpenResult open(@NonNull Path path, @Nullable ExtensionRegistry.Type as)
             throws FileOperationException {
         Storage storage = registry.storageFor(path);
-        return resolver.resolve(path, storage, mode).open(path, storage);
+        return resolver.resolve(path, storage, as).open(path, storage);
     }
 
     @NonNull

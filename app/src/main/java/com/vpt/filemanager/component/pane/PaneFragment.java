@@ -21,12 +21,11 @@ import com.vpt.filemanager.state.StateViewModel;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.format.ContentType;
+import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.app.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
 import com.vpt.filemanager.handler.OpenResult;
-import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
-import com.vpt.filemanager.storage.facade.OpenMode;
 import com.vpt.filemanager.storage.facade.StorageFacade;
 
 import java.util.ArrayList;
@@ -46,7 +45,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     private StateViewModel state;
     private FragmentPaneBinding binding;
     private EntryAdapter adapter;
-    @Nullable private InvalidationSubscription subscription;
+    @Nullable private PaneWatcher watcher;
     @Nullable private Path requested;
     @Nullable private Path fileBeingOpened;
     private boolean inFlight;
@@ -79,6 +78,10 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         binding = FragmentPaneBinding.bind(view);
         state = new ViewModelProvider(requireActivity()).get(StateViewModel.class);
+        watcher = new PaneWatcher(facade, () -> {
+            PaneState current = state.current(pane());
+            requestLoad(current.location, current.sort, null);
+        });
         adapter = new EntryAdapter(this);
         binding.rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.rv.setAdapter(adapter);
@@ -100,30 +103,30 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             }
             adapter.submitList(value.entries, () -> restoreScroll(value));
             adapter.setSelection(value.selection);
-            if (!value.location.equals(requested)) requestLoad(value.location, value.sort, OpenMode.DEFAULT);
+            if (!value.location.equals(requested)) requestLoad(value.location, value.sort, null);
         });
         state.activePane().observe(getViewLifecycleOwner(), ignored ->
                 binding.paneRoot.setActivated(state.activePaneValue() == pane()));
         state.visibleRefresh().observe(getViewLifecycleOwner(), ignored -> {
             PaneState current = state.current(pane());
-            requestLoad(current.location, current.sort, OpenMode.DEFAULT);
+            requestLoad(current.location, current.sort, null);
         });
     }
 
-    private void requestLoad(Path location, SortOption sort, OpenMode mode) {
+    private void requestLoad(Path location, SortOption sort, @Nullable ExtensionRegistry.Type as) {
         if (inFlight) {
             pendingReload = true;
             pendingLocation = location;
             pendingSort = sort;
             return;
         }
-        load(location, sort, mode);
+        load(location, sort, as);
     }
 
-    private void load(Path location, SortOption sort, OpenMode mode) {
+    private void load(Path location, SortOption sort, @Nullable ExtensionRegistry.Type as) {
         inFlight = true;
         requested = location;
-        installObserver(location);
+        watcher.watch(location);
         long request = state.beginLoading(pane(), location);
         if (request < 0) {
             completeLoad();
@@ -131,7 +134,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         }
         executors.io().execute(() -> {
             try {
-                OpenResult result = sorted(facade.open(location, mode), sort);
+                OpenResult result = sorted(facade.open(location, as), sort);
                 executors.main().execute(() -> applyResult(location, request, result));
             } catch (Exception error) {
                 executors.main().execute(() -> applyFailure(location, request, error));
@@ -151,7 +154,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     private void applyResult(Path source, long request, OpenResult result) {
         if (result instanceof OpenResult.Directory directory) {
             requested = directory.canonicalPath();
-            installObserver(directory.canonicalPath());
+            watcher.watch(directory.canonicalPath());
             fileBeingOpened = null;
             state.showDirectory(pane(), request, directory.canonicalPath(), directory.entries(),
                     directory.capabilities());
@@ -200,7 +203,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         SortOption sort = pendingSort;
         pendingLocation = null;
         pendingSort = null;
-        if (location != null && sort != null) requestLoad(location, sort, OpenMode.DEFAULT);
+        if (location != null && sort != null) requestLoad(location, sort, null);
     }
 
     @Override
@@ -219,19 +222,6 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     public void onFileLongClicked(@NonNull Entry entry) {
         state.activate(pane());
         state.toggleSelection(pane(), entry);
-    }
-
-    private void installObserver(Path location) {
-        if (subscription != null) subscription.close();
-        subscription = null;
-        try {
-            subscription = facade.observe(location, () -> {
-                PaneState current = state.current(pane());
-                requestLoad(current.location, current.sort, OpenMode.DEFAULT);
-            });
-        } catch (Exception ignored) {
-            // Listing reports actionable errors; observation is optional.
-        }
     }
 
     private static String fileName(Path path) {
@@ -258,8 +248,8 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
 
     @Override
     public void onDestroyView() {
-        if (subscription != null) subscription.close();
-        subscription = null;
+        if (watcher != null) watcher.close();
+        watcher = null;
         binding = null;
         super.onDestroyView();
     }

@@ -1,6 +1,7 @@
 package com.vpt.filemanager.storage.facade;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.format.ExtensionRegistry;
@@ -15,9 +16,10 @@ import javax.inject.Singleton;
 /**
  * The brain of navigation: it decides which {@link Handler} opens a pane's {@link Path}. A
  * container resolves to the folder handler; otherwise the path is classified by extension (the
- * file may live on the device, inside an archive, or inside a nested archive) — or by an explicit
- * {@code OpenMode} chosen from "open as". It performs no I/O: the name needed for classification
- * is read straight from the path, so nothing is extracted to cache here.
+ * file may live on the device, inside an archive, or inside a nested archive). Passing a non-null
+ * {@code forced} type is the "open as" override that bypasses extension classification. It
+ * performs no I/O: the name needed for classification is read straight from the path, so nothing
+ * is extracted to cache here.
  */
 @Singleton
 public final class PathResolver {
@@ -31,11 +33,11 @@ public final class PathResolver {
     }
 
     @NonNull
-    public Handler resolve(@NonNull Path path, @NonNull Storage storage, @NonNull OpenMode mode)
-            throws FileOperationException {
+    public Handler resolve(@NonNull Path path, @NonNull Storage storage,
+                           @Nullable ExtensionRegistry.Type forced) throws FileOperationException {
         ExtensionRegistry.Type type;
-        if (mode != OpenMode.DEFAULT) {
-            type = explicit(mode);
+        if (forced != null) {
+            type = forced;
         } else if (storage.isContainer(path)) {
             type = ExtensionRegistry.Type.FOLDER;
         } else {
@@ -49,16 +51,5 @@ public final class PathResolver {
         String raw = path.isInsideArchive() ? path.archiveInnerPath() : path.storagePath();
         int slash = raw.lastIndexOf('/');
         return slash < 0 ? raw : raw.substring(slash + 1);
-    }
-
-    private static ExtensionRegistry.Type explicit(OpenMode mode) {
-        return switch (mode) {
-            case TEXT -> ExtensionRegistry.Type.TEXT;
-            case IMAGE -> ExtensionRegistry.Type.IMAGE;
-            case AUDIO -> ExtensionRegistry.Type.AUDIO;
-            case VIDEO -> ExtensionRegistry.Type.VIDEO;
-            case ARCHIVE -> ExtensionRegistry.Type.ARCHIVE;
-            case DEFAULT -> throw new IllegalStateException("DEFAULT mode is implicit");
-        };
     }
 }

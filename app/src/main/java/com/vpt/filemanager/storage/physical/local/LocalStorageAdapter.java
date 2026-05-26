@@ -2,12 +2,8 @@ package com.vpt.filemanager.storage.physical.local;
 
 import android.content.Context;
 import android.os.Environment;
-import android.os.FileObserver;
-import android.os.Handler;
-import android.os.Looper;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.path.Path;
@@ -22,11 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -36,15 +28,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
 /** The only adapter performing ordinary physical filesystem reads and mutations. */
 @Singleton
 public final class LocalStorageAdapter {
-    private static final int WATCH_EVENTS = FileObserver.CREATE | FileObserver.DELETE
-            | FileObserver.MOVED_FROM | FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE
-            | FileObserver.DELETE_SELF | FileObserver.MOVE_SELF;
-    private static final long INVALIDATION_DEBOUNCE_MILLIS = 350L;
-
     private final File root;
     private final File workRoot;
-    @Nullable private Handler main;
-    private final Map<String, WatchGroup> watchers = new HashMap<>();
+    private final DirectoryWatcher watcher = new DirectoryWatcher();
 
     @Inject
     public LocalStorageAdapter(@ApplicationContext Context context) {
@@ -318,64 +304,14 @@ public final class LocalStorageAdapter {
     }
 
     /**
-     * Shares one debounced physical watcher for every directory observed by one or more virtual
-     * locations. This prevents dual panes showing the same folder from multiplying refresh work.
+     * Watches a device directory for change, delegating to a shared {@link DirectoryWatcher} so
+     * dual panes on the same folder don't multiply refresh work.
      */
     @NonNull
     public InvalidationSubscription observeDirectory(@NonNull File directory,
-                                                      @NonNull Runnable invalidated)
+                                                     @NonNull Runnable invalidated)
             throws FileOperationException {
-        if (!directory.isDirectory()) throw new FileOperationException("Not a directory: " + directory);
-        String key = directory.getAbsolutePath();
-        synchronized (watchers) {
-            WatchGroup group = watchers.get(key);
-            if (group == null) {
-                group = new WatchGroup(directory);
-                watchers.put(key, group);
-                group.observer.startWatching();
-            }
-            group.callbacks.add(invalidated);
-        }
-        return () -> removeObserver(key, invalidated);
-    }
-
-    private void removeObserver(String key, Runnable callback) {
-        synchronized (watchers) {
-            WatchGroup group = watchers.get(key);
-            if (group == null) return;
-            group.callbacks.remove(callback);
-            if (!group.callbacks.isEmpty()) return;
-            group.observer.stopWatching();
-            mainHandler().removeCallbacks(group.dispatch);
-            watchers.remove(key);
-        }
-    }
-
-    private final class WatchGroup {
-        private final Set<Runnable> callbacks = new LinkedHashSet<>();
-        private final Runnable dispatch = () -> {
-            List<Runnable> snapshot;
-            synchronized (watchers) {
-                snapshot = new ArrayList<>(callbacks);
-            }
-            for (Runnable callback : snapshot) callback.run();
-        };
-        private final FileObserver observer;
-
-        WatchGroup(File directory) {
-            observer = new FileObserver(directory, WATCH_EVENTS) {
-                @Override
-                public void onEvent(int event, @Nullable String name) {
-                    mainHandler().removeCallbacks(dispatch);
-                    mainHandler().postDelayed(dispatch, INVALIDATION_DEBOUNCE_MILLIS);
-                }
-            };
-        }
-    }
-
-    private Handler mainHandler() {
-        if (main == null) main = new Handler(Looper.getMainLooper());
-        return main;
+        return watcher.watch(directory, invalidated);
     }
 
     private static File child(File parent, String name) throws FileOperationException {

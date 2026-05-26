@@ -4,7 +4,7 @@ import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.format.ExtensionRegistry;
-import com.vpt.filemanager.core.format.MimeTypes;
+import com.vpt.filemanager.core.format.MimeType;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.virtual.Storage;
 
@@ -35,6 +35,6 @@ public final class OtherHandler implements Handler {
             throws FileOperationException {
         File file = storage.materialize(path);
         return new OpenResult.LaunchIntent(path, file.getAbsolutePath(),
-                MimeTypes.detect(file.getName()));
+                MimeType.detect(file.getName()));
     }
 }

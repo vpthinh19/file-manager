@@ -2,6 +2,8 @@ package com.vpt.filemanager.storage.facade;
 
 import static org.junit.Assert.assertEquals;
 
+import androidx.annotation.Nullable;
+
 import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.handler.ArchiveHandler;
@@ -38,45 +40,46 @@ public final class PathResolverTest {
         return storage;
     }
 
-    private static ExtensionRegistry.Type resolved(Path path, Storage storage, OpenMode mode)
+    private static ExtensionRegistry.Type resolved(Path path, Storage storage,
+                                                   @Nullable ExtensionRegistry.Type forced)
             throws Exception {
-        return resolver().resolve(path, storage, mode).type();
+        return resolver().resolve(path, storage, forced).type();
     }
 
     @Test
     public void containerResolvesToFolderHandler() throws Exception {
         assertEquals(ExtensionRegistry.Type.FOLDER,
-                resolved(Path.storage("/docs"), device(true), OpenMode.DEFAULT));
+                resolved(Path.storage("/docs"), device(true), null));
     }
 
     @Test
     public void recognisedExtensionResolvesToContentHandler() throws Exception {
         assertEquals(ExtensionRegistry.Type.TEXT,
-                resolved(Path.storage("/docs/a.txt"), device(false), OpenMode.DEFAULT));
+                resolved(Path.storage("/docs/a.txt"), device(false), null));
     }
 
     @Test
     public void archiveExtensionResolvesToArchiveHandler() throws Exception {
         assertEquals(ExtensionRegistry.Type.ARCHIVE,
-                resolved(Path.storage("/bundle.zip"), device(false), OpenMode.DEFAULT));
+                resolved(Path.storage("/bundle.zip"), device(false), null));
     }
 
     @Test
     public void unknownExtensionResolvesToOpenAsHandler() throws Exception {
         assertEquals(ExtensionRegistry.Type.OPEN_AS,
-                resolved(Path.storage("/docs/README"), device(false), OpenMode.DEFAULT));
+                resolved(Path.storage("/docs/README"), device(false), null));
     }
 
     @Test
     public void entryInsideArchiveIsClassifiedByItsInnerName() throws Exception {
         FakeStorage archive = new FakeStorage(Path::isInsideArchive);
         assertEquals(ExtensionRegistry.Type.TEXT,
-                resolved(Path.archive("/bundle.zip", "/notes.txt"), archive, OpenMode.DEFAULT));
+                resolved(Path.archive("/bundle.zip", "/notes.txt"), archive, null));
     }
 
     @Test
     public void explicitModeOverridesExtension() throws Exception {
         assertEquals(ExtensionRegistry.Type.IMAGE,
-                resolved(Path.storage("/docs/a.txt"), device(false), OpenMode.IMAGE));
+                resolved(Path.storage("/docs/a.txt"), device(false), ExtensionRegistry.Type.IMAGE));
     }
 }

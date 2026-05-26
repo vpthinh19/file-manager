@@ -24,7 +24,7 @@ import com.vpt.filemanager.component.dialog.InputDialogComponent;
 import com.vpt.filemanager.component.dialog.PropertiesDialogComponent;
 import com.vpt.filemanager.component.dialog.SelectionActionsDialogComponent;
 import com.vpt.filemanager.core.error.NameConflictException;
-import com.vpt.filemanager.core.format.MimeTypes;
+import com.vpt.filemanager.core.format.MimeType;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
 import com.vpt.filemanager.state.StateViewModel;
@@ -204,7 +204,7 @@ public final class BottomBarComponent {
     private void openWith(Entry entry) {
         try {
             Uri uri = storage.contentUri(entry);
-            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, MimeTypes.detect(entry.name()))
+            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, MimeType.detect(entry.name()))
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(open, activity.getString(R.string.action_open_with)));
         } catch (ActivityNotFoundException | IllegalArgumentException | com.vpt.filemanager.core.error.FileOperationException error) {
