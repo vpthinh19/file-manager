@@ -17,18 +17,34 @@ This is the **current** roadmap — not a stale doc. The old `ARCHITECTURE.md` a
 | 3 | `Handler` + `HandlerRegistry` + sealed `HandlerResult` + 5 handlers | `554d12f` | ✅ done |
 | 4 | Slim `PathResolver`; delete `NavigationResult`/`Redirect`/`replaceResolvedLocation` | `12342b8` | ✅ done |
 | 5 | move `content/` → `core/detect/`; drop archive sniffing; `EXTERNAL`→`OTHER` | `e94ab52` | ✅ done |
-| 6 | `Entry`/`EntryType` → `core/entry/`; type = PARENT/FOLDER/FILE only | — | ⏳ pending |
-| 7 | `ui/` → `component/`; `settings/`+`ui/format/` → `core/`; `FileOperations` → `Operations` | — | ⏳ pending |
-| 8 | `Operations` facade uses `StorageRegistry` polymorphically | — | ⏳ pending |
-| 9 | verify `PaneFragment`/`ContentHostComponent` on new flow (mostly done in P4) | — | ⏳ pending |
-| 10 | update tests + `assembleDebug` + `testDebugUnitTest` clean | — | ⏳ pending |
-| 11 | fix runtime so app launches (missing mipmap icon, Hilt, theme — see §12) | — | ⏳ pending |
+| 6 | `Entry`/`EntryType` → `core/entry/`; type = PARENT/FOLDER/FILE only | `be1865d` | ✅ done |
+| 7 | `ui/` → `component/`; `settings/`+`ui/format/` → `core/`; `FileOperations` → `Operations` | `c03ce0b` | ✅ done |
+| 8 | `Operations` facade uses `StorageRegistry` polymorphically | `bc3c67e` | ✅ done |
+| 9 | verify `PaneFragment`/`ContentHostComponent` on new flow (mostly done in P4) | — | ✅ verified |
+| 10 | update tests + `assembleDebug` + `testDebugUnitTest` clean | `e4b8865` | ✅ done |
+| 11 | fix runtime so app launches (missing mipmap icon, Hilt, theme — see §12) | `308e017` | ✅ done |
 
-Build compiles clean (`./gradlew :app:compileDebugJavaWithJavac --no-daemon`)
-through Phase 5. Runtime is **not** yet validated. Old adapters
-(`LocalStorageAdapter`, `ArchiveAccess`, `BookmarkCollection`, `TrashCollection`,
-`FileOperations`) still exist; the new `Storage` impls wrap them. Do not push;
-the user pushes.
+**All phases complete.** `assembleDebug`, `testDebugUnitTest`, and the
+`androidTest` compile are all clean. Phase 9 was verification-only (the new flow
+landed in Phase 4) so it has no commit. The one thing not yet validated is an
+actual **on-device launch** (no emulator was available); install the debug APK
+to confirm. Old adapters (`LocalStorageAdapter`, `ArchiveAccess`,
+`BookmarkCollection`, `TrashCollection`) still exist; the new `Storage` impls
+wrap them — collapsing those is a future cleanup (§14). Do not push; the user
+pushes.
+
+### Decisions taken during 5–8 (beyond the original sketch)
+
+- Phase 5: renamed `ContentType.EXTERNAL` → `OTHER` (user-approved) so it matches
+  `OtherHandler`; `ContentDetector` dropped its `LocalStorageAdapter` dep too and
+  is now pure byte-magic.
+- Phase 6: kept the `Entry.local/archive/bookmark/trash/parent` factory names
+  (not in §11's disappear-list); `isInsideArchive()`/`isTrashItem()` now derive
+  from `Path`.
+- Phase 8: `delete()` keeps the soft-delete-to-Trash product policy here (not in
+  `LocalStorage.delete`, which is permanent). Cross-format local↔archive transfer
+  still wraps `ArchiveAccess` import/extract — the one irreducibly
+  libarchive-specific path; everything else routes through the registry.
 
 ## 1. Why we refactor
 
