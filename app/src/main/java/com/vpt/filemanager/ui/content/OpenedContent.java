@@ -2,7 +2,7 @@ package com.vpt.filemanager.ui.content;
 
 import androidx.annotation.Nullable;
 
-import com.vpt.filemanager.content.ContentType;
+import com.vpt.filemanager.core.detect.ContentType;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.ui.pane.PaneId;
 

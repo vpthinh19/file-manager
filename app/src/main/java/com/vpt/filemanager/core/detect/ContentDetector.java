@@ -1,43 +1,42 @@
-package com.vpt.filemanager.content;
+package com.vpt.filemanager.core.detect;
 
 import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.storage.archive.ArchiveAccess;
-import com.vpt.filemanager.storage.LocalStorageAdapter;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/** Detects opened-file behavior from content; extension is deliberately not authoritative. */
+/**
+ * Decides how an opened file should be presented, purely from its leading bytes;
+ * the extension is deliberately not authoritative.
+ *
+ * <p>This is pure byte-magic with no storage coupling: it reads a materialised
+ * {@link File} directly. Archive sniffing used to live here, but that decision
+ * now belongs to {@code ArchiveStorage} (which owns the libarchive bridge), so
+ * the detector no longer depends on any storage backend.
+ */
 @Singleton
 public final class ContentDetector {
     private static final int SNIFF_BYTES = 512;
-    private final LocalStorageAdapter storage;
-    private final ArchiveAccess archives;
 
     @Inject
-    public ContentDetector(LocalStorageAdapter storage, ArchiveAccess archives) {
-        this.storage = storage;
-        this.archives = archives;
-    }
-
-    public boolean isArchive(@NonNull File file) {
-        return archives.canOpen(file);
-    }
+    public ContentDetector() {}
 
     @NonNull
     public ContentType detect(@NonNull File file) throws FileOperationException {
         byte[] bytes = new byte[SNIFF_BYTES];
         int count;
-        try (InputStream input = storage.openRead(file)) {
+        try (InputStream input = Files.newInputStream(file.toPath(), StandardOpenOption.READ)) {
             count = Math.max(input.read(bytes), 0);
-        } catch (IOException error) {
+        } catch (IOException | SecurityException error) {
             throw new FileOperationException("Cannot inspect: " + file.getName(), error);
         }
         if (png(bytes, count) || jpeg(bytes, count) || gif(bytes, count) || webp(bytes, count)) {
@@ -48,7 +47,7 @@ public final class ContentDetector {
             return ContentType.AUDIO;
         }
         if (text(bytes, count)) return ContentType.TEXT;
-        return ContentType.EXTERNAL;
+        return ContentType.OTHER;
     }
 
     private static boolean png(byte[] b, int n) {

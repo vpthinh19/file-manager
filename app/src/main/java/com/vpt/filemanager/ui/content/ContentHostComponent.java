@@ -12,7 +12,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.content.ContentType;
+import com.vpt.filemanager.core.detect.ContentType;
 import com.vpt.filemanager.ui.drawer.DrawerComponent;
 import com.vpt.filemanager.ui.format.MimeTypes;
 import com.vpt.filemanager.ui.content.editor.TextEditorFragment;
@@ -58,7 +58,7 @@ public final class ContentHostComponent {
                     .remove(present).commitAllowingStateLoss();
             return;
         }
-        if (content.type() == ContentType.EXTERNAL) {
+        if (content.type() == ContentType.OTHER) {
             openExternal(content);
             state.back(content.pane());
             return;
@@ -73,7 +73,7 @@ public final class ContentHostComponent {
             case IMAGE -> ImageContentFragment.newInstance(content.localPath());
             case AUDIO -> MediaContentFragment.newInstance(content.localPath(), false);
             case VIDEO -> MediaContentFragment.newInstance(content.localPath(), true);
-            case EXTERNAL -> throw new IllegalStateException();
+            case OTHER -> throw new IllegalStateException();
         };
         activity.getSupportFragmentManager().beginTransaction()
                 .replace(R.id.content_container, fragment, TAG).commit();

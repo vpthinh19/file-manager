@@ -2,8 +2,8 @@ package com.vpt.filemanager.core.path;
 
 import androidx.annotation.NonNull;
 
-import com.vpt.filemanager.content.ContentDetector;
-import com.vpt.filemanager.content.ContentType;
+import com.vpt.filemanager.core.detect.ContentDetector;
+import com.vpt.filemanager.core.detect.ContentType;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.handler.HandlerRegistry;
 import com.vpt.filemanager.handler.HandlerResult;

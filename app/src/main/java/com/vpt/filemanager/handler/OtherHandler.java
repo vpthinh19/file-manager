@@ -2,7 +2,7 @@ package com.vpt.filemanager.handler;
 
 import androidx.annotation.NonNull;
 
-import com.vpt.filemanager.content.ContentType;
+import com.vpt.filemanager.core.detect.ContentType;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.ui.format.MimeTypes;
 
@@ -12,7 +12,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Fallback for anything the detector marks {@link ContentType#EXTERNAL}. Returns
+ * Fallback for anything the detector marks {@link ContentType#OTHER}. Returns
  * a {@link HandlerResult.LaunchIntent} so the component can fire
  * {@code Intent.ACTION_VIEW} for the user's chosen external app.
  */
@@ -24,7 +24,7 @@ public final class OtherHandler implements Handler {
     @NonNull
     @Override
     public ContentType type() {
-        return ContentType.EXTERNAL;
+        return ContentType.OTHER;
     }
 
     @NonNull

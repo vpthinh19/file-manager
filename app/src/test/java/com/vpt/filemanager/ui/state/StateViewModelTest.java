@@ -9,7 +9,7 @@ import android.content.Context;
 
 import androidx.test.core.app.ApplicationProvider;
 
-import com.vpt.filemanager.content.ContentType;
+import com.vpt.filemanager.core.detect.ContentType;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.ui.content.OpenedContent;

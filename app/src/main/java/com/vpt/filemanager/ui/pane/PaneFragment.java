@@ -130,7 +130,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             state.showEntries(pane(), request, List.of());
             state.showContent(new OpenedContent(pane(), launch.source(), launch.localPath(),
                     new File(launch.localPath()).getName(),
-                    com.vpt.filemanager.content.ContentType.EXTERNAL, true, null));
+                    com.vpt.filemanager.core.detect.ContentType.OTHER, true, null));
         }
     }
 

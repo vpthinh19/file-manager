@@ -1,6 +1,6 @@
 package com.vpt.filemanager.handler;
 
-import com.vpt.filemanager.content.ContentType;
+import com.vpt.filemanager.core.detect.ContentType;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.entry.Entry;
 
