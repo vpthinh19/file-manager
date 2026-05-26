@@ -22,6 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.core.entry.Entry;
+import com.vpt.filemanager.core.error.ArchivePasswordRequiredException;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 @RunWith(AndroidJUnit4.class)
 public final class ArchiveBackendInstrumentedTest {
@@ -101,6 +102,64 @@ public final class ArchiveBackendInstrumentedTest {
 
         ArchiveBackend fresh = new ArchiveBackend(storage);
         assertTrue(fresh.exists(nestedRoot, "created.txt"));
+    }
+
+    @Test
+    public void compressCreatesArchiveWithSelectedPhysicalContent() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Path root = context.getCacheDir().toPath().resolve("compress-test");
+        Files.createDirectories(root);
+        Path source = root.resolve("report.txt");
+        Path target = root.resolve("report.zip");
+        Files.deleteIfExists(target);
+        Files.write(source, "compressed".getBytes(StandardCharsets.UTF_8));
+
+        LocalStorageAdapter storage = new LocalStorageAdapter(root.toFile());
+        ArchiveBackend archives = new ArchiveBackend(storage);
+        Entry physical = Entry.local(com.vpt.filemanager.core.path.Path.storage("/report.txt"),
+                path(source), "report.txt", false, Files.size(source),
+                Files.getLastModifiedTime(source).toMillis());
+        archives.compress(com.vpt.filemanager.core.path.Path.storageRoot(), "report.zip",
+                List.of(physical), new ArchiveCreateOptions(ArchiveCreateOptions.Format.ZIP,
+                        ArchiveCreateOptions.Level.NORMAL, null));
+
+        com.vpt.filemanager.core.path.Path mounted =
+                com.vpt.filemanager.core.path.Path.archive("/report.zip", "/");
+        assertEquals("compressed", read(Path.of(
+                archives.materialize(named(archives.list(mounted), "report.txt")))).trim());
+    }
+
+    @Test
+    public void encryptedZipRequiresPasswordBeforeContentCanBeExtracted() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Path root = context.getCacheDir().toPath().resolve("encrypted-compress-test");
+        Files.createDirectories(root);
+        Path source = root.resolve("secret.txt");
+        Path target = root.resolve("secret.zip");
+        Files.deleteIfExists(target);
+        Files.write(source, "protected".getBytes(StandardCharsets.UTF_8));
+
+        LocalStorageAdapter storage = new LocalStorageAdapter(root.toFile());
+        ArchiveBackend archives = new ArchiveBackend(storage);
+        Entry physical = Entry.local(com.vpt.filemanager.core.path.Path.storage("/secret.txt"),
+                path(source), "secret.txt", false, Files.size(source),
+                Files.getLastModifiedTime(source).toMillis());
+        archives.compress(com.vpt.filemanager.core.path.Path.storageRoot(), "secret.zip",
+                List.of(physical), new ArchiveCreateOptions(ArchiveCreateOptions.Format.ZIP,
+                        ArchiveCreateOptions.Level.NORMAL, "correct-password"));
+
+        com.vpt.filemanager.core.path.Path mounted =
+                com.vpt.filemanager.core.path.Path.archive("/secret.zip", "/");
+        Entry protectedEntry = named(archives.list(mounted), "secret.txt");
+        try {
+            archives.materialize(protectedEntry);
+            throw new AssertionError("Encrypted content should require a password");
+        } catch (ArchivePasswordRequiredException expected) {
+            // Expected before a verified passphrase is supplied.
+        }
+
+        archives.unlock(mounted, "correct-password");
+        assertEquals("protected", read(Path.of(archives.materialize(protectedEntry))).trim());
     }
 
     private static Entry named(List<Entry> items, String name) {

@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.error.ArchiveOperationException;
+import com.vpt.filemanager.core.error.ArchivePasswordRequiredException;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.error.NameConflictException;
 import com.vpt.filemanager.core.path.Path;
@@ -42,6 +43,7 @@ public final class ArchiveBackend {
 
     private final LocalStorageAdapter storage;
     private final Map<String, Object> containerLocks = new ConcurrentHashMap<>();
+    private final Map<String, String> passphrases = new ConcurrentHashMap<>();
 
     @Inject
     public ArchiveBackend(LocalStorageAdapter storage) {
@@ -61,9 +63,6 @@ public final class ArchiveBackend {
                 if (++count > MAX_ENTRIES) {
                     throw new ArchiveOperationException("Archive contains too many entries");
                 }
-                if (ArchiveEntry.isEncrypted(header)) {
-                    throw new ArchiveOperationException("Encrypted archives are not supported");
-                }
                 String pathname = safeVisiblePath(header);
                 if (pathname != null && pathname.startsWith(prefix)) {
                     String remaining = pathname.substring(prefix.length());
@@ -82,7 +81,6 @@ public final class ArchiveBackend {
                 }
                 Archive.readDataSkip(archive);
             }
-            rejectEncryption(archive);
             return found;
         });
         List<Entry> result = new ArrayList<>(children.size());
@@ -100,9 +98,6 @@ public final class ArchiveBackend {
         return withReader(container(location), "Cannot inspect archive entry", archive -> {
             long header;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
-                if (ArchiveEntry.isEncrypted(header)) {
-                    throw new ArchiveOperationException("Encrypted archives are not supported");
-                }
                 String candidate = safeVisiblePath(header);
                 if (candidate == null) {
                     Archive.readDataSkip(archive);
@@ -113,7 +108,6 @@ public final class ArchiveBackend {
                 if (candidate.startsWith(wanted + "/")) return true;
                 Archive.readDataSkip(archive);
             }
-            rejectEncryption(archive);
             throw new ArchiveOperationException("Archive entry no longer exists");
         });
     }
@@ -133,8 +127,11 @@ public final class ArchiveBackend {
                 long archive = 0L;
                 try {
                     archive = openReader(container);
-                    Archive.readNextHeader(archive);
-                    rejectEncryption(archive);
+                    long header;
+                    while ((header = Archive.readNextHeader(archive)) != 0L) {
+                        if (ArchiveEntry.isEncrypted(header)) return false;
+                        Archive.readDataSkip(archive);
+                    }
                     if (!writableFormat(Archive.format(archive) & Archive.FORMAT_BASE_MASK)) return false;
                 } finally {
                     freeQuietly(archive);
@@ -143,6 +140,84 @@ public final class ArchiveBackend {
             return true;
         } catch (Exception error) {
             return false;
+        }
+    }
+
+    /**
+     * Verifies and retains a passphrase in memory for subsequent reads from this mounted
+     * container. Credentials deliberately do not cross the backend boundary or reach disk.
+     */
+    public void unlock(@NonNull Path location, @NonNull String password)
+            throws FileOperationException {
+        requireArchive(location);
+        if (password.isBlank()) {
+            throw new ArchivePasswordRequiredException("Password is required");
+        }
+        File source = container(location);
+        long archive = 0L;
+        try {
+            archive = openReader(source, password);
+            boolean encrypted = false;
+            long header;
+            while ((header = Archive.readNextHeader(archive)) != 0L) {
+                if (ArchiveEntry.isEncrypted(header)
+                        && ArchiveEntry.filetype(header) == ArchiveEntry.AE_IFREG) {
+                    encrypted = true;
+                    consumeData(archive);
+                    break;
+                }
+                Archive.readDataSkip(archive);
+            }
+            if (!encrypted && Archive.readHasEncryptedEntries(archive) <= 0) {
+                throw new ArchiveOperationException("Archive does not require a password");
+            }
+            passphrases.put(passwordKey(source), password);
+        } catch (ArchiveOperationException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new ArchivePasswordRequiredException("Incorrect archive password", error);
+        } finally {
+            freeQuietly(archive);
+        }
+    }
+
+    /** Creates a new physical archive from physical entries in one device folder. */
+    public void compress(@NonNull Path destination, @NonNull String name,
+                         @NonNull List<Entry> selected, @NonNull ArchiveCreateOptions options)
+            throws FileOperationException {
+        if (!destination.isStorage() || destination.isInsideArchive()) {
+            throw new ArchiveOperationException("Archives can only be created in device storage");
+        }
+        if (selected.isEmpty()) throw new ArchiveOperationException("Nothing selected to compress");
+        File target = storage.target(storage.fileAtStoragePath(destination.storagePath()), name);
+        if (storage.exists(target)) throw new NameConflictException(name);
+        File temporary = storage.createTemporarySibling(target);
+        long output = 0L;
+        boolean created = false;
+        try {
+            output = Archive.writeNew();
+            configureNewWriter(output, options);
+            Archive.writeOpenFileName(output, utf8(temporary.getAbsolutePath()));
+            for (Entry item : selected) {
+                if (item.isParent() || item.isInsideArchive() || item.localPathOrNull() == null) {
+                    throw new ArchiveOperationException(
+                            "Only device files and folders can be compressed");
+                }
+                appendStorage(output, storage.fromAbsolutePath(item.localPath()), item.name());
+            }
+            Archive.writeClose(output);
+            Archive.free(output);
+            output = 0L;
+            validate(temporary);
+            storage.replace(temporary, target);
+            created = true;
+        } catch (FileOperationException error) {
+            throw error;
+        } catch (Exception error) {
+            throw failure("Cannot create archive: " + name, error);
+        } finally {
+            freeQuietly(output);
+            if (!created && storage.exists(temporary)) storage.deletePermanently(temporary);
         }
     }
 
@@ -235,13 +310,14 @@ public final class ArchiveBackend {
     public void extractToStorage(@NonNull Entry source, @NonNull String destination)
             throws FileOperationException {
         Path sourcePath = requireEntry(source);
+        File sourceContainer = container(sourcePath);
         File target = storage.fromAbsolutePath(destination);
         if (!source.isFolder()) {
             extractExact(source, target, false);
             return;
         }
         String rootName = entryName(sourcePath.archiveInnerPath());
-        boolean found = withReader(container(sourcePath),
+        boolean found = withReader(sourceContainer,
                 "Cannot extract archive entry: " + source.name(), archive -> {
             boolean any = false;
             long header;
@@ -251,9 +327,6 @@ public final class ArchiveBackend {
                     Archive.readDataSkip(archive);
                     continue;
                 }
-                if (ArchiveEntry.isEncrypted(header)) {
-                    throw new ArchiveOperationException("Encrypted archives are not supported");
-                }
                 any = true;
                 String relative = pathname.equals(rootName) ? "" : pathname.substring(rootName.length() + 1);
                 File output = relative.isEmpty() ? target : storage.safeDescendant(target, relative);
@@ -261,12 +334,12 @@ public final class ArchiveBackend {
                     storage.ensureDirectory(output);
                     Archive.readDataSkip(archive);
                 } else {
+                    requireUnlocked(sourceContainer, header);
                     try (OutputStream stream = storage.openCreateWrite(output)) {
                         copyToStream(archive, stream);
                     }
                 }
             }
-            rejectEncryption(archive);
             return any;
         });
         if (!found) throw new ArchiveOperationException("Archive entry no longer exists: " + source.name());
@@ -312,14 +385,13 @@ public final class ArchiveBackend {
             throws FileOperationException {
         Path target = requireEntry(source);
         String wanted = entryName(target.archiveInnerPath());
-        withReader(container(target), "Cannot extract archive entry: " + source.name(), archive -> {
+        File sourceContainer = container(target);
+        withReader(sourceContainer, "Cannot extract archive entry: " + source.name(), archive -> {
             long header;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
                 String pathname = safeVisiblePath(header);
                 if (pathname != null && entryName(pathname).equals(wanted)) {
-                    if (ArchiveEntry.isEncrypted(header)) {
-                        throw new ArchiveOperationException("Encrypted archives are not supported");
-                    }
+                    requireUnlocked(sourceContainer, header);
                     if (ArchiveEntry.filetype(header) != ArchiveEntry.AE_IFREG) {
                         throw new ArchiveOperationException("Archive entry cannot be materialized");
                     }
@@ -334,7 +406,6 @@ public final class ArchiveBackend {
                 }
                 Archive.readDataSkip(archive);
             }
-            rejectEncryption(archive);
             throw new ArchiveOperationException("Archive entry no longer exists: " + source.name());
         });
     }
@@ -444,9 +515,7 @@ public final class ArchiveBackend {
             while ((header = Archive.readNextHeader(archive)) != 0L) {
                 String pathname = safeVisiblePath(header);
                 if (pathname != null && entryName(pathname).equals(wanted)) {
-                    if (ArchiveEntry.isEncrypted(header)) {
-                        throw new ArchiveOperationException("Encrypted archives are not supported");
-                    }
+                    requireUnlocked(container, header);
                     if (ArchiveEntry.size(header) > MAX_MATERIALIZED_BYTES) {
                         throw new ArchiveOperationException("Nested archive is too large to open");
                     }
@@ -465,11 +534,18 @@ public final class ArchiveBackend {
         return containerLocks.computeIfAbsent(path.storagePath(), ignored -> new Object());
     }
 
-    private static long openReader(File container) throws ArchiveException {
+    private long openReader(File container) throws ArchiveException {
+        return openReader(container, passphrases.get(passwordKey(container)));
+    }
+
+    private long openReader(File container, String password) throws ArchiveException {
         long archive = Archive.readNew();
         try {
             Archive.readSupportFilterAll(archive);
             Archive.readSupportFormatAll(archive);
+            if (password != null && !password.isEmpty()) {
+                Archive.readAddPassphrase(archive, utf8(password));
+            }
             Archive.readOpenFileName(archive, utf8(container.getAbsolutePath()), BUFFER_BYTES);
             return archive;
         } catch (ArchiveException error) {
@@ -498,7 +574,7 @@ public final class ArchiveBackend {
         }
     }
 
-    private static void validate(File file) throws ArchiveException {
+    private void validate(File file) throws ArchiveException {
         long archive = openReader(file);
         try {
             Archive.readNextHeader(archive);
@@ -587,6 +663,39 @@ public final class ArchiveBackend {
         }
     }
 
+    private static void consumeData(long input) throws ArchiveException {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_BYTES);
+        do {
+            buffer.clear();
+            Archive.readData(input, buffer);
+        } while (buffer.position() > 0);
+    }
+
+    private static void configureNewWriter(long output, ArchiveCreateOptions options)
+            throws ArchiveException {
+        byte[] level = utf8(Integer.toString(options.level().nativeValue()));
+        switch (options.format()) {
+            case ZIP -> {
+                Archive.writeSetFormatZip(output);
+                Archive.writeSetFormatOption(output, utf8("zip"), utf8("compression-level"), level);
+                if (options.password() != null) {
+                    Archive.writeSetPassphrase(output, utf8(options.password()));
+                    Archive.writeSetFormatOption(output, utf8("zip"), utf8("encryption"),
+                            utf8("aes256"));
+                }
+            }
+            case SEVEN_Z -> {
+                Archive.writeSetFormat7zip(output);
+                Archive.writeSetFormatOption(output, utf8("7zip"), utf8("compression-level"), level);
+            }
+            case TAR_GZIP -> {
+                Archive.writeSetFormatPaxRestricted(output);
+                Archive.writeAddFilterGzip(output);
+                Archive.writeSetFilterOption(output, utf8("gzip"), utf8("compression-level"), level);
+            }
+        }
+    }
+
     private static void configureWriter(long output, String logicalName, long input)
             throws ArchiveException, ArchiveOperationException {
         if (ArchiveFormat.isWritable(logicalName)) {
@@ -614,8 +723,19 @@ public final class ArchiveBackend {
 
     private static void rejectEncryption(long archive) throws ArchiveOperationException {
         if (Archive.readHasEncryptedEntries(archive) > 0) {
-            throw new ArchiveOperationException("Encrypted archives are not supported");
+            throw new ArchiveOperationException("Encrypted archives cannot be modified");
         }
+    }
+
+    private void requireUnlocked(File container, long entry)
+            throws ArchivePasswordRequiredException {
+        if (ArchiveEntry.isEncrypted(entry) && !passphrases.containsKey(passwordKey(container))) {
+            throw new ArchivePasswordRequiredException("Password required to extract this archive");
+        }
+    }
+
+    private static String passwordKey(File container) {
+        return container.getAbsolutePath();
     }
 
     private static String safeVisiblePath(long entry) {

@@ -17,8 +17,11 @@ import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import com.vpt.filemanager.storage.virtual.Storage;
 import com.vpt.filemanager.storage.virtual.StorageRegistry;
+import com.vpt.filemanager.storage.virtual.archive.ArchiveBackend;
+import com.vpt.filemanager.storage.virtual.archive.ArchiveCreateOptions;
 import com.vpt.filemanager.storage.virtual.archive.ArchiveStorage;
 import com.vpt.filemanager.storage.virtual.bookmarks.BookmarkCollection;
+import com.vpt.filemanager.storage.virtual.device.DeviceStorage;
 import com.vpt.filemanager.storage.virtual.trash.TrashCollection;
 
 import java.util.List;
@@ -37,17 +40,20 @@ public final class StorageFacade {
     private final BookmarkCollection bookmarks;
     private final Context context;
     private final LocalStorageAdapter physical;
+    private final ArchiveBackend archives;
 
     @Inject
     public StorageFacade(StorageRegistry registry, PathResolver resolver,
                          TrashCollection trash, BookmarkCollection bookmarks,
-                         @ApplicationContext Context context, LocalStorageAdapter physical) {
+                         @ApplicationContext Context context, LocalStorageAdapter physical,
+                         ArchiveBackend archives) {
         this.registry = registry;
         this.resolver = resolver;
         this.trash = trash;
         this.bookmarks = bookmarks;
         this.context = context;
         this.physical = physical;
+        this.archives = archives;
     }
 
     @NonNull
@@ -84,6 +90,35 @@ public final class StorageFacade {
     public void rename(@NonNull Entry entry, @NonNull String name) throws FileOperationException {
         validName(name);
         registry.storageFor(entry.path()).rename(entry, name.trim());
+    }
+
+    @NonNull
+    public String compress(@NonNull Path destination, @NonNull List<Entry> selected,
+                           @NonNull String requestedName, @NonNull ArchiveCreateOptions options)
+            throws FileOperationException {
+        validName(requestedName);
+        Storage targetStorage = registry.storageFor(destination);
+        if (!(targetStorage instanceof DeviceStorage)
+                || !targetStorage.canWrite(destination)) {
+            throw new FileOperationException("Archives can only be created in device storage");
+        }
+        String base = requestedName.trim();
+        for (ArchiveCreateOptions.Format format : ArchiveCreateOptions.Format.values()) {
+            if (base.toLowerCase(java.util.Locale.ROOT).endsWith(format.extension())) {
+                base = base.substring(0, base.length() - format.extension().length());
+                break;
+            }
+        }
+        if (base.isBlank()) throw new FileOperationException("Invalid name");
+        String name = uniqueName(targetStorage, destination, base + options.format().extension());
+        archives.compress(destination, name, selected, options);
+        return name;
+    }
+
+    public void unlockArchive(@NonNull Path content, @NonNull String password)
+            throws FileOperationException {
+        Path container = content.isInsideArchive() ? content : content.mountArchive();
+        archives.unlock(container, password);
     }
 
     public void delete(@NonNull List<Entry> selected) throws FileOperationException {

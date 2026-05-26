@@ -16,9 +16,11 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.component.content.OpenedContent;
+import com.vpt.filemanager.component.dialog.ArchivePasswordDialogComponent;
 import com.vpt.filemanager.component.dialog.OpenAsDialogComponent;
 import com.vpt.filemanager.state.StateViewModel;
 import com.vpt.filemanager.core.entry.Entry;
+import com.vpt.filemanager.core.error.ArchivePasswordRequiredException;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.format.ExtensionRegistry;
@@ -136,12 +138,35 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             try {
                 OpenResult result = sorted(facade.open(location, as), sort);
                 executors.main().execute(() -> applyResult(location, request, result));
+            } catch (ArchivePasswordRequiredException password) {
+                executors.main().execute(() ->
+                        requestPassword(location, request, sort, as, password));
             } catch (Exception error) {
                 executors.main().execute(() -> applyFailure(location, request, error));
             } catch (LinkageError error) {
                 executors.main().execute(() -> applyFailure(location, request, error));
             }
         });
+    }
+
+    private void requestPassword(Path location, long request, SortOption sort,
+                                 @Nullable ExtensionRegistry.Type as,
+                                 ArchivePasswordRequiredException cause) {
+        ArchivePasswordDialogComponent.show(requireContext(), fileName(location), password ->
+                executors.io().execute(() -> {
+                    try {
+                        facade.unlockArchive(location, password);
+                        executors.main().execute(() -> {
+                            completeLoad();
+                            requestLoad(location, sort, as);
+                        });
+                    } catch (ArchivePasswordRequiredException wrong) {
+                        executors.main().execute(() ->
+                                requestPassword(location, request, sort, as, wrong));
+                    } catch (Exception error) {
+                        executors.main().execute(() -> applyFailure(location, request, error));
+                    }
+                }), () -> applyFailure(location, request, cause));
     }
 
     private OpenResult sorted(OpenResult result, SortOption sort) {

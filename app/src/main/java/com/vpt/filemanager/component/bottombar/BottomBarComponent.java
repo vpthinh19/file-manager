@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.view.View;
+import android.view.animation.PathInterpolator;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
@@ -18,12 +19,15 @@ import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.virtual.Capability;
 import com.vpt.filemanager.storage.facade.StorageFacade;
 import com.vpt.filemanager.storage.facade.TransferDecision;
+import com.vpt.filemanager.component.dialog.ArchiveOptionsDialogComponent;
+import com.vpt.filemanager.component.dialog.ArchivePasswordDialogComponent;
 import com.vpt.filemanager.component.dialog.ConfirmDialogComponent;
 import com.vpt.filemanager.component.dialog.ConflictDialogComponent;
 import com.vpt.filemanager.component.dialog.InputDialogComponent;
 import com.vpt.filemanager.component.dialog.PropertiesDialogComponent;
 import com.vpt.filemanager.component.dialog.SelectionActionsDialogComponent;
 import com.vpt.filemanager.core.error.NameConflictException;
+import com.vpt.filemanager.core.error.ArchivePasswordRequiredException;
 import com.vpt.filemanager.core.format.MimeType;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
@@ -35,6 +39,9 @@ import java.util.List;
 /** Bottom bar owns its mode variants and all actions visible within those variants. */
 public final class BottomBarComponent {
     private static final float DISABLED_ALPHA = 0.38f;
+    private static final long MODE_TRANSITION_MILLIS = 240L;
+    private static final PathInterpolator MODE_EASING =
+            new PathInterpolator(0.2f, 0f, 0f, 1f);
     private final AppCompatActivity activity;
     private final StateViewModel state;
     private final StorageFacade storage;
@@ -46,6 +53,7 @@ public final class BottomBarComponent {
     private final ImageButton add;
     private final ImageButton up;
     private final ImageButton more;
+    @Nullable private Boolean showingSelection;
 
     public BottomBarComponent(AppCompatActivity activity, StateViewModel state,
                               StorageFacade storage, AppExecutors executors) {
@@ -91,8 +99,7 @@ public final class BottomBarComponent {
 
     private void render(PaneState pane) {
         boolean selected = pane.selectionMode;
-        normal.setVisibility(selected ? View.GONE : View.VISIBLE);
-        selection.setVisibility(selected ? View.VISIBLE : View.GONE);
+        renderMode(selected);
         if (!selected) {
             enabled(back, pane.canGoBack);
             enabled(forward, pane.canGoForward);
@@ -125,6 +132,7 @@ public final class BottomBarComponent {
         String[] labels = {
                 activity.getString(R.string.action_copy),
                 activity.getString(R.string.action_move),
+                activity.getString(R.string.action_compress),
                 activity.getString(R.string.action_delete),
                 activity.getString(R.string.action_rename),
                 activity.getString(R.string.action_share),
@@ -139,6 +147,8 @@ public final class BottomBarComponent {
         boolean[] enabled = {
                 transfer,
                 transfer && pane.capabilities.contains(Capability.MOVE_OUT),
+                pane.location.isStorage() && !pane.location.isInsideArchive()
+                        && selected.stream().allMatch(entry -> entry.localPathOrNull() != null),
                 pane.capabilities.contains(Capability.DELETE),
                 single != null && pane.capabilities.contains(Capability.RENAME),
                 selected.stream().anyMatch(entry -> !entry.isFolder()),
@@ -162,21 +172,24 @@ public final class BottomBarComponent {
                 transfer(selected, destination, action == 1);
             }
         } else if (action == 2) {
+            ArchiveOptionsDialogComponent.show(activity, defaultArchiveName(selected),
+                    result -> compress(selected, result));
+        } else if (action == 3) {
             int message = state.activeState().location.isInsideArchive()
                     ? R.string.archive_delete_confirm_count : R.string.delete_confirm_count;
             ConfirmDialogComponent.show(activity, R.string.action_delete,
                     activity.getString(message, selected.size()),
                     () -> run(() -> storage.delete(selected), "Deleted"));
-        } else if (action == 3 && single != null) {
+        } else if (action == 4 && single != null) {
             InputDialogComponent.prompt(activity, R.string.action_rename, R.string.file_name, single.name(),
                     value -> run(() -> storage.rename(single, value), "Renamed"));
-        } else if (action == 4) {
+        } else if (action == 5) {
             share(selected);
-        } else if (action == 5 && single != null) {
-            openWith(single);
         } else if (action == 6 && single != null) {
+            openWith(single);
+        } else if (action == 7 && single != null) {
             run(() -> storage.bookmark(single), "Bookmarked");
-        } else if (action == 7 && single != null && !single.isInsideArchive()) {
+        } else if (action == 8 && single != null && !single.isInsideArchive()) {
             PropertiesDialogComponent.show(activity, single);
         } else {
             toast(activity.getString(R.string.selection_single_only));
@@ -189,6 +202,9 @@ public final class BottomBarComponent {
             if (entry.isFolder()) continue;
             try {
                 uris.add(storage.contentUri(entry));
+            } catch (ArchivePasswordRequiredException password) {
+                requestArchivePassword(entry, () -> share(selected));
+                return;
             } catch (Exception error) {
                 toast(error.getMessage());
             }
@@ -207,6 +223,8 @@ public final class BottomBarComponent {
             Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, MimeType.detect(entry.name()))
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(open, activity.getString(R.string.action_open_with)));
+        } catch (ArchivePasswordRequiredException password) {
+            requestArchivePassword(entry, () -> openWith(entry));
         } catch (ActivityNotFoundException | IllegalArgumentException | com.vpt.filemanager.core.error.FileOperationException error) {
             toast(activity.getString(R.string.unavailable));
         }
@@ -240,6 +258,9 @@ public final class BottomBarComponent {
                             retryTransfer(selected, destination, move, index, choice,
                                     applyAll ? choice : null);
                         }));
+            } catch (ArchivePasswordRequiredException password) {
+                executors.main().execute(() -> requestArchivePassword(source,
+                        () -> transferNext(selected, destination, move, index, remainingDecision)));
             } catch (Exception error) {
                 executors.main().execute(() -> toast(error.getMessage()));
             }
@@ -254,6 +275,10 @@ public final class BottomBarComponent {
                 storage.transfer(selected.get(index), destination, move, choice);
                 executors.main().execute(() ->
                         transferNext(selected, destination, move, index + 1, remainingDecision));
+            } catch (ArchivePasswordRequiredException password) {
+                Entry source = selected.get(index);
+                executors.main().execute(() -> requestArchivePassword(source,
+                        () -> retryTransfer(selected, destination, move, index, choice, remainingDecision)));
             } catch (Exception error) {
                 executors.main().execute(() -> toast(error.getMessage()));
             }
@@ -264,6 +289,70 @@ public final class BottomBarComponent {
         state.clearSelection(state.activePaneValue(), true);
         state.refreshVisiblePanes();
         toast(success);
+    }
+
+    private void renderMode(boolean selected) {
+        if (showingSelection == null) {
+            showingSelection = selected;
+            normal.setVisibility(selected ? View.GONE : View.VISIBLE);
+            selection.setVisibility(selected ? View.VISIBLE : View.GONE);
+            return;
+        }
+        if (showingSelection == selected) return;
+        showingSelection = selected;
+        View incoming = selected ? selection : normal;
+        View outgoing = selected ? normal : selection;
+        float offset = activity.getResources().getDisplayMetrics().density * 8f;
+        incoming.animate().cancel();
+        outgoing.animate().cancel();
+        incoming.setVisibility(View.VISIBLE);
+        incoming.setAlpha(0f);
+        incoming.setTranslationY(offset);
+        incoming.animate().alpha(1f).translationY(0f).setDuration(MODE_TRANSITION_MILLIS)
+                .setInterpolator(MODE_EASING).start();
+        outgoing.animate().alpha(0f).translationY(offset).setDuration(MODE_TRANSITION_MILLIS)
+                .setInterpolator(MODE_EASING).withEndAction(() -> {
+                    if (showingSelection == selected) outgoing.setVisibility(View.GONE);
+                    outgoing.setAlpha(1f);
+                    outgoing.setTranslationY(0f);
+                }).start();
+    }
+
+    private void compress(List<Entry> selected, ArchiveOptionsDialogComponent.Result result) {
+        Path destination = state.activeState().location;
+        executors.io().execute(() -> {
+            try {
+                String archive = storage.compress(destination, selected, result.name(), result.options());
+                executors.main().execute(() -> {
+                    state.clearSelection(state.activePaneValue(), true);
+                    state.refreshVisiblePanes();
+                    toast(activity.getString(R.string.archive_created, archive));
+                });
+            } catch (Exception error) {
+                executors.main().execute(() -> toast(error.getMessage()));
+            }
+        });
+    }
+
+    private void requestArchivePassword(Entry source, Runnable retry) {
+        ArchivePasswordDialogComponent.show(activity, source.name(), password ->
+                executors.io().execute(() -> {
+                    try {
+                        storage.unlockArchive(source.path(), password);
+                        executors.main().execute(retry);
+                    } catch (ArchivePasswordRequiredException wrong) {
+                        executors.main().execute(() -> {
+                            toast(wrong.getMessage());
+                            requestArchivePassword(source, retry);
+                        });
+                    } catch (Exception error) {
+                        executors.main().execute(() -> toast(error.getMessage()));
+                    }
+                }), () -> { });
+    }
+
+    private static String defaultArchiveName(List<Entry> selected) {
+        return selected.size() == 1 ? selected.get(0).name() : "Archive";
     }
 
     private void run(Throwing operation, String success) {
