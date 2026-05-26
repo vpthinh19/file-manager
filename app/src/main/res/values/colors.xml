@@ -50,6 +50,9 @@
     <color name="md_error">#BA1A1A</color>
     <color name="md_on_error">#FFFFFF</color>
 
+    <!-- Adaptive launcher icon background (brand teal); fixed across light/dark. -->
+    <color name="ic_launcher_background">#006B5B</color>
+
     <!-- Selected-item background for file rows (semi-transparent primary). -->
     <color name="row_selected_bg">#332D55B7</color>
 
