@@ -21,7 +21,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.core.entry.Entry;
-import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 
 @RunWith(AndroidJUnit4.class)
@@ -36,7 +35,8 @@ public final class ArchiveAccessInstrumentedTest {
 
         LocalStorageAdapter storage = new LocalStorageAdapter(root.toFile());
         ArchiveAccess archives = new ArchiveAccess(context, storage);
-        Path location = Path.archive("/sample.zip", "/");
+        com.vpt.filemanager.core.path.Path location =
+                com.vpt.filemanager.core.path.Path.archive("/sample.zip", "/");
 
         assertTrue(named(archives.list(location), "docs").isFolder());
         Entry hello = named(archives.list(location), "hello.txt");
@@ -49,7 +49,8 @@ public final class ArchiveAccessInstrumentedTest {
 
         Path imported = root.resolve("imported.txt");
         Files.write(imported, "imported".getBytes(StandardCharsets.UTF_8));
-        Entry physical = Entry.local(Path.storage("/imported.txt"), path(imported), "imported.txt", false,
+        Entry physical = Entry.local(com.vpt.filemanager.core.path.Path.storage("/imported.txt"),
+                path(imported), "imported.txt", false,
                 Files.size(imported), Files.getLastModifiedTime(imported).toMillis());
         archives.importFromStorage(location, physical, physical.name(), false);
         assertTrue(archives.exists(location, "imported.txt"));
@@ -57,7 +58,7 @@ public final class ArchiveAccessInstrumentedTest {
         Path edited = root.resolve("edited.txt");
         Files.write(edited, "saved through editor".getBytes(StandardCharsets.UTF_8));
         archives.updateFromMaterialized(
-                Path.archive("/sample.zip", "/hello.txt"),
+                com.vpt.filemanager.core.path.Path.archive("/sample.zip", "/hello.txt"),
                 path(edited));
         Entry saved = named(archives.list(location), "hello.txt");
         assertEquals("saved through editor",
@@ -72,9 +73,11 @@ public final class ArchiveAccessInstrumentedTest {
 
         Path secondZip = root.resolve("second.zip");
         fixture(secondZip);
-        Path second = Path.archive("/second.zip", "/");
+        com.vpt.filemanager.core.path.Path second =
+                com.vpt.filemanager.core.path.Path.archive("/second.zip", "/");
         archives.importFromArchive(second, named(archives.list(location), "docs"), "copied-docs", false);
-        Entry nested = named(archives.list(Path.archive("/second.zip", "/copied-docs")), "note.txt");
+        Entry nested = named(archives.list(
+                com.vpt.filemanager.core.path.Path.archive("/second.zip", "/copied-docs")), "note.txt");
         assertEquals("note", read(Path.of(archives.materialize(nested))).trim());
     }
 
