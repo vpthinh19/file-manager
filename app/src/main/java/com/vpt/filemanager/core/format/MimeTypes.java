@@ -11,6 +11,9 @@ public final class MimeTypes {
     }
 
     public static String detect(String name) {
+        if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".apk")) {
+            return "application/vnd.android.package-archive";
+        }
         String mime = URLConnection.guessContentTypeFromName(name);
         return mime == null ? "application/octet-stream" : mime;
     }

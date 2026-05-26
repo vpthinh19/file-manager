@@ -75,20 +75,20 @@ public final class TrashStorage implements Storage {
 
     @Override
     public void copyInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name) throws FileOperationException {
+                             @NonNull String name, boolean replace) throws FileOperationException {
         throw new FileOperationException("Cannot copy within trash");
     }
 
     @Override
     public void moveInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name) throws FileOperationException {
+                             @NonNull String name, boolean replace) throws FileOperationException {
         throw new FileOperationException("Cannot move within trash");
     }
 
     @NonNull
     @Override
     public InputStream openRead(@NonNull Entry entry) throws FileOperationException {
-        return files.openRead(new File(entry.localPath()));
+        return files.openRead(files.fromAbsolutePath(entry.localPath()));
     }
 
     @NonNull

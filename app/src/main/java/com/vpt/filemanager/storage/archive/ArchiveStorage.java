@@ -6,7 +6,9 @@ import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
+import com.vpt.filemanager.storage.InvalidationSubscription;
 import com.vpt.filemanager.storage.Storage;
+import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
 
 import java.io.File;
 import java.io.InputStream;
@@ -25,20 +27,18 @@ import javax.inject.Singleton;
  */
 @Singleton
 public final class ArchiveStorage implements Storage {
-    private final ArchiveAccess archives;
+    private final ArchiveBackend archives;
     private final LocalStorageAdapter files;
 
     @Inject
-    public ArchiveStorage(ArchiveAccess archives, LocalStorageAdapter files) {
+    public ArchiveStorage(ArchiveBackend archives, LocalStorageAdapter files) {
         this.archives = archives;
         this.files = files;
     }
 
     @Override
     public boolean handles(@NonNull Path path) {
-        if (path.isInsideArchive()) return true;
-        if (!path.isStorage() || path.isStorageRoot()) return false;
-        return ArchiveFormat.isContainer(path.storagePath());
+        return path.isInsideArchive();
     }
 
     @Override
@@ -69,7 +69,7 @@ public final class ArchiveStorage implements Storage {
         String inner = path.archiveInnerPath();
         int slash = inner.lastIndexOf('/');
         String name = slash < 0 ? inner : inner.substring(slash + 1);
-        return new File(archives.materialize(Entry.archive(path, name, false, 0L, 0L)));
+        return files.fromAbsolutePath(archives.materialize(Entry.archive(path, name, false, 0L, 0L)));
     }
 
     @Override
@@ -95,26 +95,49 @@ public final class ArchiveStorage implements Storage {
 
     @Override
     public void copyInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name) throws FileOperationException {
-        archives.importFromArchive(destinationParent, source, name, false);
+                             @NonNull String name, boolean replace) throws FileOperationException {
+        archives.importFromArchive(destinationParent, source, name, replace);
     }
 
     @Override
     public void moveInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name) throws FileOperationException {
-        archives.importFromArchive(destinationParent, source, name, false);
+                             @NonNull String name, boolean replace) throws FileOperationException {
+        archives.importFromArchive(destinationParent, source, name, replace);
         archives.delete(List.of(source));
+    }
+
+    public void importEntry(@NonNull Path destinationParent, @NonNull Entry source,
+                            @NonNull String name, boolean replace) throws FileOperationException {
+        if (source.isInsideArchive()) {
+            archives.importFromArchive(destinationParent, source, name, replace);
+        } else {
+            archives.importFromStorage(destinationParent, source, name, replace);
+        }
+    }
+
+    public void extractToDevice(@NonNull Entry source, @NonNull Path destinationParent,
+                                @NonNull String name, boolean replace) throws FileOperationException {
+        archives.extractToStorage(source, destinationParent, name, replace);
     }
 
     @NonNull
     @Override
     public InputStream openRead(@NonNull Entry entry) throws FileOperationException {
-        return files.openRead(new File(archives.materialize(entry)));
+        return files.openRead(files.fromAbsolutePath(archives.materialize(entry)));
     }
 
     @NonNull
     @Override
     public OutputStream openWrite(@NonNull Entry entry) throws FileOperationException {
         throw new FileOperationException("Archive entries are not directly writable; use materialize + update");
+    }
+
+    @NonNull
+    @Override
+    public InvalidationSubscription observe(@NonNull Path path, @NonNull Runnable invalidated)
+            throws FileOperationException {
+        File container = files.fileAtStoragePath(path.storagePath());
+        File parent = container.getParentFile();
+        return parent == null ? () -> { } : files.observeDirectory(parent, invalidated);
     }
 }

@@ -6,6 +6,8 @@ import androidx.annotation.Nullable;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /** Immutable virtual address shown by one pane. It never stores a physical filesystem location. */
@@ -19,14 +21,14 @@ public final class Path {
 
     private final Scheme scheme;
     @Nullable private final String storagePath;
-    @Nullable private final String archiveInnerPath;
+    private final List<String> archivePaths;
     @Nullable private final String query;
 
-    private Path(Scheme scheme, @Nullable String storagePath,
-                 @Nullable String archiveInnerPath, @Nullable String query) {
+    private Path(Scheme scheme, @Nullable String storagePath, @NonNull List<String> archivePaths,
+                 @Nullable String query) {
         this.scheme = Objects.requireNonNull(scheme, "scheme");
         this.storagePath = storagePath;
-        this.archiveInnerPath = archiveInnerPath;
+        this.archivePaths = List.copyOf(archivePaths);
         this.query = query;
     }
 
@@ -37,28 +39,29 @@ public final class Path {
 
     @NonNull
     public static Path storage(@NonNull String virtualPath) {
-        return new Path(Scheme.STORAGE, normalizeStoragePath(virtualPath), null, null);
+        return new Path(Scheme.STORAGE, normalizeStoragePath(virtualPath), List.of(), null);
     }
 
+    /** Creates a location within a top-level physical archive. */
     @NonNull
     public static Path archive(@NonNull String containerPath, @NonNull String innerPath) {
         return new Path(Scheme.STORAGE, normalizeStoragePath(containerPath),
-                normalizeInnerPath(innerPath), null);
+                List.of(normalizeInnerPath(innerPath)), null);
     }
 
     @NonNull
     public static Path trash() {
-        return new Path(Scheme.TRASH, null, null, null);
+        return new Path(Scheme.TRASH, null, List.of(), null);
     }
 
     @NonNull
     public static Path bookmarks() {
-        return new Path(Scheme.BOOKMARKS, null, null, null);
+        return new Path(Scheme.BOOKMARKS, null, List.of(), null);
     }
 
     @NonNull
     public static Path search(@NonNull String scopePath, @NonNull String query) {
-        return new Path(Scheme.SEARCH, normalizeStoragePath(scopePath), null,
+        return new Path(Scheme.SEARCH, normalizeStoragePath(scopePath), List.of(),
                 Objects.requireNonNull(query, "query"));
     }
 
@@ -82,16 +85,24 @@ public final class Path {
         return scheme == Scheme.SEARCH;
     }
 
-    /** True when this path points inside a mounted archive (has an inner path after `!/`). */
     public boolean isInsideArchive() {
-        return archiveInnerPath != null;
+        return !archivePaths.isEmpty();
+    }
+
+    public int archiveDepth() {
+        return archivePaths.size();
+    }
+
+    @NonNull
+    public List<String> archivePaths() {
+        return archivePaths;
     }
 
     public boolean isStorageRoot() {
         return isStorage() && !isInsideArchive() && storagePath().isEmpty();
     }
 
-    /** Virtual storage location, empty for `storage:` and `/...` below that root. */
+    /** Physical storage location of the outermost container, or ordinary storage path. */
     @NonNull
     public String storagePath() {
         if (storagePath == null) {
@@ -100,12 +111,13 @@ public final class Path {
         return storagePath;
     }
 
+    /** Path within the innermost opened archive. */
     @NonNull
     public String archiveInnerPath() {
-        if (archiveInnerPath == null) {
+        if (archivePaths.isEmpty()) {
             throw new IllegalStateException("Path is not mounted archive content");
         }
-        return archiveInnerPath;
+        return archivePaths.get(archivePaths.size() - 1);
     }
 
     @NonNull
@@ -116,13 +128,33 @@ public final class Path {
         return query;
     }
 
+    /** Opens this file as the root of an archive, retaining parent archive boundaries. */
+    @NonNull
+    public Path mountArchive() {
+        if (!isStorage()) {
+            throw new IllegalStateException("Only storage entries can be opened as archives");
+        }
+        if (!isInsideArchive()) return archive(storagePath(), "/");
+        List<String> nested = new ArrayList<>(archivePaths);
+        nested.add("/");
+        return new Path(Scheme.STORAGE, storagePath(), nested, null);
+    }
+
     @Nullable
     public Path parent() {
         if (isInsideArchive()) {
-            if ("/".equals(archiveInnerPath())) {
-                return storage(parentPath(storagePath()));
+            String inner = archiveInnerPath();
+            if (!"/".equals(inner)) {
+                List<String> parent = new ArrayList<>(archivePaths);
+                parent.set(parent.size() - 1, normalizeInnerPath(parentPath(inner)));
+                return new Path(Scheme.STORAGE, storagePath(), parent, null);
             }
-            return archive(storagePath(), parentPath(archiveInnerPath()));
+            if (archivePaths.size() == 1) return storage(parentPath(storagePath()));
+            List<String> parent = new ArrayList<>(archivePaths);
+            parent.remove(parent.size() - 1);
+            String mountedEntry = parent.remove(parent.size() - 1);
+            parent.add(normalizeInnerPath(parentPath(mountedEntry)));
+            return new Path(Scheme.STORAGE, storagePath(), parent, null);
         }
         if (!isStorage() || isStorageRoot()) return null;
         return storage(parentPath(storagePath()));
@@ -132,8 +164,11 @@ public final class Path {
     public Path child(@NonNull String name) {
         String child = cleanName(name);
         if (isInsideArchive()) {
-            String prefix = "/".equals(archiveInnerPath()) ? "" : archiveInnerPath();
-            return archive(storagePath(), prefix + "/" + child);
+            List<String> result = new ArrayList<>(archivePaths);
+            String current = archiveInnerPath();
+            String prefix = "/".equals(current) ? "" : current;
+            result.set(result.size() - 1, normalizeInnerPath(prefix + "/" + child));
+            return new Path(Scheme.STORAGE, storagePath(), result, null);
         }
         if (!isStorage()) {
             throw new IllegalStateException("Only storage containers have direct children");
@@ -148,8 +183,9 @@ public final class Path {
         if (isSearch()) {
             return "search:?scope=" + encode(storagePath()) + "&query=" + encode(query());
         }
-        if (isInsideArchive()) return "storage:" + storagePath() + "!" + archiveInnerPath();
-        return "storage:" + storagePath();
+        StringBuilder serialized = new StringBuilder("storage:").append(storagePath());
+        for (String inner : archivePaths) serialized.append('!').append(inner);
+        return serialized.toString();
     }
 
     @NonNull
@@ -164,8 +200,14 @@ public final class Path {
         }
         String raw = serialized.startsWith("storage:") ? serialized.substring(8) : serialized;
         int mounted = raw.indexOf("!/");
-        return mounted < 0 ? storage(raw)
-                : archive(raw.substring(0, mounted), raw.substring(mounted + 1));
+        if (mounted < 0) return storage(raw);
+        String physical = raw.substring(0, mounted);
+        String remainder = raw.substring(mounted);
+        List<String> inner = new ArrayList<>();
+        for (String part : remainder.split("!", -1)) {
+            if (!part.isEmpty()) inner.add(normalizeInnerPath(part));
+        }
+        return new Path(Scheme.STORAGE, normalizeStoragePath(physical), inner, null);
     }
 
     @Override
@@ -173,13 +215,13 @@ public final class Path {
         if (!(object instanceof Path other)) return false;
         return scheme == other.scheme
                 && Objects.equals(storagePath, other.storagePath)
-                && Objects.equals(archiveInnerPath, other.archiveInnerPath)
+                && archivePaths.equals(other.archivePaths)
                 && Objects.equals(query, other.query);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(scheme, storagePath, archiveInnerPath, query);
+        return Objects.hash(scheme, storagePath, archivePaths, query);
     }
 
     @Override
@@ -205,6 +247,11 @@ public final class Path {
         String value = Objects.requireNonNull(raw, "innerPath").replace('\\', '/');
         if (!value.startsWith("/")) value = "/" + value;
         while (value.length() > 1 && value.endsWith("/")) value = value.substring(0, value.length() - 1);
+        for (String part : value.substring(1).split("/")) {
+            if (".".equals(part) || "..".equals(part)) {
+                throw new IllegalArgumentException("Archive path cannot traverse parent");
+            }
+        }
         return value;
     }
 

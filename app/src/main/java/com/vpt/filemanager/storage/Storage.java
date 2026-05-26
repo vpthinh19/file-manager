@@ -17,7 +17,7 @@ import java.util.List;
  *
  * <p>Implementations cover local files, mounted archives, virtual collections
  * (trash, bookmarks, search), and any future remote source. Cross-backend
- * transfers are orchestrated by the {@code operation.Operations} facade using
+ * transfers are orchestrated by {@code StorageFacade} using
  * {@link #materialize(Path)} on the source plus a mutation on the destination.
  */
 public interface Storage {
@@ -51,11 +51,13 @@ public interface Storage {
     void delete(@NonNull List<Entry> entries) throws FileOperationException;
 
     /** Copy a single entry within this same storage. */
-    void copyInternal(@NonNull Entry source, @NonNull Path destinationParent, @NonNull String name)
+    void copyInternal(@NonNull Entry source, @NonNull Path destinationParent, @NonNull String name,
+                      boolean replace)
             throws FileOperationException;
 
     /** Move a single entry within this same storage. */
-    void moveInternal(@NonNull Entry source, @NonNull Path destinationParent, @NonNull String name)
+    void moveInternal(@NonNull Entry source, @NonNull Path destinationParent, @NonNull String name,
+                      boolean replace)
             throws FileOperationException;
 
     @NonNull
@@ -63,4 +65,11 @@ public interface Storage {
 
     @NonNull
     OutputStream openWrite(@NonNull Entry entry) throws FileOperationException;
+
+    /** Observe backing changes that may invalidate this location's rendered entries. */
+    @NonNull
+    default InvalidationSubscription observe(@NonNull Path path, @NonNull Runnable invalidated)
+            throws FileOperationException {
+        return () -> { };
+    }
 }

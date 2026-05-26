@@ -28,7 +28,11 @@ import com.vpt.filemanager.core.error.DocumentConflictException;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.storage.archive.ArchiveAccess;
+import com.vpt.filemanager.handler.backend.document.DocumentService;
+import com.vpt.filemanager.handler.backend.document.DocumentSession;
+import com.vpt.filemanager.handler.backend.document.LanguageResolver;
+import com.vpt.filemanager.handler.backend.document.SyntaxCatalog;
+import com.vpt.filemanager.handler.backend.document.SyntaxSetup;
 import com.vpt.filemanager.component.content.FullScreenContent;
 import com.vpt.filemanager.component.content.OpenedContent;
 import com.vpt.filemanager.component.state.StateViewModel;
@@ -59,12 +63,10 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
 
     @Inject DocumentService documents;
     @Inject AppExecutors executors;
-    @Inject ArchiveAccess archives;
     private DocumentSession session;
     private StateViewModel state;
     private String path;
     private String displayName;
-    @Nullable private Path archiveEntry;
     private MaterialToolbar toolbar;
     private CodeEditor editor;
     private ProgressBar progress;
@@ -109,8 +111,7 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
         path = requireArguments().getString(ARG_PATH);
         displayName = requireArguments().getString(ARG_NAME);
         String serialized = requireArguments().getString(ARG_ARCHIVE);
-        archiveEntry = serialized == null ? null : Path.parse(serialized);
-        session = documents.open(path);
+        session = documents.open(path, serialized == null ? null : Path.parse(serialized));
         toolbar = view.findViewById(R.id.editor_toolbar);
         editor = view.findViewById(R.id.editor);
         progress = view.findViewById(R.id.editor_progress);
@@ -261,7 +262,6 @@ public final class TextEditorFragment extends Fragment implements FullScreenCont
         executors.io().execute(() -> {
             try {
                 session.save(content);
-                if (archiveEntry != null) archives.updateFromMaterialized(archiveEntry, path);
                 executors.main().execute(() -> {
                     modified = session.isDirty(editor.getText());
                     updateActions();

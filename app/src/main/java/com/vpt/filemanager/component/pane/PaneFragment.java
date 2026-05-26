@@ -1,7 +1,6 @@
 package com.vpt.filemanager.component.pane;
 
 import android.os.Bundle;
-import android.os.FileObserver;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -15,19 +14,20 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.databinding.FragmentPaneBinding;
+import com.vpt.filemanager.component.content.OpenedContent;
+import com.vpt.filemanager.component.dialog.OpenAsDialogComponent;
+import com.vpt.filemanager.component.state.StateViewModel;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.core.path.PathResolver;
+import com.vpt.filemanager.core.threading.AppExecutors;
+import com.vpt.filemanager.databinding.FragmentPaneBinding;
 import com.vpt.filemanager.handler.HandlerResult;
-import com.vpt.filemanager.storage.LocalStorageAdapter;
-import com.vpt.filemanager.component.content.OpenedContent;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.storage.InvalidationSubscription;
+import com.vpt.filemanager.storage.facade.OpenMode;
+import com.vpt.filemanager.storage.facade.OpenResult;
+import com.vpt.filemanager.storage.facade.StorageFacade;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,22 +35,23 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
 
-/** One independent pane: it resolves and renders only its own observed location. */
+/** One independent pane; all resource operations cross the facade boundary. */
 @AndroidEntryPoint
 public final class PaneFragment extends Fragment implements EntryAdapter.Listener {
     private static final String ARG_PANE = "pane";
-    private static final int WATCH_EVENTS = FileObserver.CREATE | FileObserver.DELETE
-            | FileObserver.MOVED_FROM | FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE
-            | FileObserver.DELETE_SELF | FileObserver.MOVE_SELF;
 
-    @Inject PathResolver resolver;
+    @Inject StorageFacade facade;
     @Inject AppExecutors executors;
-    @Inject LocalStorageAdapter storage;
     private StateViewModel state;
     private FragmentPaneBinding binding;
     private EntryAdapter adapter;
-    @Nullable private FileObserver observer;
+    @Nullable private InvalidationSubscription subscription;
     @Nullable private Path requested;
+    @Nullable private Path fileBeingOpened;
+    private boolean inFlight;
+    private boolean pendingReload;
+    @Nullable private Path pendingLocation;
+    @Nullable private SortOption pendingSort;
 
     public static PaneFragment newInstance(PaneId pane) {
         PaneFragment fragment = new PaneFragment();
@@ -91,47 +92,108 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             binding.progress.setVisibility(value.loading ? View.VISIBLE : View.GONE);
             adapter.submitList(value.entries);
             adapter.setSelection(value.selection);
-            if (!value.location.equals(requested)) load(value.location, value.sort);
+            if (!value.location.equals(requested)) requestLoad(value.location, value.sort, OpenMode.DEFAULT);
         });
         state.activePane().observe(getViewLifecycleOwner(), ignored ->
                 binding.paneRoot.setActivated(state.activePaneValue() == pane()));
         state.visibleRefresh().observe(getViewLifecycleOwner(), ignored -> {
             PaneState current = state.current(pane());
-            load(current.location, current.sort);
+            requestLoad(current.location, current.sort, OpenMode.DEFAULT);
         });
     }
 
-    private void load(Path location, SortOption sort) {
+    private void requestLoad(Path location, SortOption sort, OpenMode mode) {
+        if (inFlight) {
+            pendingReload = true;
+            pendingLocation = location;
+            pendingSort = sort;
+            return;
+        }
+        load(location, sort, mode);
+    }
+
+    private void load(Path location, SortOption sort, OpenMode mode) {
+        inFlight = true;
         requested = location;
         installObserver(location);
         long request = state.beginLoading(pane(), location);
-        if (request < 0) return;
+        if (request < 0) {
+            completeLoad();
+            return;
+        }
         executors.io().execute(() -> {
             try {
-                HandlerResult result = resolver.open(location);
-                executors.main().execute(() -> applyResult(sort, request, result));
-            } catch (FileOperationException | RuntimeException error) {
-                executors.main().execute(() -> state.showFailure(pane(), request, error.getMessage()));
+                OpenResult result = sorted(facade.open(location, mode), sort);
+                executors.main().execute(() -> applyResult(location, request, result));
+            } catch (Exception error) {
+                executors.main().execute(() -> applyFailure(location, request, error));
+            } catch (LinkageError error) {
+                executors.main().execute(() -> applyFailure(location, request, error));
             }
         });
     }
 
-    private void applyResult(SortOption sort, long request, HandlerResult result) {
-        if (result instanceof HandlerResult.Entries directory) {
-            List<Entry> entries = new ArrayList<>(directory.entries());
-            entries.sort(sort.comparator());
-            state.showEntries(pane(), request, entries);
-        } else if (result instanceof HandlerResult.OpenContent content) {
+    private OpenResult sorted(OpenResult result, SortOption sort) {
+        if (!(result instanceof OpenResult.Directory directory)) return result;
+        List<Entry> entries = new ArrayList<>(directory.entries());
+        entries.sort(sort.comparator());
+        return new OpenResult.Directory(directory.canonicalPath(), entries, directory.capabilities());
+    }
+
+    private void applyResult(Path source, long request, OpenResult result) {
+        if (result instanceof OpenResult.Directory directory) {
+            requested = directory.canonicalPath();
+            installObserver(directory.canonicalPath());
+            fileBeingOpened = null;
+            state.showDirectory(pane(), request, directory.canonicalPath(), directory.entries(),
+                    directory.capabilities());
+            completeLoad();
+            return;
+        }
+        if (result instanceof OpenResult.NeedsOpenAs choose) {
+            completeLoad();
+            OpenAsDialogComponent.show(requireContext(), fileName(choose.source()),
+                    mode -> requestLoad(source, state.current(pane()).sort, mode),
+                    () -> state.returnFromOpenedFile(pane(), request, source, null));
+            return;
+        }
+        HandlerResult handled = ((OpenResult.Content) result).handled();
+        fileBeingOpened = null;
+        if (handled instanceof HandlerResult.OpenContent content) {
             state.showEntries(pane(), request, List.of());
             Path archiveEntry = content.source().isInsideArchive() ? content.source() : null;
             state.showContent(new OpenedContent(pane(), content.source(), content.localPath(),
-                    content.displayName(), content.type(), content.readOnly(), archiveEntry));
-        } else if (result instanceof HandlerResult.LaunchIntent launch) {
+                    facade.contentUri(content.localPath()).toString(), fileName(content.source()),
+                    content.type(), content.readOnly(), archiveEntry));
+        } else if (handled instanceof HandlerResult.LaunchIntent launch) {
             state.showEntries(pane(), request, List.of());
             state.showContent(new OpenedContent(pane(), launch.source(), launch.localPath(),
-                    new File(launch.localPath()).getName(),
+                    facade.contentUri(launch.localPath()).toString(), fileName(launch.source()),
                     com.vpt.filemanager.core.detect.ContentType.OTHER, true, null));
         }
+        completeLoad();
+    }
+
+    private void applyFailure(Path location, long request, Throwable error) {
+        String message = error.getMessage();
+        if (location.equals(fileBeingOpened)) {
+            fileBeingOpened = null;
+            state.returnFromOpenedFile(pane(), request, location, message);
+        } else {
+            state.showFailure(pane(), request, message);
+        }
+        completeLoad();
+    }
+
+    private void completeLoad() {
+        inFlight = false;
+        if (!pendingReload) return;
+        pendingReload = false;
+        Path location = pendingLocation;
+        SortOption sort = pendingSort;
+        pendingLocation = null;
+        pendingSort = null;
+        if (location != null && sort != null) requestLoad(location, sort, OpenMode.DEFAULT);
     }
 
     @Override
@@ -141,6 +203,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         if (paneState.selectionMode || paneState.location.isTrash()) {
             state.toggleSelection(pane(), entry);
         } else {
+            if (!entry.isFolder()) fileBeingOpened = entry.path();
             state.navigate(pane(), entry.path());
         }
     }
@@ -152,31 +215,28 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     }
 
     private void installObserver(Path location) {
-        if (observer != null) observer.stopWatching();
-        File watched = null;
-        if (location.isSearch()) watched = storage.fileAtStoragePath(location.storagePath());
-        else if (location.isInsideArchive()) watched =
-                storage.fileAtStoragePath(location.storagePath()).getParentFile();
-        else if (location.isStorage()) {
-            File current = storage.fileAtStoragePath(location.storagePath());
-            watched = current.isDirectory() ? current : current.getParentFile();
+        if (subscription != null) subscription.close();
+        subscription = null;
+        try {
+            subscription = facade.observe(location, () -> {
+                PaneState current = state.current(pane());
+                requestLoad(current.location, current.sort, OpenMode.DEFAULT);
+            });
+        } catch (Exception ignored) {
+            // Listing reports actionable errors; observation is optional.
         }
-        if (watched == null || !watched.isDirectory()) {
-            observer = null;
-            return;
-        }
-        observer = new FileObserver(watched, WATCH_EVENTS) {
-            @Override public void onEvent(int event, @Nullable String name) {
-                executors.main().execute(state::refreshVisiblePanes);
-            }
-        };
-        observer.startWatching();
+    }
+
+    private static String fileName(Path path) {
+        String serialized = path.isInsideArchive() ? path.archiveInnerPath() : path.storagePath();
+        int slash = serialized.lastIndexOf('/');
+        return slash < 0 ? serialized : serialized.substring(slash + 1);
     }
 
     @Override
     public void onDestroyView() {
-        if (observer != null) observer.stopWatching();
-        observer = null;
+        if (subscription != null) subscription.close();
+        subscription = null;
         binding = null;
         super.onDestroyView();
     }

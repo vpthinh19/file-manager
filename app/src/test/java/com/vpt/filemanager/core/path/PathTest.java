@@ -20,6 +20,18 @@ public final class PathTest {
     }
 
     @Test
+    public void nestedArchiveRoundTripsAndReturnsToContainingFolder() {
+        Path nested = Path.archive("/Download/outer.zip", "/packages/inner.zip")
+                .mountArchive()
+                .child("readme.txt");
+        assertEquals("storage:/Download/outer.zip!/packages/inner.zip!/readme.txt",
+                nested.serialize());
+        assertEquals(nested, Path.parse(nested.serialize()));
+        assertEquals(Path.archive("/Download/outer.zip", "/packages"),
+                Path.archive("/Download/outer.zip", "/packages/inner.zip").mountArchive().parent());
+    }
+
+    @Test
     public void publicRootsCannotNavigateAboveBoundary() {
         assertNull(Path.storageRoot().parent());
         assertNull(Path.trash().parent());

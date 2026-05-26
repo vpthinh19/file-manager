@@ -1,4 +1,4 @@
-package com.vpt.filemanager.component.content.editor;
+package com.vpt.filemanager.handler.backend.document;
 
 import static org.junit.Assert.assertTrue;
 

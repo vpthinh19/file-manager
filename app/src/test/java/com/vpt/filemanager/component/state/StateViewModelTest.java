@@ -36,7 +36,8 @@ public final class StateViewModelTest {
         state.navigate(PaneId.LEFT, Path.bookmarks());
         Path file = Path.storage("/Documents/report.txt");
         state.navigate(PaneId.LEFT, file);
-        state.showContent(new OpenedContent(PaneId.LEFT, file, "/tmp/report.txt", "report.txt",
+        state.showContent(new OpenedContent(PaneId.LEFT, file, "/tmp/report.txt", "content://report",
+                "report.txt",
                 ContentType.TEXT, false, null));
         assertTrue(state.back(PaneId.LEFT));
         assertEquals(Path.bookmarks(), state.current(PaneId.LEFT).location);

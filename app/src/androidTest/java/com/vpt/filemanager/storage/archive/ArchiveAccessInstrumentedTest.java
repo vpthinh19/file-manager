@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +23,7 @@ import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
+import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
 
 @RunWith(AndroidJUnit4.class)
 public final class ArchiveAccessInstrumentedTest {
@@ -34,7 +36,7 @@ public final class ArchiveAccessInstrumentedTest {
         fixture(zip);
 
         LocalStorageAdapter storage = new LocalStorageAdapter(root.toFile());
-        ArchiveAccess archives = new ArchiveAccess(context, storage);
+        ArchiveBackend archives = new ArchiveBackend(storage);
         com.vpt.filemanager.core.path.Path location =
                 com.vpt.filemanager.core.path.Path.archive("/sample.zip", "/");
 
@@ -81,6 +83,28 @@ public final class ArchiveAccessInstrumentedTest {
         assertEquals("note", read(Path.of(archives.materialize(nested))).trim());
     }
 
+    @Test
+    public void nestedZipWritesPropagateToOuterContainer() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Path root = context.getCacheDir().toPath().resolve("nested-archive-test");
+        Files.createDirectories(root);
+        Path outer = root.resolve("outer.zip");
+        nestedFixture(outer);
+
+        LocalStorageAdapter storage = new LocalStorageAdapter(root.toFile());
+        ArchiveBackend archives = new ArchiveBackend(storage);
+        com.vpt.filemanager.core.path.Path nestedRoot =
+                com.vpt.filemanager.core.path.Path.archive("/outer.zip", "/inner.zip")
+                        .mountArchive();
+
+        assertEquals("inner", read(Path.of(
+                archives.materialize(named(archives.list(nestedRoot), "inside.txt")))).trim());
+        archives.create(nestedRoot, "created.txt", false);
+
+        ArchiveBackend fresh = new ArchiveBackend(storage);
+        assertTrue(fresh.exists(nestedRoot, "created.txt"));
+    }
+
     private static Entry named(List<Entry> items, String name) {
         return items.stream().filter(item -> item.name().equals(name)).findFirst().orElseThrow();
     }
@@ -93,6 +117,21 @@ public final class ArchiveAccessInstrumentedTest {
             archive.closeEntry();
             archive.putNextEntry(new ZipEntry("hello.txt"));
             archive.write("hello".getBytes(StandardCharsets.UTF_8));
+            archive.closeEntry();
+        }
+    }
+
+    private static void nestedFixture(Path outer) throws Exception {
+        ByteArrayOutputStream innerBytes = new ByteArrayOutputStream();
+        try (ZipOutputStream inner = new ZipOutputStream(innerBytes)) {
+            inner.putNextEntry(new ZipEntry("inside.txt"));
+            inner.write("inner".getBytes(StandardCharsets.UTF_8));
+            inner.closeEntry();
+        }
+        try (OutputStream output = Files.newOutputStream(outer);
+             ZipOutputStream archive = new ZipOutputStream(output)) {
+            archive.putNextEntry(new ZipEntry("inner.zip"));
+            archive.write(innerBytes.toByteArray());
             archive.closeEntry();
         }
     }

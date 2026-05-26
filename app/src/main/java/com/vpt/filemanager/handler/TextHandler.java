@@ -10,11 +10,12 @@ import java.io.File;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/** Renders text-shaped content in the in-app editor. */
+/** Renders extension-routed text content in the in-app editor. */
 @Singleton
 public final class TextHandler implements Handler {
     @Inject
-    public TextHandler() {}
+    public TextHandler() {
+    }
 
     @NonNull
     @Override
@@ -25,10 +26,8 @@ public final class TextHandler implements Handler {
     @NonNull
     @Override
     public HandlerResult handle(@NonNull File materialized, @NonNull Path source) {
-        // Read-only when the path came from an archive entry — archives still
-        // need a re-import step before the in-place edit can be saved back.
-        boolean readOnly = source.isInsideArchive();
+        // The facade applies storage capabilities after this handler chooses the editor.
         return new HandlerResult.OpenContent(source, materialized.getAbsolutePath(),
-                materialized.getName(), ContentType.TEXT, readOnly);
+                materialized.getName(), ContentType.TEXT, false);
     }
 }

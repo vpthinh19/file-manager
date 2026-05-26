@@ -1,33 +1,34 @@
 package com.vpt.filemanager.component.bottombar;
 
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.FileProvider;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.operation.Operations;
-import com.vpt.filemanager.component.dialog.InputDialogs;
+import com.vpt.filemanager.storage.facade.Capability;
+import com.vpt.filemanager.storage.facade.StorageFacade;
+import com.vpt.filemanager.storage.facade.TransferDecision;
+import com.vpt.filemanager.component.dialog.ConfirmDialogComponent;
+import com.vpt.filemanager.component.dialog.ConflictDialogComponent;
+import com.vpt.filemanager.component.dialog.InputDialogComponent;
+import com.vpt.filemanager.component.dialog.PropertiesDialogComponent;
+import com.vpt.filemanager.component.dialog.SelectionActionsDialogComponent;
+import com.vpt.filemanager.core.error.NameConflictException;
 import com.vpt.filemanager.core.format.MimeTypes;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
 import com.vpt.filemanager.component.state.StateViewModel;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,7 +37,7 @@ public final class BottomBarComponent {
     private static final float DISABLED_ALPHA = 0.38f;
     private final AppCompatActivity activity;
     private final StateViewModel state;
-    private final Operations operations;
+    private final StorageFacade storage;
     private final AppExecutors executors;
     private final View normal;
     private final View selection;
@@ -47,10 +48,10 @@ public final class BottomBarComponent {
     private final ImageButton more;
 
     public BottomBarComponent(AppCompatActivity activity, StateViewModel state,
-                              Operations operations, AppExecutors executors) {
+                              StorageFacade storage, AppExecutors executors) {
         this.activity = activity;
         this.state = state;
-        this.operations = operations;
+        this.storage = storage;
         this.executors = executors;
         normal = activity.findViewById(R.id.bottom_bar);
         selection = activity.findViewById(R.id.selection_bar);
@@ -67,8 +68,8 @@ public final class BottomBarComponent {
         up.setOnClickListener(view -> state.up(state.activePaneValue()));
         activity.findViewById(R.id.btn_swap).setOnClickListener(view ->
                 state.activate(state.activePaneValue().other()));
-        add.setOnClickListener(view -> InputDialogs.create(activity,
-                (folder, name) -> run(() -> operations.create(state.activeState().location, name, folder),
+        add.setOnClickListener(view -> InputDialogComponent.create(activity,
+                (folder, name) -> run(() -> storage.create(state.activeState().location, name, folder),
                         folder ? "Folder created" : "File created")));
         activity.findViewById(R.id.btn_sel_all).setOnClickListener(view ->
                 state.selectAll(state.activePaneValue()));
@@ -96,7 +97,7 @@ public final class BottomBarComponent {
             enabled(back, pane.canGoBack);
             enabled(forward, pane.canGoForward);
             enabled(up, pane.location.parent() != null);
-            enabled(add, operations.canWrite(pane.location));
+            enabled(add, pane.capabilities.contains(Capability.CREATE));
             return;
         }
         int count = pane.selection.size();
@@ -112,11 +113,11 @@ public final class BottomBarComponent {
         List<Entry> selected = pane.selectedEntries();
         if (selected.isEmpty()) return;
         if (pane.location.isTrash()) {
-            run(() -> operations.restore(selected), "Restored");
+            run(() -> storage.restore(selected), "Restored");
             return;
         }
         if (pane.location.isBookmarks()) {
-            operations.removeBookmarks(selected);
+            storage.removeBookmarks(selected);
             state.clearSelection(state.activePaneValue(), true);
             state.refreshVisiblePanes();
             return;
@@ -133,23 +134,22 @@ public final class BottomBarComponent {
         };
         Entry single = selected.size() == 1 ? selected.get(0) : null;
         Path destination = state.inactiveState().location;
-        boolean transfer = operations.canWrite(destination)
+        boolean transfer = state.inactiveState().capabilities.contains(Capability.MOVE_IN)
                 && !destination.equals(state.activeState().location);
         boolean[] enabled = {
                 transfer,
-                transfer,
-                true,
-                single != null,
+                transfer && pane.capabilities.contains(Capability.MOVE_OUT),
+                pane.capabilities.contains(Capability.DELETE),
+                single != null && pane.capabilities.contains(Capability.RENAME),
                 selected.stream().anyMatch(entry -> !entry.isFolder()),
                 single != null && !single.isFolder(),
                 single != null && single.isFolder() && !single.isInsideArchive()
                         && single.localPathOrNull() != null,
                 single != null && !single.isInsideArchive()
         };
-        new AlertDialog.Builder(activity).setTitle(single == null
-                        ? activity.getString(R.string.selected_count, selected.size()) : single.name())
-                .setAdapter(new SelectionActionsAdapter(labels, enabled),
-                        (dialog, index) -> selectAction(index, selected)).show();
+        SelectionActionsDialogComponent.show(activity, single == null
+                        ? activity.getString(R.string.selected_count, selected.size()) : single.name(),
+                labels, enabled, index -> selectAction(index, selected));
     }
 
     private void selectAction(int action, List<Entry> selected) {
@@ -159,26 +159,25 @@ public final class BottomBarComponent {
             if (destination.equals(state.activeState().location)) {
                 toast(activity.getString(R.string.transfer_same_folder));
             } else {
-                run(() -> operations.transfer(selected, destination, action == 1),
-                        action == 1 ? "Moved" : "Copied");
+                transfer(selected, destination, action == 1);
             }
         } else if (action == 2) {
-            new AlertDialog.Builder(activity).setTitle(R.string.action_delete)
-                    .setMessage(activity.getString(R.string.delete_confirm_count, selected.size()))
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .setPositiveButton(android.R.string.ok,
-                            (dialog, which) -> run(() -> operations.delete(selected), "Deleted")).show();
+            int message = state.activeState().location.isInsideArchive()
+                    ? R.string.archive_delete_confirm_count : R.string.delete_confirm_count;
+            ConfirmDialogComponent.show(activity, R.string.action_delete,
+                    activity.getString(message, selected.size()),
+                    () -> run(() -> storage.delete(selected), "Deleted"));
         } else if (action == 3 && single != null) {
-            InputDialogs.prompt(activity, R.string.action_rename, R.string.file_name, single.name(),
-                    value -> run(() -> operations.rename(single, value), "Renamed"));
+            InputDialogComponent.prompt(activity, R.string.action_rename, R.string.file_name, single.name(),
+                    value -> run(() -> storage.rename(single, value), "Renamed"));
         } else if (action == 4) {
             share(selected);
         } else if (action == 5 && single != null) {
             openWith(single);
         } else if (action == 6 && single != null) {
-            run(() -> operations.bookmark(single), "Bookmarked");
+            run(() -> storage.bookmark(single), "Bookmarked");
         } else if (action == 7 && single != null && !single.isInsideArchive()) {
-            showProperties(single);
+            PropertiesDialogComponent.show(activity, single);
         } else {
             toast(activity.getString(R.string.selection_single_only));
         }
@@ -189,9 +188,7 @@ public final class BottomBarComponent {
         for (Entry entry : selected) {
             if (entry.isFolder()) continue;
             try {
-                String path = operations.materializeIfRequired(entry);
-                uris.add(FileProvider.getUriForFile(activity,
-                        activity.getPackageName() + ".fileprovider", new File(path)));
+                uris.add(storage.contentUri(entry));
             } catch (Exception error) {
                 toast(error.getMessage());
             }
@@ -206,9 +203,7 @@ public final class BottomBarComponent {
 
     private void openWith(Entry entry) {
         try {
-            String path = operations.materializeIfRequired(entry);
-            Uri uri = FileProvider.getUriForFile(activity,
-                    activity.getPackageName() + ".fileprovider", new File(path));
+            Uri uri = storage.contentUri(entry);
             Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, MimeTypes.detect(entry.name()))
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(open, activity.getString(R.string.action_open_with)));
@@ -217,11 +212,58 @@ public final class BottomBarComponent {
         }
     }
 
-    private void showProperties(Entry entry) {
-        new AlertDialog.Builder(activity).setTitle(R.string.properties)
-                .setMessage(entry.name() + "\n" + entry.localPath() + "\n"
-                        + com.vpt.filemanager.core.format.ByteSize.format(entry.size()))
-                .setPositiveButton(android.R.string.ok, null).show();
+    private void transfer(List<Entry> selected, Path destination, boolean move) {
+        transferNext(selected, destination, move, 0, null);
+    }
+
+    private void transferNext(List<Entry> selected, Path destination, boolean move, int index,
+                              @Nullable TransferDecision remainingDecision) {
+        if (index >= selected.size()) {
+            finishTransfer(move ? "Moved" : "Copied");
+            return;
+        }
+        Entry source = selected.get(index);
+        TransferDecision decision = remainingDecision == null
+                ? TransferDecision.ASK : remainingDecision;
+        executors.io().execute(() -> {
+            try {
+                storage.transfer(source, destination, move, decision);
+                executors.main().execute(() ->
+                        transferNext(selected, destination, move, index + 1, remainingDecision));
+            } catch (NameConflictException conflict) {
+                executors.main().execute(() -> ConflictDialogComponent.show(activity,
+                        conflict.name(), (choice, applyAll) -> {
+                            if (choice == TransferDecision.CANCEL) {
+                                state.refreshVisiblePanes();
+                                return;
+                            }
+                            retryTransfer(selected, destination, move, index, choice,
+                                    applyAll ? choice : null);
+                        }));
+            } catch (Exception error) {
+                executors.main().execute(() -> toast(error.getMessage()));
+            }
+        });
+    }
+
+    private void retryTransfer(List<Entry> selected, Path destination, boolean move, int index,
+                               TransferDecision choice,
+                               @Nullable TransferDecision remainingDecision) {
+        executors.io().execute(() -> {
+            try {
+                storage.transfer(selected.get(index), destination, move, choice);
+                executors.main().execute(() ->
+                        transferNext(selected, destination, move, index + 1, remainingDecision));
+            } catch (Exception error) {
+                executors.main().execute(() -> toast(error.getMessage()));
+            }
+        });
+    }
+
+    private void finishTransfer(String success) {
+        state.clearSelection(state.activePaneValue(), true);
+        state.refreshVisiblePanes();
+        toast(success);
     }
 
     private void run(Throwing operation, String success) {
@@ -247,28 +289,6 @@ public final class BottomBarComponent {
     private static void enabled(View view, boolean enabled) {
         view.setEnabled(enabled);
         view.setAlpha(enabled ? 1f : DISABLED_ALPHA);
-    }
-
-    private final class SelectionActionsAdapter extends ArrayAdapter<String> {
-        private final boolean[] enabledRows;
-
-        SelectionActionsAdapter(String[] labels, boolean[] enabledRows) {
-            super(activity, android.R.layout.simple_list_item_1, labels);
-            this.enabledRows = enabledRows;
-        }
-
-        @Override public boolean isEnabled(int position) {
-            return enabledRows[position];
-        }
-
-        @Override @NonNull
-        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-            View row = super.getView(position, convertView, parent);
-            boolean enabled = isEnabled(position);
-            row.setEnabled(enabled);
-            row.setAlpha(enabled ? 1f : DISABLED_ALPHA);
-            return row;
-        }
     }
 
     private interface Throwing {

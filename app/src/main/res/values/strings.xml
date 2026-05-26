@@ -43,6 +43,7 @@
     <string name="forward_not_implemented">Forward history is not implemented yet</string>
     <string name="selected_count">%1$d selected</string>
     <string name="delete_confirm_count">Delete %1$d items?</string>
+    <string name="archive_delete_confirm_count">Permanently delete %1$d archive items?</string>
     <string name="selection_single_only">Only available for a single item</string>
     <string name="openas_title">Open \"%1$s\" as</string>
     <string name="openas_text">Text</string>
@@ -74,19 +75,20 @@
     <string name="search_files_hint">File or folder name</string>
     <string name="search_title">Search: %1$s</string>
 
-    <!-- Conflict resolution (Phase 2C-6 KISS batch). -->
+    <!-- Conflict resolution. -->
     <string name="conflict_title">Name already exists</string>
     <string name="conflict_message_format">\"%1$s\" already exists in this folder.</string>
     <string name="conflict_replace">Replace</string>
     <string name="conflict_keep_both">Keep both</string>
+    <string name="conflict_apply_all">Apply to all remaining conflicts</string>
 
-    <!-- Phase C-1b transfer error messages (cross-pane copy/move). -->
+    <!-- Transfer error messages. -->
     <string name="transfer_no_destination">No destination pane</string>
     <string name="transfer_same_folder">Source and destination are the same folder</string>
     <string name="transfer_dest_unreachable">Destination unreachable</string>
     <string name="transfer_dest_readonly">Destination is read-only</string>
 
-    <!-- Phase 2C-7 — Error messages + binary open confirm. -->
+    <!-- Error messages and binary open confirmation. -->
     <string name="error_archive_corrupt">Archive is corrupt or not a valid format.</string>
     <string name="error_permission_denied">Permission denied.</string>
     <string name="error_io">Unable to read or write the file.</string>
@@ -118,7 +120,7 @@
     <string name="editor_previous_match">Previous match</string>
     <string name="editor_next_match">Next match</string>
 
-    <!-- Phase 2C-8 — Toolbar overflow menu + sort. -->
+    <!-- Toolbar overflow menu and sort. -->
     <string name="action_search">Search</string>
     <string name="action_close">Close</string>
     <string name="action_sort">Sort</string>
@@ -134,7 +136,7 @@
     <string name="sort_date_asc">Date (oldest first)</string>
     <string name="sort_type">Type</string>
 
-    <!-- Phase 2C-5c — Trash. -->
+    <!-- Trash. -->
     <string name="action_restore">Restore</string>
     <string name="action_empty_trash">Empty trash</string>
     <string name="trash_empty_title">Empty trash?</string>

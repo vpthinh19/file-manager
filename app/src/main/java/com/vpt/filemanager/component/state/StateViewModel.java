@@ -13,8 +13,10 @@ import com.vpt.filemanager.core.settings.UserPreferences;
 import com.vpt.filemanager.component.content.OpenedContent;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
+import com.vpt.filemanager.storage.facade.Capability;
 
 import java.util.ArrayDeque;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -134,17 +136,26 @@ public final class StateViewModel extends ViewModel {
         MutablePane value = value(pane);
         if (!requested.equals(value.location)) return -1L;
         value.loading = true;
-        value.error = null;
+        if (!value.keepErrorForNextRender) value.error = null;
         long generation = ++value.generation;
         publish(pane);
         return generation;
     }
 
     public void showEntries(@NonNull PaneId pane, long request, @NonNull List<Entry> entries) {
+        showDirectory(pane, request, value(pane).location, entries, value(pane).capabilities);
+    }
+
+    public void showDirectory(@NonNull PaneId pane, long request, @NonNull Path canonicalPath,
+                              @NonNull List<Entry> entries,
+                              @NonNull EnumSet<Capability> capabilities) {
         MutablePane value = value(pane);
         if (request != value.generation) return;
+        value.location = canonicalPath;
         value.loading = false;
-        value.error = null;
+        if (!value.keepErrorForNextRender) value.error = null;
+        value.keepErrorForNextRender = false;
+        value.capabilities = capabilities.clone();
         value.entries = List.copyOf(entries);
         value.selection.retainAll(entries.stream().map(Entry::key).toList());
         publish(pane);
@@ -157,6 +168,24 @@ public final class StateViewModel extends ViewModel {
         value.error = error == null ? "Unable to open location" : error;
         value.entries = List.of();
         value.selection.clear();
+        publish(pane);
+    }
+
+    /** Returns from a failed file open without placing the failed file into navigation history. */
+    public void returnFromOpenedFile(@NonNull PaneId pane, long request, @NonNull Path file,
+                                     @Nullable String error) {
+        MutablePane value = value(pane);
+        if (request != value.generation || !file.equals(value.location)) return;
+        Path parent = file.parent();
+        if (parent == null) {
+            showFailure(pane, request, error);
+            return;
+        }
+        if (!value.back.isEmpty() && parent.equals(value.back.peek())) value.back.pop();
+        value.location = parent;
+        value.resetRows();
+        value.error = error;
+        value.keepErrorForNextRender = error != null;
         publish(pane);
     }
 
@@ -235,6 +264,8 @@ public final class StateViewModel extends ViewModel {
         private String error;
         private boolean selectionMode;
         private long generation;
+        private EnumSet<Capability> capabilities = EnumSet.noneOf(Capability.class);
+        private boolean keepErrorForNextRender;
 
         MutablePane(Path location, SortOption sort) {
             this.location = location;
@@ -247,11 +278,12 @@ public final class StateViewModel extends ViewModel {
             selectionMode = false;
             loading = true;
             error = null;
+            keepErrorForNextRender = false;
         }
 
         PaneState snapshot() {
             return new PaneState(location, entries, selection, sort, loading, error,
-                    selectionMode, !back.isEmpty(), !forward.isEmpty());
+                    selectionMode, !back.isEmpty(), !forward.isEmpty(), capabilities);
         }
     }
 }

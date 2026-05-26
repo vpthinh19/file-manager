@@ -5,6 +5,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -16,11 +18,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.operation.Operations;
+import com.vpt.filemanager.storage.facade.StorageFacade;
 import com.vpt.filemanager.core.settings.UserPreferences;
 import com.vpt.filemanager.component.bottombar.BottomBarComponent;
 import com.vpt.filemanager.component.content.ContentHostComponent;
@@ -38,7 +43,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public final class MainActivity extends AppCompatActivity {
     @Inject UserPreferences preferences;
-    @Inject Operations operations;
+    @Inject StorageFacade storage;
     @Inject AppExecutors executors;
     private StateViewModel state;
     private DrawerComponent drawer;
@@ -70,6 +75,7 @@ public final class MainActivity extends AppCompatActivity {
         if (installed) return;
         installed = true;
         setContentView(R.layout.activity_main);
+        installInsets();
         WindowInsetsControllerCompat bars =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         bars.setAppearanceLightStatusBars(false);
@@ -78,8 +84,8 @@ public final class MainActivity extends AppCompatActivity {
         drawer = new DrawerComponent(this, state, preferences);
         content = new ContentHostComponent(this, state, drawer);
         drawer.attach(this);
-        new TopBarComponent(this, state, operations, executors, drawer).attach(this);
-        new BottomBarComponent(this, state, operations, executors).attach(this);
+        new TopBarComponent(this, state, storage, executors, drawer).attach(this);
+        new BottomBarComponent(this, state, storage, executors).attach(this);
         content.attach(this);
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()
@@ -117,5 +123,30 @@ public final class MainActivity extends AppCompatActivity {
 
     private void resumeAfterPermission() {
         if (Environment.isExternalStorageManager()) install(null); else finish();
+    }
+
+    private void installInsets() {
+        View appBar = findViewById(R.id.appbar);
+        View bottom = findViewById(R.id.bottom_container);
+        int appLeft = appBar.getPaddingLeft();
+        int appTop = appBar.getPaddingTop();
+        int appRight = appBar.getPaddingRight();
+        int appBottom = appBar.getPaddingBottom();
+        int bottomLeft = bottom.getPaddingLeft();
+        int bottomTop = bottom.getPaddingTop();
+        int bottomRight = bottom.getPaddingRight();
+        int bottomPadding = bottom.getPaddingBottom();
+        int baseBottomHeight = bottom.getLayoutParams().height;
+        View root = findViewById(R.id.drawer_layout);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            appBar.setPadding(appLeft, appTop + bars.top, appRight, appBottom);
+            bottom.setPadding(bottomLeft, bottomTop, bottomRight, bottomPadding + bars.bottom);
+            ViewGroup.LayoutParams parameters = bottom.getLayoutParams();
+            parameters.height = baseBottomHeight + bars.bottom;
+            bottom.setLayoutParams(parameters);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
     }
 }

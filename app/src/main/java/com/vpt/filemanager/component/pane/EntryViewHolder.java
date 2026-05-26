@@ -8,7 +8,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.DateFormat;
-import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -17,7 +16,6 @@ import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.format.ByteSize;
 import com.vpt.filemanager.component.pane.icon.FileIconView;
 import com.vpt.filemanager.component.pane.icon.IconCategory;
-import com.bumptech.glide.Glide;
 
 public final class EntryViewHolder extends RecyclerView.ViewHolder {
     private static final int DATE_CACHE_SIZE = 128;
@@ -59,19 +57,9 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
 
     public void bind(@NonNull Entry entry, boolean selected) {
         current = entry;
-        Glide.with(itemView).clear(mediaThumbnail);
         mediaThumbnail.setVisibility(View.GONE);
         icon.setVisibility(View.VISIBLE);
-        if (isThumbnailEntry(entry)) {
-            icon.bindCategory(IconCategory.ofFileName(entry.name()));
-            mediaThumbnail.setVisibility(View.VISIBLE);
-            Glide.with(itemView)
-                    .load(new File(entry.localPath()))
-                    .centerCrop()
-                    .thumbnail(0.25f)
-                    .dontAnimate()
-                    .into(mediaThumbnail);
-        } else if (entry.isFolder()) {
+        if (entry.isFolder()) {
             icon.bindFolder();
         } else {
             icon.bindCategory(IconCategory.ofFileName(entry.name()));
@@ -83,7 +71,6 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
 
     public void clear() {
         current = null;
-        Glide.with(itemView).clear(mediaThumbnail);
     }
 
     public void bindSelection(boolean selected) {
@@ -104,9 +91,4 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
         return size + " / " + date;
     }
 
-    private static boolean isThumbnailEntry(Entry entry) {
-        if (entry.localPathOrNull() == null || entry.isFolder()) return false;
-        IconCategory category = IconCategory.ofFileName(entry.name());
-        return category == IconCategory.IMAGE || category == IconCategory.VIDEO;
-    }
 }

@@ -1,6 +1,7 @@
 package com.vpt.filemanager.component.content;
 
 import android.os.Bundle;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,17 +18,17 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.component.state.StateViewModel;
 
-import java.io.File;
-
 public final class ImageContentFragment extends Fragment implements FullScreenContent {
-    private static final String ARG_PATH = "path";
+    private static final String ARG_URI = "uri";
+    private static final String ARG_NAME = "name";
     private ImageView image;
     private RequestManager requests;
 
-    public static ImageContentFragment newInstance(String path) {
+    public static ImageContentFragment newInstance(String uri, String name) {
         ImageContentFragment fragment = new ImageContentFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PATH, path);
+        args.putString(ARG_URI, uri);
+        args.putString(ARG_NAME, name);
         fragment.setArguments(args);
         return fragment;
     }
@@ -39,13 +40,13 @@ public final class ImageContentFragment extends Fragment implements FullScreenCo
     }
 
     @Override public void onViewCreated(@NonNull View view, @Nullable Bundle state) {
-        String path = requireArguments().getString(ARG_PATH);
+        String uri = requireArguments().getString(ARG_URI);
         MaterialToolbar toolbar = view.findViewById(R.id.image_toolbar);
-        toolbar.setTitle(new File(path).getName());
+        toolbar.setTitle(requireArguments().getString(ARG_NAME));
         toolbar.setNavigationOnClickListener(ignored -> onBackPressed());
         image = view.findViewById(R.id.image_content);
         requests = Glide.with(this);
-        requests.load(new File(path)).fitCenter().into(image);
+        requests.load(Uri.parse(uri)).fitCenter().into(image);
     }
 
     @Override public boolean onBackPressed() {

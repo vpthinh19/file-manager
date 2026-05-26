@@ -52,14 +52,14 @@ public final class BookmarkCollection {
     public List<Entry> list() {
         List<Entry> result = new ArrayList<>();
         for (BookmarkRecord record : dao.all()) {
-            File target = new File(record.path);
-            if (!target.exists()) {
+            File target = storage.fromAbsolutePath(record.path);
+            if (!storage.exists(target)) {
                 timber.log.Timber.w("Skipping broken bookmark: %s", record.path);
                 continue;
             }
             try {
-                result.add(Entry.bookmark(storage.pathOf(target), record.path, target.getName(),
-                        -1L, target.lastModified()));
+                result.add(Entry.bookmark(storage.pathOf(target), record.path, storage.name(target),
+                        -1L, storage.modifiedAt(target)));
             } catch (FileOperationException invalidPath) {
                 timber.log.Timber.w("Skipping bookmark outside storage: %s", record.path);
             }

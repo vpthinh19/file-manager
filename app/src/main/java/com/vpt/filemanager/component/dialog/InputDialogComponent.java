@@ -14,8 +14,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Small component-owned text input dialogs used by top and bottom bars. */
-public final class InputDialogs {
-    private InputDialogs() {
+public final class InputDialogComponent {
+    private InputDialogComponent() {
     }
 
     public static void prompt(Context context, @StringRes int title, @StringRes int hint,

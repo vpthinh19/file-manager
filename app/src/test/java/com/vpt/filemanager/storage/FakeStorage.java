@@ -38,9 +38,11 @@ public final class FakeStorage implements Storage {
             throws FileOperationException { throw unsupported(); }
     @Override public void delete(List<Entry> entries)
             throws FileOperationException { throw unsupported(); }
-    @Override public void copyInternal(Entry source, Path destinationParent, String name)
+    @Override public void copyInternal(Entry source, Path destinationParent, String name,
+                                       boolean replace)
             throws FileOperationException { throw unsupported(); }
-    @Override public void moveInternal(Entry source, Path destinationParent, String name)
+    @Override public void moveInternal(Entry source, Path destinationParent, String name,
+                                       boolean replace)
             throws FileOperationException { throw unsupported(); }
     @Override public InputStream openRead(Entry entry)
             throws FileOperationException { throw unsupported(); }

@@ -3,7 +3,7 @@ package com.vpt.filemanager.core.di;
 import com.vpt.filemanager.storage.Storage;
 import com.vpt.filemanager.storage.archive.ArchiveStorage;
 import com.vpt.filemanager.storage.bookmarks.BookmarkStorage;
-import com.vpt.filemanager.storage.local.LocalStorage;
+import com.vpt.filemanager.storage.device.DeviceStorage;
 import com.vpt.filemanager.storage.search.SearchStorage;
 import com.vpt.filemanager.storage.trash.TrashStorage;
 
@@ -25,7 +25,7 @@ public abstract class StorageModule {
 
     @Binds
     @IntoSet
-    public abstract Storage bindLocalStorage(LocalStorage local);
+    public abstract Storage bindDeviceStorage(DeviceStorage device);
 
     @Binds
     @IntoSet

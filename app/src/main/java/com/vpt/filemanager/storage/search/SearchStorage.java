@@ -7,6 +7,7 @@ import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 import com.vpt.filemanager.storage.Storage;
+import com.vpt.filemanager.storage.InvalidationSubscription;
 
 import java.io.File;
 import java.io.InputStream;
@@ -60,15 +61,15 @@ public final class SearchStorage implements Storage {
                 throw new FileOperationException("Search cancelled");
             }
             File directory = pending.removeFirst();
-            if (!visited.add(directory.getAbsolutePath())) continue;
+            if (!visited.add(files.absolutePath(directory))) continue;
             for (File child : files.children(directory)) {
-                if (child.getName().toLowerCase(Locale.ROOT).contains(query)) {
-                    found.add(Entry.local(files.pathOf(child), child.getAbsolutePath(),
-                            child.getName(), child.isDirectory(),
-                            child.isDirectory() ? -1L : child.length(),
-                            child.lastModified()));
+                boolean folder = files.isDirectory(child);
+                if (files.name(child).toLowerCase(Locale.ROOT).contains(query)) {
+                    found.add(Entry.local(files.pathOf(child), files.absolutePath(child),
+                            files.name(child), folder, folder ? -1L : files.size(child),
+                            files.modifiedAt(child)));
                 }
-                if (child.isDirectory()) pending.addLast(child);
+                if (folder) pending.addLast(child);
                 if (found.size() >= MAX_RESULTS) break;
             }
         }
@@ -104,25 +105,32 @@ public final class SearchStorage implements Storage {
 
     @Override
     public void copyInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name) throws FileOperationException {
+                             @NonNull String name, boolean replace) throws FileOperationException {
         throw new FileOperationException("Cannot copy within a search");
     }
 
     @Override
     public void moveInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name) throws FileOperationException {
+                             @NonNull String name, boolean replace) throws FileOperationException {
         throw new FileOperationException("Cannot move within a search");
     }
 
     @NonNull
     @Override
     public InputStream openRead(@NonNull Entry entry) throws FileOperationException {
-        return files.openRead(new File(entry.localPath()));
+        return files.openRead(files.fromAbsolutePath(entry.localPath()));
     }
 
     @NonNull
     @Override
     public OutputStream openWrite(@NonNull Entry entry) throws FileOperationException {
         throw new FileOperationException("Search entries are read-only");
+    }
+
+    @NonNull
+    @Override
+    public InvalidationSubscription observe(@NonNull Path path, @NonNull Runnable invalidated)
+            throws FileOperationException {
+        return files.observeDirectory(files.fileAtStoragePath(path.storagePath()), invalidated);
     }
 }

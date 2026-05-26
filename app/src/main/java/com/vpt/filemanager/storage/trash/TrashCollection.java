@@ -32,19 +32,16 @@ public final class TrashCollection {
         if (entry.localPathOrNull() == null || entry.isInsideArchive()) {
             throw new FileOperationException("Entry cannot be moved to trash");
         }
-        File source = new File(entry.localPath());
-        if (!source.exists()) throw new FileOperationException("File no longer exists: " + entry.name());
+        File source = storage.fromAbsolutePath(entry.localPath());
+        if (!storage.exists(source)) throw new FileOperationException("File no longer exists: " + entry.name());
         String id = UUID.randomUUID().toString();
-        File destination = new File(new File(trashRoot(), id), entry.name());
-        File parent = destination.getParentFile();
-        if (parent == null || !parent.mkdirs() && !parent.isDirectory()) {
-            throw new FileOperationException("Cannot prepare trash");
-        }
+        File destination = storage.target(storage.target(trashRoot(), id), entry.name());
+        storage.ensureDirectory(storage.parent(destination));
         storage.move(source, destination);
         TrashRecord record = new TrashRecord();
         record.id = id;
         record.originalPath = entry.localPath();
-        record.storedPath = destination.getAbsolutePath().replace('\\', '/');
+        record.storedPath = storage.absolutePath(destination);
         record.displayName = entry.name();
         record.deletedAt = System.currentTimeMillis();
         record.sizeBytes = entry.isFolder() ? -1L : entry.size();
@@ -65,31 +62,28 @@ public final class TrashCollection {
     public void restore(@NonNull String id) throws FileOperationException {
         TrashRecord record = dao.findById(id);
         if (record == null) throw new FileOperationException("Trash entry no longer exists");
-        File destination = new File(record.originalPath);
-        if (destination.exists()) {
+        File destination = storage.fromAbsolutePath(record.originalPath);
+        if (storage.exists(destination)) {
             throw new FileOperationException("Cannot restore, destination exists: " + record.displayName);
         }
-        File parent = destination.getParentFile();
-        if (parent != null && !parent.mkdirs() && !parent.isDirectory()) {
-            throw new FileOperationException("Cannot restore parent directory");
-        }
-        storage.move(new File(record.storedPath), destination);
+        storage.ensureDirectory(storage.parent(destination));
+        storage.move(storage.fromAbsolutePath(record.storedPath), destination);
         dao.deleteById(id);
     }
 
     public void deletePermanently(@NonNull Entry entry) throws FileOperationException {
         if (!entry.isTrashItem() || entry.recordId() == null) return;
-        storage.deletePermanently(new File(entry.localPath()));
+        storage.deletePermanently(storage.fromAbsolutePath(entry.localPath()));
         dao.deleteById(entry.recordId());
     }
 
     public void empty() throws FileOperationException {
         File root = trashRoot();
-        if (root.exists()) storage.deletePermanently(root);
+        if (storage.exists(root)) storage.deletePermanently(root);
         dao.deleteAll();
     }
 
-    private File trashRoot() {
-        return new File(storage.rootDirectory(), ".FileManagerTrash");
+    private File trashRoot() throws FileOperationException {
+        return storage.target(storage.rootDirectory(), ".FileManagerTrash");
     }
 }

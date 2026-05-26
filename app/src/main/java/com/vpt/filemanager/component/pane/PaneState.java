@@ -5,8 +5,10 @@ import androidx.annotation.Nullable;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
+import com.vpt.filemanager.storage.facade.Capability;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,12 +24,13 @@ public final class PaneState {
     public final boolean selectionMode;
     public final boolean canGoBack;
     public final boolean canGoForward;
+    public final EnumSet<Capability> capabilities;
     public final int folderCount;
     public final int fileCount;
 
     public PaneState(Path location, List<Entry> entries, Set<String> selection, SortOption sort,
                      boolean loading, @Nullable String error, boolean selectionMode,
-                     boolean canGoBack, boolean canGoForward) {
+                     boolean canGoBack, boolean canGoForward, EnumSet<Capability> capabilities) {
         this.location = location;
         this.entries = List.copyOf(entries);
         this.selection = Collections.unmodifiableSet(new LinkedHashSet<>(selection));
@@ -37,6 +40,7 @@ public final class PaneState {
         this.selectionMode = selectionMode;
         this.canGoBack = canGoBack;
         this.canGoForward = canGoForward;
+        this.capabilities = capabilities.clone();
         int folders = 0;
         int files = 0;
         for (Entry entry : entries) {

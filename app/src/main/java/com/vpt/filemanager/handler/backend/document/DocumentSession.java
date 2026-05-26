@@ -1,10 +1,10 @@
-package com.vpt.filemanager.component.content.editor;
+package com.vpt.filemanager.handler.backend.document;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
-import android.os.FileObserver;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,6 +18,9 @@ import java.util.Arrays;
 
 import com.vpt.filemanager.core.error.DocumentConflictException;
 import com.vpt.filemanager.core.error.FileOperationException;
+import com.vpt.filemanager.core.path.Path;
+import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
+import com.vpt.filemanager.storage.InvalidationSubscription;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 import java.io.File;
 
@@ -30,28 +33,30 @@ public final class DocumentSession {
     private static final int SNIFF_BYTES = 4096;
 
     private final String path;
+    @Nullable private final Path archiveEntry;
     private final LocalStorageAdapter files;
+    private final ArchiveBackend archives;
     private final MutableLiveData<Long> externalInvalidations = new MutableLiveData<>();
-    private final FileObserver observer;
+    private final InvalidationSubscription observer;
     private Baseline baseline;
     private String savedContent = "";
     private boolean loaded;
     private long invalidationSequence;
 
-    DocumentSession(String path, LocalStorageAdapter files) {
+    DocumentSession(String path, @Nullable Path archiveEntry, LocalStorageAdapter files,
+                    ArchiveBackend archives) {
         this.path = path;
+        this.archiveEntry = archiveEntry;
         this.files = files;
-        observer = new FileObserver(new java.io.File(parent(path)),
-                FileObserver.DELETE | FileObserver.MOVED_FROM | FileObserver.CLOSE_WRITE) {
-            @Override
-            public void onEvent(int event, String changed) {
-                if (changed == null || path.endsWith("/" + changed)
-                        || path.endsWith("\\" + changed)) {
-                    externalInvalidations.postValue(++invalidationSequence);
-                }
-            }
-        };
-        observer.startWatching();
+        this.archives = archives;
+        InvalidationSubscription watch;
+        try {
+            watch = files.observeDirectory(files.parent(files.fromAbsolutePath(path)),
+                    () -> externalInvalidations.postValue(++invalidationSequence));
+        } catch (FileOperationException unavailable) {
+            watch = () -> { };
+        }
+        observer = watch;
     }
 
     public LiveData<Long> externalInvalidations() {
@@ -59,22 +64,22 @@ public final class DocumentSession {
     }
 
     public void close() {
-        observer.stopWatching();
+        observer.close();
     }
 
     @NonNull
     public LoadResult load(boolean allowBinary) throws FileOperationException {
         File entry = inspectFile();
-        if (entry.length() > HARD_LIMIT_BYTES) {
+        if (files.size(entry) > HARD_LIMIT_BYTES) {
             throw new FileOperationException("File is too large to open.");
         }
         if (!allowBinary && looksBinary()) {
             return LoadResult.binaryApprovalRequired();
         }
-        boolean truncated = entry.length() > READ_ONLY_THRESHOLD_BYTES;
+        boolean truncated = files.size(entry) > READ_ONLY_THRESHOLD_BYTES;
         ReadResult read = readDecoded(truncated ? READ_ONLY_THRESHOLD_BYTES : Integer.MAX_VALUE,
                 !truncated);
-        baseline = new Baseline(entry.length(), entry.lastModified(), read.fingerprint);
+        baseline = new Baseline(files.size(entry), files.modifiedAt(entry), read.fingerprint);
         savedContent = read.content;
         loaded = true;
         return LoadResult.document(read.content, !truncated, truncated);
@@ -106,8 +111,9 @@ public final class DocumentSession {
         } catch (IOException error) {
             throw new FileOperationException("Unable to save document", error);
         }
+        if (archiveEntry != null) archives.updateFromMaterialized(archiveEntry, path);
         File saved = inspectFile();
-        baseline = new Baseline(saved.length(), saved.lastModified(), digest(bytes));
+        baseline = new Baseline(files.size(saved), files.modifiedAt(saved), digest(bytes));
         savedContent = content.toString();
     }
 
@@ -123,9 +129,9 @@ public final class DocumentSession {
     }
 
     private File inspectFile() throws FileOperationException {
-        File entry = new File(path);
-        if (!entry.exists()) throw new FileOperationException("Path not found: " + path);
-        if (entry.isDirectory()) {
+        File entry = files.fromAbsolutePath(path);
+        if (!files.exists(entry)) throw new FileOperationException("Path not found: " + path);
+        if (files.isDirectory(entry)) {
             throw new FileOperationException("Cannot edit a folder");
         }
         return entry;
@@ -170,17 +176,12 @@ public final class DocumentSession {
     }
 
     private boolean matches(File current) throws FileOperationException {
-        if (current.length() != baseline.size || current.lastModified() != baseline.modifiedAt) {
+        if (files.size(current) != baseline.size || files.modifiedAt(current) != baseline.modifiedAt) {
             return false;
         }
         return baseline.fingerprint == null
                 || Arrays.equals(baseline.fingerprint,
                 readDecoded(Integer.MAX_VALUE, true).fingerprint);
-    }
-
-    private static String parent(String value) {
-        int separator = value.lastIndexOf('/');
-        return separator <= 0 ? "/" : value.substring(0, separator);
     }
 
     private static MessageDigest newDigest() {
