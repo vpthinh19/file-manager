@@ -24,15 +24,15 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.threading.AppExecutors;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.storage.facade.StorageFacade;
-import com.vpt.filemanager.core.settings.UserPreferences;
+import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.component.bottombar.BottomBarComponent;
 import com.vpt.filemanager.component.content.ContentHostComponent;
 import com.vpt.filemanager.component.drawer.DrawerComponent;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneFragment;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
 import com.vpt.filemanager.component.topbar.TopBarComponent;
 
 import javax.inject.Inject;
@@ -128,6 +128,7 @@ public final class MainActivity extends AppCompatActivity {
     private void installInsets() {
         View appBar = findViewById(R.id.appbar);
         View bottom = findViewById(R.id.bottom_container);
+        View content = findViewById(R.id.content_container);
         int appLeft = appBar.getPaddingLeft();
         int appTop = appBar.getPaddingTop();
         int appRight = appBar.getPaddingRight();
@@ -137,11 +138,17 @@ public final class MainActivity extends AppCompatActivity {
         int bottomRight = bottom.getPaddingRight();
         int bottomPadding = bottom.getPaddingBottom();
         int baseBottomHeight = bottom.getLayoutParams().height;
+        int contentLeft = content.getPaddingLeft();
+        int contentTop = content.getPaddingTop();
+        int contentRight = content.getPaddingRight();
+        int contentBottom = content.getPaddingBottom();
         View root = findViewById(R.id.drawer_layout);
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             appBar.setPadding(appLeft, appTop + bars.top, appRight, appBottom);
             bottom.setPadding(bottomLeft, bottomTop, bottomRight, bottomPadding + bars.bottom);
+            content.setPadding(contentLeft, contentTop + bars.top, contentRight,
+                    contentBottom + bars.bottom);
             ViewGroup.LayoutParams parameters = bottom.getLayoutParams();
             parameters.height = baseBottomHeight + bars.bottom;
             bottom.setLayoutParams(parameters);

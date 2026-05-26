@@ -3,7 +3,7 @@ package com.vpt.filemanager.component.pane.icon;
 import java.util.Locale;
 
 /**
- * Visual icon bucket only; opening behavior is determined later from file contents.
+ * Visual icon bucket only; opening behavior is determined separately from the extension policy.
  *
  * <p>One icon per intuitive file kind: a user sees "document" or "spreadsheet" regardless of
  * whether the extension is .docx, .doc, .md, or .txt. Per-extension brand colors removed (Option D)

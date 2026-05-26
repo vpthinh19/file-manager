@@ -13,7 +13,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.threading.AppExecutors;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.facade.StorageFacade;
 import com.vpt.filemanager.component.dialog.ConfirmDialogComponent;
@@ -22,7 +22,7 @@ import com.vpt.filemanager.component.dialog.SortDialogComponent;
 import com.vpt.filemanager.component.drawer.DrawerComponent;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
 
 /** Owns toolbar presentation and its menu commands. */
 public final class TopBarComponent {
@@ -120,14 +120,7 @@ public final class TopBarComponent {
         if (location.isTrash()) return activity.getString(R.string.action_trash);
         if (location.isBookmarks()) return activity.getString(R.string.menu_bookmarks);
         if (location.isSearch()) return activity.getString(R.string.search_title, location.query());
-        if (location.isInsideArchive()) {
-            String storagePath = location.storagePath();
-            int slash = storagePath.lastIndexOf('/');
-            String container = slash < 0 ? storagePath : storagePath.substring(slash + 1);
-            return container + location.archiveInnerPath();
-        }
-        String virtual = location.serialize();
-        return "storage:".equals(virtual) ? activity.getString(R.string.menu_storage) : virtual;
+        return storage.displayPath(location);
     }
 
     private void run(Throwing task, String success) {

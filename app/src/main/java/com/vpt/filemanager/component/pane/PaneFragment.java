@@ -16,15 +16,15 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.component.content.OpenedContent;
 import com.vpt.filemanager.component.dialog.OpenAsDialogComponent;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.core.threading.AppExecutors;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
 import com.vpt.filemanager.handler.HandlerResult;
-import com.vpt.filemanager.storage.InvalidationSubscription;
+import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import com.vpt.filemanager.storage.facade.OpenMode;
 import com.vpt.filemanager.storage.facade.OpenResult;
 import com.vpt.filemanager.storage.facade.StorageFacade;
@@ -53,6 +53,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     private boolean pendingReload;
     @Nullable private Path pendingLocation;
     @Nullable private SortOption pendingSort;
+    @Nullable private String restoredAnchor;
 
     public static PaneFragment newInstance(PaneId pane) {
         PaneFragment fragment = new PaneFragment();
@@ -91,7 +92,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         state.pane(pane()).observe(getViewLifecycleOwner(), value -> {
             binding.paneRoot.setActivated(state.activePaneValue() == pane());
             binding.progress.setVisibility(value.loading ? View.VISIBLE : View.GONE);
-            adapter.submitList(value.entries);
+            adapter.submitList(value.entries, () -> restoreRememberedEntry(value));
             adapter.setSelection(value.selection);
             if (!value.location.equals(requested)) requestLoad(value.location, value.sort, OpenMode.DEFAULT);
         });
@@ -204,6 +205,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         if (paneState.selectionMode || paneState.location.isTrash()) {
             state.toggleSelection(pane(), entry);
         } else {
+            if (!entry.isParent()) state.rememberEntry(pane(), paneState.location, entry.key());
             if (!entry.isFolder()) fileBeingOpened = entry.path();
             state.navigate(pane(), entry.path());
         }
@@ -232,6 +234,25 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         String serialized = path.isInsideArchive() ? path.archiveInnerPath() : path.storagePath();
         int slash = serialized.lastIndexOf('/');
         return slash < 0 ? serialized : serialized.substring(slash + 1);
+    }
+
+    private void restoreRememberedEntry(PaneState paneState) {
+        String key = state.rememberedEntry(pane(), paneState.location);
+        if (key == null) return;
+        String token = paneState.location.serialize() + "|" + key;
+        if (token.equals(restoredAnchor)) return;
+        for (int index = 0; index < paneState.entries.size(); index++) {
+            if (key.equals(paneState.entries.get(index).key())) {
+                RecyclerView.LayoutManager manager = binding.rv.getLayoutManager();
+                if (manager instanceof LinearLayoutManager linear) {
+                    linear.scrollToPositionWithOffset(index, 0);
+                } else {
+                    binding.rv.scrollToPosition(index);
+                }
+                restoredAnchor = token;
+                return;
+            }
+        }
     }
 
     @Override

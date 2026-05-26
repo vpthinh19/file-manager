@@ -15,11 +15,12 @@ import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.component.drawer.DrawerComponent;
 import com.vpt.filemanager.core.format.MimeTypes;
 import com.vpt.filemanager.component.content.editor.TextEditorFragment;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
 
 /** Swaps the browser surface for exactly one resolved full-screen content component. */
 public final class ContentHostComponent {
     private static final String TAG = "full-screen-content";
+    private static final long TRANSITION_MILLIS = 180L;
     private final AppCompatActivity activity;
     private final StateViewModel state;
     private final DrawerComponent drawer;
@@ -47,12 +48,8 @@ public final class ContentHostComponent {
     private void render(OpenedContent content) {
         if (content == null) {
             shown = null;
-            host.setVisibility(View.GONE);
-            browser.setVisibility(View.VISIBLE);
             drawer.setLocked(false);
-            Fragment present = activity.getSupportFragmentManager().findFragmentByTag(TAG);
-            if (present != null) activity.getSupportFragmentManager().beginTransaction()
-                    .remove(present).commitAllowingStateLoss();
+            hideContent();
             return;
         }
         if (content.type() == ContentType.OTHER) {
@@ -61,19 +58,56 @@ public final class ContentHostComponent {
             return;
         }
         if (content.equals(shown)) return;
+        boolean reveal = host.getVisibility() != View.VISIBLE;
         shown = content;
-        browser.setVisibility(View.GONE);
         host.setVisibility(View.VISIBLE);
         drawer.setLocked(true);
         Fragment fragment = switch (content.type()) {
             case TEXT -> TextEditorFragment.newInstance(content);
-            case IMAGE -> ImageContentFragment.newInstance(content.contentUri(), content.displayName());
-            case AUDIO -> MediaContentFragment.newInstance(content.contentUri(), content.displayName(), false);
-            case VIDEO -> MediaContentFragment.newInstance(content.contentUri(), content.displayName(), true);
+            case IMAGE -> ImageContentFragment.newInstance(content.localPath(), content.displayName());
+            case AUDIO -> MediaContentFragment.newInstance(content.localPath(), content.displayName(), false);
+            case VIDEO -> MediaContentFragment.newInstance(content.localPath(), content.displayName(), true);
             case OTHER -> throw new IllegalStateException();
         };
         activity.getSupportFragmentManager().beginTransaction()
+                .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
                 .replace(R.id.content_container, fragment, TAG).commit();
+        if (reveal) revealContent();
+    }
+
+    private void revealContent() {
+        browser.animate().cancel();
+        host.animate().cancel();
+        browser.setVisibility(View.VISIBLE);
+        browser.setAlpha(1f);
+        host.setAlpha(0f);
+        host.animate().alpha(1f).setDuration(TRANSITION_MILLIS).start();
+        browser.animate().alpha(0f).setDuration(TRANSITION_MILLIS).withEndAction(() -> {
+            if (shown != null) browser.setVisibility(View.GONE);
+            browser.setAlpha(1f);
+        }).start();
+    }
+
+    private void hideContent() {
+        Fragment present = activity.getSupportFragmentManager().findFragmentByTag(TAG);
+        if (host.getVisibility() != View.VISIBLE) {
+            browser.setVisibility(View.VISIBLE);
+            if (present != null) activity.getSupportFragmentManager().beginTransaction()
+                    .remove(present).commitAllowingStateLoss();
+            return;
+        }
+        browser.animate().cancel();
+        host.animate().cancel();
+        browser.setVisibility(View.VISIBLE);
+        browser.setAlpha(0f);
+        browser.animate().alpha(1f).setDuration(TRANSITION_MILLIS).start();
+        host.animate().alpha(0f).setDuration(TRANSITION_MILLIS).withEndAction(() -> {
+            if (shown != null) return;
+            host.setVisibility(View.GONE);
+            host.setAlpha(1f);
+            if (present != null) activity.getSupportFragmentManager().beginTransaction()
+                    .remove(present).commitAllowingStateLoss();
+        }).start();
     }
 
     private void openExternal(OpenedContent content) {

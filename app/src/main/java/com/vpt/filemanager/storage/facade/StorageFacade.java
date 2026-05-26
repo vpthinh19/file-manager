@@ -14,13 +14,13 @@ import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.handler.HandlerRegistry;
 import com.vpt.filemanager.handler.HandlerResult;
-import com.vpt.filemanager.storage.InvalidationSubscription;
-import com.vpt.filemanager.storage.LocalStorageAdapter;
-import com.vpt.filemanager.storage.Storage;
-import com.vpt.filemanager.storage.StorageRegistry;
-import com.vpt.filemanager.storage.archive.ArchiveStorage;
-import com.vpt.filemanager.storage.bookmarks.BookmarkCollection;
-import com.vpt.filemanager.storage.trash.TrashCollection;
+import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
+import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
+import com.vpt.filemanager.storage.virtual.Storage;
+import com.vpt.filemanager.storage.virtual.StorageRegistry;
+import com.vpt.filemanager.storage.virtual.archive.ArchiveStorage;
+import com.vpt.filemanager.storage.virtual.bookmarks.BookmarkCollection;
+import com.vpt.filemanager.storage.virtual.trash.TrashCollection;
 
 import java.io.File;
 import java.util.EnumSet;
@@ -205,6 +205,16 @@ public final class StorageFacade {
     public Uri contentUri(@NonNull String localPath) {
         return FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider",
                 physical.fromAbsolutePath(localPath));
+    }
+
+    /** Physical location rendered to the user while {@link Path} remains a navigation address. */
+    @NonNull
+    public String displayPath(@NonNull Path location) {
+        if (!location.isStorage()) return location.serialize();
+        StringBuilder result = new StringBuilder(physical.absolutePath(
+                physical.fileAtStoragePath(location.storagePath())));
+        for (String inner : location.archivePaths()) result.append('!').append(inner);
+        return result.toString();
     }
 
     @NonNull

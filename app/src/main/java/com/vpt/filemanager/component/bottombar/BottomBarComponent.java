@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.threading.AppExecutors;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.facade.Capability;
@@ -27,7 +27,7 @@ import com.vpt.filemanager.core.error.NameConflictException;
 import com.vpt.filemanager.core.format.MimeTypes;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
 
 import java.util.ArrayList;
 import java.util.List;

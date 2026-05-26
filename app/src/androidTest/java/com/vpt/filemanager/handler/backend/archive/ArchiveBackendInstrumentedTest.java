@@ -22,7 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.core.entry.Entry;
-import com.vpt.filemanager.storage.LocalStorageAdapter;
+import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 @RunWith(AndroidJUnit4.class)
 public final class ArchiveBackendInstrumentedTest {
     @Test

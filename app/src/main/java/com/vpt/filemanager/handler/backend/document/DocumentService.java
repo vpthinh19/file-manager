@@ -8,7 +8,7 @@ import javax.inject.Singleton;
 
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
-import com.vpt.filemanager.storage.LocalStorageAdapter;
+import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 
 @Singleton
 public final class DocumentService {

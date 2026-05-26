@@ -16,10 +16,12 @@ import androidx.media3.ui.PlayerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
+
+import java.io.File;
 
 public final class MediaContentFragment extends Fragment implements FullScreenContent {
-    private static final String ARG_URI = "uri";
+    private static final String ARG_PATH = "path";
     private static final String ARG_NAME = "name";
     private static final String ARG_VIDEO = "video";
     private PlayerView playerView;
@@ -27,10 +29,10 @@ public final class MediaContentFragment extends Fragment implements FullScreenCo
     private long position;
     private boolean playing = true;
 
-    public static MediaContentFragment newInstance(String uri, String name, boolean video) {
+    public static MediaContentFragment newInstance(String path, String name, boolean video) {
         MediaContentFragment fragment = new MediaContentFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_URI, uri);
+        args.putString(ARG_PATH, path);
         args.putString(ARG_NAME, name);
         args.putBoolean(ARG_VIDEO, video);
         fragment.setArguments(args);
@@ -61,7 +63,8 @@ public final class MediaContentFragment extends Fragment implements FullScreenCo
         super.onStart();
         player = new ExoPlayer.Builder(requireContext()).build();
         playerView.setPlayer(player);
-        player.setMediaItem(MediaItem.fromUri(Uri.parse(requireArguments().getString(ARG_URI))));
+        player.setMediaItem(MediaItem.fromUri(
+                Uri.fromFile(new File(requireArguments().getString(ARG_PATH)))));
         player.seekTo(position);
         player.setPlayWhenReady(playing);
         player.prepare();

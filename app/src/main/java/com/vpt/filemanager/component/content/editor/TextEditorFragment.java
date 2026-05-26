@@ -26,7 +26,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.error.DocumentConflictException;
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.core.threading.AppExecutors;
+import com.vpt.filemanager.threading.AppExecutors;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.handler.backend.document.DocumentService;
 import com.vpt.filemanager.handler.backend.document.DocumentSession;
@@ -35,7 +35,7 @@ import com.vpt.filemanager.handler.backend.document.SyntaxCatalog;
 import com.vpt.filemanager.handler.backend.document.SyntaxSetup;
 import com.vpt.filemanager.component.content.FullScreenContent;
 import com.vpt.filemanager.component.content.OpenedContent;
-import com.vpt.filemanager.component.state.StateViewModel;
+import com.vpt.filemanager.state.StateViewModel;
 
 import javax.inject.Inject;
 

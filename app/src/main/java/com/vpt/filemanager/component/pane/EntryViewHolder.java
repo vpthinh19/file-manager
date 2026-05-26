@@ -9,8 +9,11 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.DateFormat;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.RequestManager;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.format.ByteSize;
@@ -31,6 +34,7 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
 
     private final FileIconView icon;
     private final ImageView mediaThumbnail;
+    private final RequestManager thumbnails;
     private final TextView name;
     private final TextView meta;
     private Entry current;
@@ -39,6 +43,7 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
         super(itemView);
         icon = itemView.findViewById(R.id.file_icon);
         mediaThumbnail = itemView.findViewById(R.id.media_thumbnail);
+        thumbnails = Glide.with(itemView);
         name = itemView.findViewById(R.id.tv_name);
         meta = itemView.findViewById(R.id.tv_meta);
         itemView.setOnClickListener(view -> {
@@ -57,12 +62,22 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
 
     public void bind(@NonNull Entry entry, boolean selected) {
         current = entry;
-        mediaThumbnail.setVisibility(View.GONE);
-        icon.setVisibility(View.VISIBLE);
+        thumbnails.clear(mediaThumbnail);
         if (entry.isFolder()) {
+            mediaThumbnail.setVisibility(View.GONE);
+            icon.setVisibility(View.VISIBLE);
             icon.bindFolder();
         } else {
-            icon.bindCategory(IconCategory.ofFileName(entry.name()));
+            IconCategory category = IconCategory.ofFileName(entry.name());
+            if (hasThumbnail(entry, category)) {
+                icon.setVisibility(View.GONE);
+                mediaThumbnail.setVisibility(View.VISIBLE);
+                thumbnails.load(entry.localPath()).centerCrop().into(mediaThumbnail);
+            } else {
+                mediaThumbnail.setVisibility(View.GONE);
+                icon.setVisibility(View.VISIBLE);
+                icon.bindCategory(category);
+            }
         }
         name.setText(entry.name());
         meta.setText(formatMeta(entry));
@@ -70,6 +85,7 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
     }
 
     public void clear() {
+        thumbnails.clear(mediaThumbnail);
         current = null;
     }
 
@@ -89,6 +105,13 @@ public final class EntryViewHolder extends RecyclerView.ViewHolder {
             FORMATTED_DATES.put(minute, date);
         }
         return size + " / " + date;
+    }
+
+    private static boolean hasThumbnail(Entry entry, IconCategory category) {
+        if (entry.localPathOrNull() == null) return false;
+        if (category == IconCategory.VIDEO) return true;
+        return category == IconCategory.IMAGE
+                && !entry.name().toLowerCase(Locale.ROOT).endsWith(".svg");
     }
 
 }
