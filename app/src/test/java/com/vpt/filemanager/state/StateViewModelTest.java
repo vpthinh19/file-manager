@@ -14,7 +14,7 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.settings.UserPreferences;
+import com.vpt.filemanager.app.settings.UserPreferences;
 import com.vpt.filemanager.component.content.OpenedContent;
 import com.vpt.filemanager.component.pane.PaneId;
 

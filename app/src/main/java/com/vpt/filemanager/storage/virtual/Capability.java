@@ -1,4 +1,4 @@
-package com.vpt.filemanager.storage.facade;
+package com.vpt.filemanager.storage.virtual;
 
 /** Actions available at one virtual browser location. */
 public enum Capability {

@@ -52,10 +52,9 @@ public final class ArchiveBackend {
     public List<Entry> list(@NonNull Path location) throws FileOperationException {
         requireArchive(location);
         String prefix = prefix(location);
-        Map<String, ListedEntry> children = new LinkedHashMap<>();
-        long archive = 0L;
-        try {
-            archive = openReader(container(location));
+        Map<String, ListedEntry> children = withReader(container(location),
+                "Cannot read archive: " + location.serialize(), archive -> {
+            Map<String, ListedEntry> found = new LinkedHashMap<>();
             long header;
             int count = 0;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
@@ -72,25 +71,20 @@ public final class ArchiveBackend {
                         int separator = remaining.indexOf('/');
                         String name = separator < 0 ? remaining : remaining.substring(0, separator);
                         boolean folder = separator >= 0 || ArchiveEntry.filetype(header) == ArchiveEntry.AE_IFDIR;
-                        ListedEntry found = new ListedEntry(name, folder,
+                        ListedEntry entry = new ListedEntry(name, folder,
                                 folder ? -1L : ArchiveEntry.size(header),
                                 ArchiveEntry.mtime(header) * 1000L);
-                        ListedEntry previous = children.get(name);
-                        if (previous == null || found.folder && !previous.folder) {
-                            children.put(name, found);
+                        ListedEntry previous = found.get(name);
+                        if (previous == null || entry.folder && !previous.folder) {
+                            found.put(name, entry);
                         }
                     }
                 }
                 Archive.readDataSkip(archive);
             }
             rejectEncryption(archive);
-        } catch (ArchiveOperationException error) {
-            throw error;
-        } catch (ArchiveException error) {
-            throw failure("Cannot read archive: " + location.serialize(), error);
-        } finally {
-            freeQuietly(archive);
-        }
+            return found;
+        });
         List<Entry> result = new ArrayList<>(children.size());
         for (ListedEntry entry : children.values()) {
             result.add(Entry.archive(location.child(entry.name), entry.name, entry.folder,
@@ -103,9 +97,7 @@ public final class ArchiveBackend {
         requireArchive(location);
         if ("/".equals(location.archiveInnerPath())) return true;
         String wanted = entryName(location.archiveInnerPath());
-        long archive = 0L;
-        try {
-            archive = openReader(container(location));
+        return withReader(container(location), "Cannot inspect archive entry", archive -> {
             long header;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
                 if (ArchiveEntry.isEncrypted(header)) {
@@ -123,13 +115,7 @@ public final class ArchiveBackend {
             }
             rejectEncryption(archive);
             throw new ArchiveOperationException("Archive entry no longer exists");
-        } catch (ArchiveOperationException error) {
-            throw error;
-        } catch (ArchiveException error) {
-            throw failure("Cannot inspect archive entry", error);
-        } finally {
-            freeQuietly(archive);
-        }
+        });
     }
 
     public boolean exists(@NonNull Path directory, @NonNull String name) throws FileOperationException {
@@ -255,10 +241,9 @@ public final class ArchiveBackend {
             return;
         }
         String rootName = entryName(sourcePath.archiveInnerPath());
-        long archive = 0L;
-        boolean found = false;
-        try {
-            archive = openReader(container(sourcePath));
+        boolean found = withReader(container(sourcePath),
+                "Cannot extract archive entry: " + source.name(), archive -> {
+            boolean any = false;
             long header;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
                 String pathname = safeVisiblePath(header);
@@ -269,7 +254,7 @@ public final class ArchiveBackend {
                 if (ArchiveEntry.isEncrypted(header)) {
                     throw new ArchiveOperationException("Encrypted archives are not supported");
                 }
-                found = true;
+                any = true;
                 String relative = pathname.equals(rootName) ? "" : pathname.substring(rootName.length() + 1);
                 File output = relative.isEmpty() ? target : storage.safeDescendant(target, relative);
                 if (ArchiveEntry.filetype(header) == ArchiveEntry.AE_IFDIR || relative.isEmpty()) {
@@ -282,14 +267,9 @@ public final class ArchiveBackend {
                 }
             }
             rejectEncryption(archive);
-            if (!found) throw new ArchiveOperationException("Archive entry no longer exists: " + source.name());
-        } catch (ArchiveOperationException error) {
-            throw error;
-        } catch (Exception error) {
-            throw failure("Cannot extract archive entry: " + source.name(), error);
-        } finally {
-            freeQuietly(archive);
-        }
+            return any;
+        });
+        if (!found) throw new ArchiveOperationException("Archive entry no longer exists: " + source.name());
     }
 
     public void extractToStorage(@NonNull Entry source, @NonNull Path destinationParent,
@@ -332,9 +312,7 @@ public final class ArchiveBackend {
             throws FileOperationException {
         Path target = requireEntry(source);
         String wanted = entryName(target.archiveInnerPath());
-        long archive = 0L;
-        try {
-            archive = openReader(container(target));
+        withReader(container(target), "Cannot extract archive entry: " + source.name(), archive -> {
             long header;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
                 String pathname = safeVisiblePath(header);
@@ -352,19 +330,13 @@ public final class ArchiveBackend {
                     try (OutputStream stream = storage.openCreateWrite(output)) {
                         copyToStream(archive, stream);
                     }
-                    return;
+                    return null;
                 }
                 Archive.readDataSkip(archive);
             }
             rejectEncryption(archive);
             throw new ArchiveOperationException("Archive entry no longer exists: " + source.name());
-        } catch (ArchiveOperationException error) {
-            throw error;
-        } catch (Exception error) {
-            throw failure("Cannot extract archive entry: " + source.name(), error);
-        } finally {
-            freeQuietly(archive);
-        }
+        });
     }
 
     private void mutate(Path location, RenameTransform transform, ArchiveAppender addition)
@@ -467,9 +439,7 @@ public final class ArchiveBackend {
     private void extractFromContainer(File container, String innerPath, File output)
             throws FileOperationException {
         String wanted = entryName(innerPath);
-        long archive = 0L;
-        try {
-            archive = openReader(container);
+        withReader(container, "Cannot open nested archive", archive -> {
             long header;
             while ((header = Archive.readNextHeader(archive)) != 0L) {
                 String pathname = safeVisiblePath(header);
@@ -483,18 +453,12 @@ public final class ArchiveBackend {
                     try (OutputStream stream = storage.openCreateWrite(output)) {
                         copyToStream(archive, stream);
                     }
-                    return;
+                    return null;
                 }
                 Archive.readDataSkip(archive);
             }
             throw new ArchiveOperationException("Nested archive no longer exists");
-        } catch (ArchiveOperationException error) {
-            throw error;
-        } catch (Exception error) {
-            throw failure("Cannot open nested archive", error);
-        } finally {
-            freeQuietly(archive);
-        }
+        });
     }
 
     private Object lock(Path path) {
@@ -511,6 +475,26 @@ public final class ArchiveBackend {
         } catch (ArchiveException error) {
             freeQuietly(archive);
             throw error;
+        }
+    }
+
+    /**
+     * Opens {@code container} for reading, runs {@code body} with the native handle, and always
+     * frees it. {@link ArchiveOperationException}s pass through; anything else becomes a {@code
+     * failure(failureMessage, ...)}. This is the single owner of the read-handle lifecycle.
+     */
+    private <T> T withReader(File container, String failureMessage, ArchiveReader<T> body)
+            throws FileOperationException {
+        long archive = 0L;
+        try {
+            archive = openReader(container);
+            return body.read(archive);
+        } catch (ArchiveOperationException error) {
+            throw error;
+        } catch (Exception error) {
+            throw failure(failureMessage, error);
+        } finally {
+            freeQuietly(archive);
         }
     }
 
@@ -718,6 +702,10 @@ public final class ArchiveBackend {
             Archive.free(archive);
         } catch (ArchiveException ignored) {
         }
+    }
+
+    private interface ArchiveReader<T> {
+        T read(long archive) throws Exception;
     }
 
     private interface RenameTransform {

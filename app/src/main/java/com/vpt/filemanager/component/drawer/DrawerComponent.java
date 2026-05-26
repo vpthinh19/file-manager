@@ -11,7 +11,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.google.android.material.navigation.NavigationView;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.settings.UserPreferences;
+import com.vpt.filemanager.app.settings.UserPreferences;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.state.StateViewModel;

@@ -22,12 +22,11 @@ import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.app.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
-import com.vpt.filemanager.handler.HandlerResult;
+import com.vpt.filemanager.handler.OpenResult;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import com.vpt.filemanager.storage.facade.OpenMode;
-import com.vpt.filemanager.storage.facade.OpenResult;
 import com.vpt.filemanager.storage.facade.StorageFacade;
 
 import java.util.ArrayList;
@@ -166,15 +165,14 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
                     () -> state.returnFromOpenedFile(pane(), request, source, null));
             return;
         }
-        HandlerResult handled = ((OpenResult.Content) result).handled();
         fileBeingOpened = null;
-        if (handled instanceof HandlerResult.OpenContent content) {
+        if (result instanceof OpenResult.OpenContent content) {
             state.showEntries(pane(), request, List.of());
             Path archiveEntry = content.source().isInsideArchive() ? content.source() : null;
             state.showContent(new OpenedContent(pane(), content.source(), content.localPath(),
                     facade.contentUri(content.localPath()).toString(), fileName(content.source()),
                     content.type(), content.readOnly(), archiveEntry));
-        } else if (handled instanceof HandlerResult.LaunchIntent launch) {
+        } else if (result instanceof OpenResult.LaunchIntent launch) {
             state.showEntries(pane(), request, List.of());
             state.showContent(new OpenedContent(pane(), launch.source(), launch.localPath(),
                     facade.contentUri(launch.localPath()).toString(), fileName(launch.source()),

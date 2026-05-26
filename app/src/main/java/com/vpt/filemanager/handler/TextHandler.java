@@ -2,15 +2,18 @@ package com.vpt.filemanager.handler;
 
 import androidx.annotation.NonNull;
 
+import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.format.ContentType;
+import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
+import com.vpt.filemanager.storage.virtual.Storage;
 
 import java.io.File;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/** Renders extension-routed text content in the in-app editor. */
+/** Opens extension-routed text in the in-app editor; read-only inside non-writable archives. */
 @Singleton
 public final class TextHandler implements Handler {
     @Inject
@@ -19,15 +22,17 @@ public final class TextHandler implements Handler {
 
     @NonNull
     @Override
-    public ContentType type() {
-        return ContentType.TEXT;
+    public ExtensionRegistry.Type type() {
+        return ExtensionRegistry.Type.TEXT;
     }
 
     @NonNull
     @Override
-    public HandlerResult handle(@NonNull File materialized, @NonNull Path source) {
-        // The facade applies storage capabilities after this handler chooses the editor.
-        return new HandlerResult.OpenContent(source, materialized.getAbsolutePath(),
-                materialized.getName(), ContentType.TEXT, false);
+    public OpenResult open(@NonNull Path path, @NonNull Storage storage)
+            throws FileOperationException {
+        File file = storage.materialize(path);
+        boolean readOnly = path.isInsideArchive() && !storage.canWrite(path);
+        return new OpenResult.OpenContent(path, file.getAbsolutePath(), file.getName(),
+                ContentType.TEXT, readOnly);
     }
 }

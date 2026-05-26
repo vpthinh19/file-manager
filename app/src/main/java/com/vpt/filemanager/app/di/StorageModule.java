@@ -1,4 +1,4 @@
-package com.vpt.filemanager.di;
+package com.vpt.filemanager.app.di;
 
 import com.vpt.filemanager.storage.virtual.Storage;
 import com.vpt.filemanager.storage.virtual.StorageRegistry;

@@ -5,7 +5,7 @@ import androidx.annotation.Nullable;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.storage.facade.Capability;
+import com.vpt.filemanager.storage.virtual.Capability;
 
 import java.util.Collections;
 import java.util.EnumSet;

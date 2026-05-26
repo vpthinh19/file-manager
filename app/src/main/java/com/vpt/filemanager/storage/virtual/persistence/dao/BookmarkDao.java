@@ -1,4 +1,4 @@
-package com.vpt.filemanager.storage.persistence.dao;
+package com.vpt.filemanager.storage.virtual.persistence.dao;
 
 import androidx.room.Dao;
 import androidx.room.Insert;
@@ -7,7 +7,7 @@ import androidx.room.Query;
 
 import java.util.List;
 
-import com.vpt.filemanager.storage.persistence.entity.BookmarkRecord;
+import com.vpt.filemanager.storage.virtual.persistence.entity.BookmarkRecord;
 
 @Dao
 public interface BookmarkDao {

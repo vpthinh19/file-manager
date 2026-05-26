@@ -12,10 +12,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.app.threading.AppExecutors;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.storage.facade.Capability;
+import com.vpt.filemanager.storage.virtual.Capability;
 import com.vpt.filemanager.storage.facade.StorageFacade;
 import com.vpt.filemanager.storage.facade.TransferDecision;
 import com.vpt.filemanager.component.dialog.ConfirmDialogComponent;

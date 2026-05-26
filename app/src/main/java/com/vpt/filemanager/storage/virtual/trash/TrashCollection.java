@@ -3,8 +3,8 @@ package com.vpt.filemanager.storage.virtual.trash;
 import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.storage.persistence.dao.TrashDao;
-import com.vpt.filemanager.storage.persistence.entity.TrashRecord;
+import com.vpt.filemanager.storage.virtual.persistence.dao.TrashDao;
+import com.vpt.filemanager.storage.virtual.persistence.entity.TrashRecord;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 

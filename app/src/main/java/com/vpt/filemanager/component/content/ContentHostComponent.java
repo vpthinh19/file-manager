@@ -70,7 +70,6 @@ public final class ContentHostComponent {
             case OTHER -> throw new IllegalStateException();
         };
         activity.getSupportFragmentManager().beginTransaction()
-                .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
                 .replace(R.id.content_container, fragment, TAG).commit();
         if (reveal) revealContent();
     }
@@ -81,10 +80,14 @@ public final class ContentHostComponent {
         browser.setVisibility(View.VISIBLE);
         browser.setAlpha(1f);
         host.setAlpha(0f);
-        host.animate().alpha(1f).setDuration(TRANSITION_MILLIS).start();
+        host.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        browser.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        host.animate().alpha(1f).setDuration(TRANSITION_MILLIS)
+                .withEndAction(() -> host.setLayerType(View.LAYER_TYPE_NONE, null)).start();
         browser.animate().alpha(0f).setDuration(TRANSITION_MILLIS).withEndAction(() -> {
             if (shown != null) browser.setVisibility(View.GONE);
             browser.setAlpha(1f);
+            browser.setLayerType(View.LAYER_TYPE_NONE, null);
         }).start();
     }
 
@@ -100,8 +103,12 @@ public final class ContentHostComponent {
         host.animate().cancel();
         browser.setVisibility(View.VISIBLE);
         browser.setAlpha(0f);
-        browser.animate().alpha(1f).setDuration(TRANSITION_MILLIS).start();
+        browser.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        host.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        browser.animate().alpha(1f).setDuration(TRANSITION_MILLIS)
+                .withEndAction(() -> browser.setLayerType(View.LAYER_TYPE_NONE, null)).start();
         host.animate().alpha(0f).setDuration(TRANSITION_MILLIS).withEndAction(() -> {
+            host.setLayerType(View.LAYER_TYPE_NONE, null);
             if (shown != null) return;
             host.setVisibility(View.GONE);
             host.setAlpha(1f);

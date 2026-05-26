@@ -1,4 +1,4 @@
-package com.vpt.filemanager.threading;
+package com.vpt.filemanager.app.threading;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;

@@ -1,8 +1,11 @@
-package com.vpt.filemanager.di;
+package com.vpt.filemanager.app.di;
 
+import com.vpt.filemanager.handler.ArchiveHandler;
 import com.vpt.filemanager.handler.AudioHandler;
+import com.vpt.filemanager.handler.FolderHandler;
 import com.vpt.filemanager.handler.Handler;
 import com.vpt.filemanager.handler.ImageHandler;
+import com.vpt.filemanager.handler.OpenAsHandler;
 import com.vpt.filemanager.handler.OtherHandler;
 import com.vpt.filemanager.handler.TextHandler;
 import com.vpt.filemanager.handler.VideoHandler;
@@ -21,6 +24,18 @@ import dagger.multibindings.IntoSet;
 @Module
 @InstallIn(SingletonComponent.class)
 public abstract class HandlerModule {
+
+    @Binds
+    @IntoSet
+    public abstract Handler bindFolderHandler(FolderHandler folder);
+
+    @Binds
+    @IntoSet
+    public abstract Handler bindArchiveHandler(ArchiveHandler archive);
+
+    @Binds
+    @IntoSet
+    public abstract Handler bindOpenAsHandler(OpenAsHandler openAs);
 
     @Binds
     @IntoSet

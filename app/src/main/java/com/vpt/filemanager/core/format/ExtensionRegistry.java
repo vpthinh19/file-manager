@@ -11,7 +11,12 @@ import javax.inject.Singleton;
 /** Single extension-based routing policy for files opened from the browser. */
 @Singleton
 public final class ExtensionRegistry {
-    public enum Kind {
+    /**
+     * The handler a path routes to. {@link #classify(String)} returns one of the file types;
+     * {@code FOLDER} is supplied by the resolver for containers (it has no extension).
+     */
+    public enum Type {
+        FOLDER,
         TEXT,
         IMAGE,
         AUDIO,
@@ -62,18 +67,18 @@ public final class ExtensionRegistry {
     }
 
     @NonNull
-    public Kind classify(@NonNull String name) {
+    public Type classify(@NonNull String name) {
         String lower = name.toLowerCase(Locale.ROOT);
-        if (SPECIAL_TEXT_NAMES.contains(lower)) return Kind.TEXT;
-        if (!hasExtension(lower)) return Kind.OPEN_AS;
-        if (lower.endsWith(".apk")) return Kind.APK_INSTALLER;
-        if (matches(lower, ARCHIVE)) return Kind.ARCHIVE;
-        if (matches(lower, EXTERNAL_DOCUMENT)) return Kind.EXTERNAL;
-        if (matches(lower, TEXT)) return Kind.TEXT;
-        if (matches(lower, IMAGE)) return Kind.IMAGE;
-        if (matches(lower, AUDIO)) return Kind.AUDIO;
-        if (matches(lower, VIDEO)) return Kind.VIDEO;
-        return Kind.EXTERNAL;
+        if (SPECIAL_TEXT_NAMES.contains(lower)) return Type.TEXT;
+        if (!hasExtension(lower)) return Type.OPEN_AS;
+        if (lower.endsWith(".apk")) return Type.APK_INSTALLER;
+        if (matches(lower, ARCHIVE)) return Type.ARCHIVE;
+        if (matches(lower, EXTERNAL_DOCUMENT)) return Type.EXTERNAL;
+        if (matches(lower, TEXT)) return Type.TEXT;
+        if (matches(lower, IMAGE)) return Type.IMAGE;
+        if (matches(lower, AUDIO)) return Type.AUDIO;
+        if (matches(lower, VIDEO)) return Type.VIDEO;
+        return Type.EXTERNAL;
     }
 
     private static boolean hasExtension(String name) {

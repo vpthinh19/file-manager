@@ -4,37 +4,30 @@ import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.format.ExtensionRegistry;
-import com.vpt.filemanager.core.format.MimeTypes;
 import com.vpt.filemanager.core.path.Path;
+import com.vpt.filemanager.storage.virtual.Capabilities;
 import com.vpt.filemanager.storage.virtual.Storage;
-
-import java.io.File;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/**
- * Fallback handler: opens a file with an external app via {@code ACTION_VIEW}. Also serves every
- * file type with no dedicated in-app handler (documents, APKs, unknown extensions).
- */
+/** Opens a container by listing it through its storage. */
 @Singleton
-public final class OtherHandler implements Handler {
+public final class FolderHandler implements Handler {
     @Inject
-    public OtherHandler() {
+    public FolderHandler() {
     }
 
     @NonNull
     @Override
     public ExtensionRegistry.Type type() {
-        return ExtensionRegistry.Type.EXTERNAL;
+        return ExtensionRegistry.Type.FOLDER;
     }
 
     @NonNull
     @Override
     public OpenResult open(@NonNull Path path, @NonNull Storage storage)
             throws FileOperationException {
-        File file = storage.materialize(path);
-        return new OpenResult.LaunchIntent(path, file.getAbsolutePath(),
-                MimeTypes.detect(file.getName()));
+        return new OpenResult.Directory(path, storage.list(path), Capabilities.of(storage, path));
     }
 }

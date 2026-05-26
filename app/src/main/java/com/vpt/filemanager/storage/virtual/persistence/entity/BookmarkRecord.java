@@ -1,4 +1,4 @@
-package com.vpt.filemanager.storage.persistence.entity;
+package com.vpt.filemanager.storage.virtual.persistence.entity;
 
 import androidx.annotation.NonNull;
 import androidx.room.ColumnInfo;

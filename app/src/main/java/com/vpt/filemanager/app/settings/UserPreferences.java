@@ -1,4 +1,4 @@
-package com.vpt.filemanager.settings;
+package com.vpt.filemanager.app.settings;
 
 import android.content.Context;
 import android.content.SharedPreferences;

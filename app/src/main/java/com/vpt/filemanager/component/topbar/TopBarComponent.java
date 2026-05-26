@@ -13,7 +13,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.app.threading.AppExecutors;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.facade.StorageFacade;
 import com.vpt.filemanager.component.dialog.ConfirmDialogComponent;

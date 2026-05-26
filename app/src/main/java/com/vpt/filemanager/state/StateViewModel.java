@@ -11,11 +11,11 @@ import androidx.lifecycle.ViewModel;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.settings.UserPreferences;
+import com.vpt.filemanager.app.settings.UserPreferences;
 import com.vpt.filemanager.component.content.OpenedContent;
 import com.vpt.filemanager.component.pane.PaneId;
 import com.vpt.filemanager.component.pane.PaneState;
-import com.vpt.filemanager.storage.facade.Capability;
+import com.vpt.filemanager.storage.virtual.Capability;
 
 import java.util.ArrayDeque;
 import java.util.EnumSet;

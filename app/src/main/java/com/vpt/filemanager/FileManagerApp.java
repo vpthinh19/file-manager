@@ -2,7 +2,7 @@ package com.vpt.filemanager;
 
 import android.app.Application;
 
-import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.app.threading.AppExecutors;
 import com.vpt.filemanager.handler.backend.document.SyntaxSetup;
 
 import java.io.IOException;

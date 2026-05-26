@@ -24,9 +24,9 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.threading.AppExecutors;
+import com.vpt.filemanager.app.threading.AppExecutors;
 import com.vpt.filemanager.storage.facade.StorageFacade;
-import com.vpt.filemanager.settings.UserPreferences;
+import com.vpt.filemanager.app.settings.UserPreferences;
 import com.vpt.filemanager.component.bottombar.BottomBarComponent;
 import com.vpt.filemanager.component.content.ContentHostComponent;
 import com.vpt.filemanager.component.drawer.DrawerComponent;

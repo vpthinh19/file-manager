@@ -2,26 +2,21 @@ package com.vpt.filemanager.handler;
 
 import androidx.annotation.NonNull;
 
-import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.error.FileOperationException;
+import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
-
-import java.io.File;
+import com.vpt.filemanager.storage.virtual.Storage;
 
 /**
- * Turns a single materialised file plus its source {@link Path} into a
- * {@link HandlerResult}. One implementation per {@link ContentType}; the
- * {@link HandlerRegistry} picks the right one.
- *
- * <p>Folder listings do not go through a Handler — {@code Storage.list()}
- * already returns entries directly. Archive containers similarly bypass
- * handlers because {@code Storage.isContainer()} routes them.
+ * Opens one resolved path. Every path type has a handler: folders and archives list, content
+ * files render in-app or launch externally, and an unknown file defers to "open as". The
+ * {@link com.vpt.filemanager.storage.facade.PathResolver} picks the handler; the handler does the
+ * work itself or calls a backend (e.g. the editor's document service, the archive engine).
  */
 public interface Handler {
     @NonNull
-    ContentType type();
+    ExtensionRegistry.Type type();
 
     @NonNull
-    HandlerResult handle(@NonNull File materialized, @NonNull Path source)
-            throws FileOperationException;
+    OpenResult open(@NonNull Path path, @NonNull Storage storage) throws FileOperationException;
 }

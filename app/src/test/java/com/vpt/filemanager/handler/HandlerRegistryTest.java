@@ -2,7 +2,7 @@ package com.vpt.filemanager.handler;
 
 import static org.junit.Assert.assertSame;
 
-import com.vpt.filemanager.core.format.ContentType;
+import com.vpt.filemanager.core.format.ExtensionRegistry;
 
 import org.junit.Test;
 
@@ -16,8 +16,8 @@ public final class HandlerRegistryTest {
         OtherHandler fallback = new OtherHandler();
         HandlerRegistry registry = new HandlerRegistry(Set.of(text, image), fallback);
 
-        assertSame(text, registry.handlerFor(ContentType.TEXT));
-        assertSame(image, registry.handlerFor(ContentType.IMAGE));
+        assertSame(text, registry.handlerFor(ExtensionRegistry.Type.TEXT));
+        assertSame(image, registry.handlerFor(ExtensionRegistry.Type.IMAGE));
     }
 
     @Test
@@ -26,6 +26,6 @@ public final class HandlerRegistryTest {
         HandlerRegistry registry = new HandlerRegistry(Set.of(new TextHandler()), fallback);
 
         // AUDIO has no registered handler in this set -> the fallback answers.
-        assertSame(fallback, registry.handlerFor(ContentType.AUDIO));
+        assertSame(fallback, registry.handlerFor(ExtensionRegistry.Type.AUDIO));
     }
 }

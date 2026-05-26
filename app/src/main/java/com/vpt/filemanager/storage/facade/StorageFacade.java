@@ -6,14 +6,11 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 
-import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.error.NameConflictException;
-import com.vpt.filemanager.core.format.ExtensionRegistry;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.handler.HandlerRegistry;
-import com.vpt.filemanager.handler.HandlerResult;
+import com.vpt.filemanager.handler.OpenResult;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import com.vpt.filemanager.storage.virtual.Storage;
@@ -22,8 +19,6 @@ import com.vpt.filemanager.storage.virtual.archive.ArchiveStorage;
 import com.vpt.filemanager.storage.virtual.bookmarks.BookmarkCollection;
 import com.vpt.filemanager.storage.virtual.trash.TrashCollection;
 
-import java.io.File;
-import java.util.EnumSet;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -35,21 +30,18 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
 @Singleton
 public final class StorageFacade {
     private final StorageRegistry registry;
-    private final HandlerRegistry handlers;
-    private final ExtensionRegistry extensions;
+    private final PathResolver resolver;
     private final TrashCollection trash;
     private final BookmarkCollection bookmarks;
     private final Context context;
     private final LocalStorageAdapter physical;
 
     @Inject
-    public StorageFacade(StorageRegistry registry, HandlerRegistry handlers,
-                         ExtensionRegistry extensions, TrashCollection trash,
-                         BookmarkCollection bookmarks,
+    public StorageFacade(StorageRegistry registry, PathResolver resolver,
+                         TrashCollection trash, BookmarkCollection bookmarks,
                          @ApplicationContext Context context, LocalStorageAdapter physical) {
         this.registry = registry;
-        this.handlers = handlers;
-        this.extensions = extensions;
+        this.resolver = resolver;
         this.trash = trash;
         this.bookmarks = bookmarks;
         this.context = context;
@@ -61,76 +53,18 @@ public final class StorageFacade {
         return open(path, OpenMode.DEFAULT);
     }
 
-    /**
-     * Resolves what a pane should show for {@code path}: route it to its backend, then decide
-     * whether it is a directory listing or a single file. A file is classified by extension (or by
-     * an explicit {@code mode}) and either mounted as an archive, deferred to an "open as" choice,
-     * or handed to the matching content {@link com.vpt.filemanager.handler.Handler}.
-     */
+    /** Routes the path to its backend, then lets the resolved {@link com.vpt.filemanager.handler.Handler} open it. */
     @NonNull
     public OpenResult open(@NonNull Path path, @NonNull OpenMode mode)
             throws FileOperationException {
         Storage storage = registry.storageFor(path);
-        if (storage.isContainer(path)) return directory(path, storage);
-        return openFile(path, storage, mode);
-    }
-
-    @NonNull
-    private OpenResult openFile(Path path, Storage storage, OpenMode mode)
-            throws FileOperationException {
-        File materialized = storage.materialize(path);
-        ExtensionRegistry.Kind kind = mode == OpenMode.DEFAULT
-                ? extensions.classify(fileName(path, materialized)) : explicit(mode);
-        return switch (kind) {
-            case OPEN_AS -> new OpenResult.NeedsOpenAs(path);
-            case ARCHIVE -> mountArchive(path);
-            case TEXT -> render(path, storage, materialized, ContentType.TEXT);
-            case IMAGE -> render(path, storage, materialized, ContentType.IMAGE);
-            case AUDIO -> render(path, storage, materialized, ContentType.AUDIO);
-            case VIDEO -> render(path, storage, materialized, ContentType.VIDEO);
-            case APK_INSTALLER, EXTERNAL -> render(path, storage, materialized, ContentType.OTHER);
-        };
-    }
-
-    @NonNull
-    private OpenResult mountArchive(Path path) throws FileOperationException {
-        Path mounted = path.mountArchive();
-        Storage archive = registry.storageFor(mounted);
-        if (!archive.isContainer(mounted)) throw new FileOperationException("Invalid archive");
-        return directory(mounted, archive);
-    }
-
-    @NonNull
-    private OpenResult render(Path path, Storage storage, File materialized, ContentType type)
-            throws FileOperationException {
-        HandlerResult result = handlers.handlerFor(type).handle(materialized, path);
-        if (type == ContentType.TEXT && result instanceof HandlerResult.OpenContent content) {
-            boolean readOnly = path.isInsideArchive() && !storage.canWrite(path);
-            result = new HandlerResult.OpenContent(content.source(), content.localPath(),
-                    content.displayName(), content.type(), readOnly);
-        }
-        return new OpenResult.Content(result);
+        return resolver.resolve(path, storage, mode).open(path, storage);
     }
 
     @NonNull
     public InvalidationSubscription observe(@NonNull Path location, @NonNull Runnable invalidated)
             throws FileOperationException {
         return registry.storageFor(location).observe(location, invalidated);
-    }
-
-    @NonNull
-    public EnumSet<Capability> capabilities(@NonNull Path location) {
-        EnumSet<Capability> result = EnumSet.of(Capability.COPY_OUT, Capability.OPEN_WITH,
-                Capability.SHARE);
-        try {
-            if (registry.storageFor(location).canWrite(location)) {
-                result.addAll(EnumSet.of(Capability.CREATE, Capability.RENAME, Capability.DELETE,
-                        Capability.MOVE_IN, Capability.MOVE_OUT, Capability.EDIT_CONTENT));
-            }
-        } catch (FileOperationException ignored) {
-            // Read-only actions remain available when capability probing cannot resolve a target.
-        }
-        return result;
     }
 
     public void create(@NonNull Path parent, @NonNull String name, boolean folder)
@@ -178,34 +112,53 @@ public final class StorageFacade {
     public void transfer(@NonNull Entry source, @NonNull Path destination, boolean move,
                          @NonNull TransferDecision decision)
             throws FileOperationException {
-        if (decision == TransferDecision.CANCEL) return;
+        if (decision == TransferDecision.CANCEL || source.isParent()) return;
         Storage destinationStorage = registry.storageFor(destination);
         if (!destinationStorage.canWrite(destination)) {
             throw new FileOperationException("Destination is read-only");
         }
-        if (source.isParent()) return;
-        Storage sourceStorage = registry.storageFor(source.path());
-        boolean conflicts = hasName(destinationStorage, destination, source.name());
-        if (conflicts && decision == TransferDecision.ASK) {
-            throw new NameConflictException(source.name());
-        }
-        boolean replace = conflicts && decision == TransferDecision.REPLACE;
-        String name = conflicts && decision == TransferDecision.KEEP_BOTH
-                ? uniqueName(destinationStorage, destination, source.name()) : source.name();
+        Placement placement = resolvePlacement(destinationStorage, destination, source.name(), decision);
+        place(source, registry.storageFor(source.path()), destinationStorage, destination, placement, move);
+    }
+
+    /** Decides the final name and whether to overwrite, honouring the conflict {@code decision}. */
+    private Placement resolvePlacement(Storage destinationStorage, Path destination, String name,
+                                       TransferDecision decision) throws FileOperationException {
+        if (!hasName(destinationStorage, destination, name)) return new Placement(name, false);
+        return switch (decision) {
+            case ASK -> throw new NameConflictException(name);
+            case REPLACE -> new Placement(name, true);
+            case KEEP_BOTH -> new Placement(uniqueName(destinationStorage, destination, name), false);
+            case CANCEL -> throw new IllegalStateException("Cancel is handled before placement");
+        };
+    }
+
+    /** Carries the source between backends, picking the right strategy for the storage pair. */
+    private void place(Entry source, Storage sourceStorage, Storage destinationStorage,
+                       Path destination, Placement placement, boolean move)
+            throws FileOperationException {
+        String name = placement.name();
+        boolean replace = placement.replace();
         if (sourceStorage == destinationStorage) {
-            if (move) sourceStorage.moveInternal(source, destination, name, replace);
-            else sourceStorage.copyInternal(source, destination, name, replace);
-        } else if (destinationStorage instanceof ArchiveStorage archiveDestination) {
-            archiveDestination.importEntry(destination, source, name, replace);
+            copyOrMove(destinationStorage, source, destination, name, replace, move);
+        } else if (destinationStorage instanceof ArchiveStorage archive) {
+            archive.importEntry(destination, source, name, replace);
             if (move) sourceStorage.delete(List.of(source));
-        } else if (sourceStorage instanceof ArchiveStorage archiveSource) {
-            archiveSource.extractToDevice(source, destination, name, replace);
+        } else if (sourceStorage instanceof ArchiveStorage archive) {
+            archive.extractToDevice(source, destination, name, replace);
             if (move) sourceStorage.delete(List.of(source));
         } else {
-            if (move) destinationStorage.moveInternal(source, destination, name, replace);
-            else destinationStorage.copyInternal(source, destination, name, replace);
+            copyOrMove(destinationStorage, source, destination, name, replace, move);
         }
     }
+
+    private static void copyOrMove(Storage storage, Entry source, Path destination, String name,
+                                   boolean replace, boolean move) throws FileOperationException {
+        if (move) storage.moveInternal(source, destination, name, replace);
+        else storage.copyInternal(source, destination, name, replace);
+    }
+
+    private record Placement(String name, boolean replace) { }
 
     @NonNull
     public String materializeIfRequired(@NonNull Entry entry) throws FileOperationException {
@@ -234,31 +187,6 @@ public final class StorageFacade {
                 physical.fileAtStoragePath(location.storagePath())));
         for (String inner : location.archivePaths()) result.append('!').append(inner);
         return result.toString();
-    }
-
-    @NonNull
-    private OpenResult.Directory directory(Path path, Storage storage) throws FileOperationException {
-        return new OpenResult.Directory(path, storage.list(path), capabilities(path));
-    }
-
-    private String fileName(Path path, File materialized) {
-        if (path.isInsideArchive()) {
-            String inner = path.archiveInnerPath();
-            int slash = inner.lastIndexOf('/');
-            return slash < 0 ? inner : inner.substring(slash + 1);
-        }
-        return physical.name(materialized);
-    }
-
-    private static ExtensionRegistry.Kind explicit(OpenMode mode) {
-        return switch (mode) {
-            case TEXT -> ExtensionRegistry.Kind.TEXT;
-            case IMAGE -> ExtensionRegistry.Kind.IMAGE;
-            case AUDIO -> ExtensionRegistry.Kind.AUDIO;
-            case VIDEO -> ExtensionRegistry.Kind.VIDEO;
-            case ARCHIVE -> ExtensionRegistry.Kind.ARCHIVE;
-            case DEFAULT -> throw new IllegalStateException("DEFAULT mode is implicit");
-        };
     }
 
     private String uniqueName(Storage storage, Path destination, String name)

@@ -2,7 +2,7 @@ package com.vpt.filemanager.handler;
 
 import androidx.annotation.NonNull;
 
-import com.vpt.filemanager.core.format.ContentType;
+import com.vpt.filemanager.core.format.ExtensionRegistry;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -12,14 +12,15 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Maps a {@link ContentType} to the {@link Handler} that renders it.
+ * Maps an {@link ExtensionRegistry.Type} to the {@link Handler} that opens it.
  *
- * <p>Hilt collects every {@code @IntoSet Handler} binding; this registry
- * indexes them by their declared {@link Handler#type()} once at construction.
+ * <p>Hilt collects every {@code @IntoSet Handler} binding; this registry indexes them by their
+ * declared {@link Handler#type()} once at construction. Types with no dedicated handler
+ * (e.g. {@code APK_INSTALLER}) fall back to {@link OtherHandler}.
  */
 @Singleton
 public final class HandlerRegistry {
-    private final Map<ContentType, Handler> byType = new EnumMap<>(ContentType.class);
+    private final Map<ExtensionRegistry.Type, Handler> byType = new EnumMap<>(ExtensionRegistry.Type.class);
     private final Handler fallback;
 
     @Inject
@@ -29,7 +30,7 @@ public final class HandlerRegistry {
     }
 
     @NonNull
-    public Handler handlerFor(@NonNull ContentType type) {
+    public Handler handlerFor(@NonNull ExtensionRegistry.Type type) {
         Handler handler = byType.get(type);
         return handler != null ? handler : fallback;
     }
