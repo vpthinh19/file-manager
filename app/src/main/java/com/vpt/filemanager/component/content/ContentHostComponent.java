@@ -107,13 +107,13 @@ public final class ContentHostComponent {
         browser.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         host.animate().alpha(1f).scaleX(1f).scaleY(1f)
                 .setDuration(ENTER_TRANSITION_MILLIS).setInterpolator(ENTER_EASING)
-                  .withEndAction(() -> host.setLayerType(View.LAYER_TYPE_NONE, null)).start();
+                .withEndAction(() -> host.setLayerType(View.LAYER_TYPE_NONE, null)).start();
         browser.animate().alpha(0f).scaleX(BROWSER_EXIT_SCALE).scaleY(BROWSER_EXIT_SCALE)
                 .setDuration(ENTER_TRANSITION_MILLIS).setInterpolator(ENTER_EASING)
-                  .withEndAction(() -> {
-              if (shown != null) browser.setVisibility(View.GONE);
-              resetSurface(browser);
-          }).start();
+                .withEndAction(() -> {
+                    if (shown != null) browser.setVisibility(View.GONE);
+                    resetSurface(browser);
+                }).start();
     }
 
     private void hideContent() {
@@ -124,7 +124,7 @@ public final class ContentHostComponent {
             resetSurface(browser);
             resetSurface(host);
             if (present != null) activity.getSupportFragmentManager().beginTransaction()
-                      .remove(present).commitAllowingStateLoss();
+                    .remove(present).commitAllowingStateLoss();
             return;
         }
         transitioningOut = true;
@@ -139,17 +139,17 @@ public final class ContentHostComponent {
         host.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         browser.animate().alpha(1f).scaleX(1f).scaleY(1f)
                 .setDuration(EXIT_TRANSITION_MILLIS).setInterpolator(EXIT_EASING)
-                  .withEndAction(() -> browser.setLayerType(View.LAYER_TYPE_NONE, null)).start();
+                .withEndAction(() -> browser.setLayerType(View.LAYER_TYPE_NONE, null)).start();
         host.animate().alpha(0f).scaleX(CONTENT_ENTER_SCALE).scaleY(CONTENT_ENTER_SCALE)
                 .setDuration(EXIT_TRANSITION_MILLIS).setInterpolator(EXIT_EASING)
-                  .withEndAction(() -> {
-              resetSurface(host);
-              if (shown != null) return;
-              transitioningOut = false;
-              host.setVisibility(View.GONE);
-              if (present != null) activity.getSupportFragmentManager().beginTransaction()
-                      .remove(present).commitAllowingStateLoss();
-          }).start();
+                .withEndAction(() -> {
+                    resetSurface(host);
+                    if (shown != null) return;
+                    transitioningOut = false;
+                    host.setVisibility(View.GONE);
+                    if (present != null) activity.getSupportFragmentManager().beginTransaction()
+                            .remove(present).commitAllowingStateLoss();
+                }).start();
     }
 
     private void cancelTransitions() {
