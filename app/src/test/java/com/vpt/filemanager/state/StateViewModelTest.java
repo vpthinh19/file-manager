@@ -3,14 +3,16 @@ package com.vpt.filemanager.state;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.os.Bundle;
+import android.os.Parcelable;
 
 import androidx.test.core.app.ApplicationProvider;
 
 import com.vpt.filemanager.core.format.ContentType;
-import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.component.content.OpenedContent;
@@ -56,14 +58,12 @@ public final class StateViewModelTest {
     }
 
     @Test
-    public void returningToParentRemembersTheOpenedEntry() {
-        Path folder = Path.storage("/Download");
-        Entry entry = Entry.local(folder, "/storage/emulated/0/Download", "Download",
-                true, -1L, 0L);
-        state.rememberEntry(PaneId.LEFT, Path.storageRoot(), entry.key());
-        state.navigate(PaneId.LEFT, folder);
+    public void scrollPositionIsRetainedPerLocation() {
+        Parcelable position = new Bundle();
+        state.saveScroll(PaneId.LEFT, Path.storageRoot(), position);
+        state.navigate(PaneId.LEFT, Path.storage("/Download"));
 
-        assertTrue(state.back(PaneId.LEFT));
-        assertEquals(entry.key(), state.rememberedEntry(PaneId.LEFT, Path.storageRoot()));
+        assertSame(position, state.savedScroll(PaneId.LEFT, Path.storageRoot()));
+        assertNull(state.savedScroll(PaneId.LEFT, Path.storage("/Download")));
     }
 }

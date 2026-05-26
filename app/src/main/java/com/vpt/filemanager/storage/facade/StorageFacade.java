@@ -61,29 +61,48 @@ public final class StorageFacade {
         return open(path, OpenMode.DEFAULT);
     }
 
+    /**
+     * Resolves what a pane should show for {@code path}: route it to its backend, then decide
+     * whether it is a directory listing or a single file. A file is classified by extension (or by
+     * an explicit {@code mode}) and either mounted as an archive, deferred to an "open as" choice,
+     * or handed to the matching content {@link com.vpt.filemanager.handler.Handler}.
+     */
     @NonNull
     public OpenResult open(@NonNull Path path, @NonNull OpenMode mode)
             throws FileOperationException {
         Storage storage = registry.storageFor(path);
         if (storage.isContainer(path)) return directory(path, storage);
+        return openFile(path, storage, mode);
+    }
+
+    @NonNull
+    private OpenResult openFile(Path path, Storage storage, OpenMode mode)
+            throws FileOperationException {
         File materialized = storage.materialize(path);
         ExtensionRegistry.Kind kind = mode == OpenMode.DEFAULT
                 ? extensions.classify(fileName(path, materialized)) : explicit(mode);
-        if (kind == ExtensionRegistry.Kind.OPEN_AS) return new OpenResult.NeedsOpenAs(path);
-        if (kind == ExtensionRegistry.Kind.ARCHIVE) {
-            Path mounted = path.mountArchive();
-            Storage archive = registry.storageFor(mounted);
-            if (!archive.isContainer(mounted)) throw new FileOperationException("Invalid archive");
-            return directory(mounted, archive);
-        }
-        ContentType type = switch (kind) {
-            case TEXT -> ContentType.TEXT;
-            case IMAGE -> ContentType.IMAGE;
-            case AUDIO -> ContentType.AUDIO;
-            case VIDEO -> ContentType.VIDEO;
-            case APK_INSTALLER, EXTERNAL -> ContentType.OTHER;
-            case ARCHIVE, OPEN_AS -> throw new IllegalStateException("Routing was not resolved");
+        return switch (kind) {
+            case OPEN_AS -> new OpenResult.NeedsOpenAs(path);
+            case ARCHIVE -> mountArchive(path);
+            case TEXT -> render(path, storage, materialized, ContentType.TEXT);
+            case IMAGE -> render(path, storage, materialized, ContentType.IMAGE);
+            case AUDIO -> render(path, storage, materialized, ContentType.AUDIO);
+            case VIDEO -> render(path, storage, materialized, ContentType.VIDEO);
+            case APK_INSTALLER, EXTERNAL -> render(path, storage, materialized, ContentType.OTHER);
         };
+    }
+
+    @NonNull
+    private OpenResult mountArchive(Path path) throws FileOperationException {
+        Path mounted = path.mountArchive();
+        Storage archive = registry.storageFor(mounted);
+        if (!archive.isContainer(mounted)) throw new FileOperationException("Invalid archive");
+        return directory(mounted, archive);
+    }
+
+    @NonNull
+    private OpenResult render(Path path, Storage storage, File materialized, ContentType type)
+            throws FileOperationException {
         HandlerResult result = handlers.handlerFor(type).handle(materialized, path);
         if (type == ContentType.TEXT && result instanceof HandlerResult.OpenContent content) {
             boolean readOnly = path.isInsideArchive() && !storage.canWrite(path);

@@ -7,69 +7,80 @@ import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.entry.Entry;
 
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.List;
 
 /**
- * One storage backend. The {@link StorageRegistry} consults each implementation's
- * {@link #handles(Path)} to route a path to the right backend.
+ * One storage backend. {@link StorageRegistry} routes a path to the right backend by asking each
+ * implementation's {@link #handles(Path)}.
  *
- * <p>Implementations cover device files, mounted archives, virtual collections
- * (trash, bookmarks, search), and any future remote source. Cross-backend
- * transfers are orchestrated by {@code StorageFacade} using
- * {@link #materialize(Path)} on the source plus a mutation on the destination.
+ * <p>Only {@link #handles} and {@link #list} are mandatory. Everything else has a default:
+ * a backend is a read-only container unless it overrides the relevant capability. Read-only
+ * collections (trash, bookmarks, search) therefore declare just what they support; writable
+ * backends (device, archive) override the mutations. Cross-backend transfers are orchestrated by
+ * {@code StorageFacade} using {@link #materialize(Path)} on the source plus a mutation on the
+ * destination.
  */
 public interface Storage {
     boolean handles(@NonNull Path path);
-
-    /**
-     * True when this path lists children (folder, archive folder or mount root,
-     * trash, bookmarks, or a search result). False when it points at a single file
-     * that should be opened by a handler.
-     */
-    boolean isContainer(@NonNull Path path) throws FileOperationException;
 
     @NonNull
     List<Entry> list(@NonNull Path path) throws FileOperationException;
 
     /**
-     * Produce a real {@link File} a handler can read. Local returns the file as
-     * is; archive extracts to cache; a future remote backend would download to
-     * cache.
+     * True when this path lists children (folder, archive folder or mount root, trash, bookmarks,
+     * or a search result). False when it points at a single file opened by a handler. Collections
+     * are always containers; only file-bearing backends override this.
+     */
+    default boolean isContainer(@NonNull Path path) throws FileOperationException {
+        return true;
+    }
+
+    default boolean canWrite(@NonNull Path path) {
+        return false;
+    }
+
+    /**
+     * Produce a real {@link File} a handler can read. Local returns the file as is; archive
+     * extracts to cache; a future remote backend would download to cache.
      */
     @NonNull
-    File materialize(@NonNull Path path) throws FileOperationException;
+    default File materialize(@NonNull Path path) throws FileOperationException {
+        throw new FileOperationException("This location is a collection, not a file");
+    }
 
-    boolean canWrite(@NonNull Path path);
+    default void create(@NonNull Path parent, @NonNull String name, boolean folder)
+            throws FileOperationException {
+        throw readOnly();
+    }
 
-    void create(@NonNull Path parent, @NonNull String name, boolean folder)
-            throws FileOperationException;
+    default void rename(@NonNull Entry entry, @NonNull String newName) throws FileOperationException {
+        throw readOnly();
+    }
 
-    void rename(@NonNull Entry entry, @NonNull String newName) throws FileOperationException;
-
-    void delete(@NonNull List<Entry> entries) throws FileOperationException;
+    default void delete(@NonNull List<Entry> entries) throws FileOperationException {
+        throw readOnly();
+    }
 
     /** Copy a single entry within this same storage. */
-    void copyInternal(@NonNull Entry source, @NonNull Path destinationParent, @NonNull String name,
-                      boolean replace)
-            throws FileOperationException;
+    default void copyInternal(@NonNull Entry source, @NonNull Path destinationParent,
+                              @NonNull String name, boolean replace) throws FileOperationException {
+        throw readOnly();
+    }
 
     /** Move a single entry within this same storage. */
-    void moveInternal(@NonNull Entry source, @NonNull Path destinationParent, @NonNull String name,
-                      boolean replace)
-            throws FileOperationException;
-
-    @NonNull
-    InputStream openRead(@NonNull Entry entry) throws FileOperationException;
-
-    @NonNull
-    OutputStream openWrite(@NonNull Entry entry) throws FileOperationException;
+    default void moveInternal(@NonNull Entry source, @NonNull Path destinationParent,
+                              @NonNull String name, boolean replace) throws FileOperationException {
+        throw readOnly();
+    }
 
     /** Observe backing changes that may invalidate this location's rendered entries. */
     @NonNull
     default InvalidationSubscription observe(@NonNull Path path, @NonNull Runnable invalidated)
             throws FileOperationException {
         return () -> { };
+    }
+
+    private static FileOperationException readOnly() {
+        return new FileOperationException("This location does not support that action");
     }
 }

@@ -10,8 +10,6 @@ import com.vpt.filemanager.storage.virtual.Storage;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,8 +21,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * {@link Storage} that scans physical device files for a name match. A search path is
- * read-only and always behaves as a flat container.
+ * Read-only {@link Storage} that scans physical device files for a name match. A search path
+ * always behaves as a flat container.
  */
 @Singleton
 public final class SearchStorage implements Storage {
@@ -40,11 +38,6 @@ public final class SearchStorage implements Storage {
     @Override
     public boolean handles(@NonNull Path path) {
         return path.isSearch();
-    }
-
-    @Override
-    public boolean isContainer(@NonNull Path path) {
-        return true;
     }
 
     @NonNull
@@ -81,57 +74,6 @@ public final class SearchStorage implements Storage {
             }
         }
         return found;
-    }
-
-    @NonNull
-    @Override
-    public File materialize(@NonNull Path path) throws FileOperationException {
-        throw new FileOperationException("Search results are listings, not files");
-    }
-
-    @Override
-    public boolean canWrite(@NonNull Path path) {
-        return false;
-    }
-
-    @Override
-    public void create(@NonNull Path parent, @NonNull String name, boolean folder)
-            throws FileOperationException {
-        throw new FileOperationException("Cannot create entries inside a search");
-    }
-
-    @Override
-    public void rename(@NonNull Entry entry, @NonNull String newName) throws FileOperationException {
-        throw new FileOperationException("Cannot rename search results");
-    }
-
-    @Override
-    public void delete(@NonNull List<Entry> entries) throws FileOperationException {
-        throw new FileOperationException("Cannot delete from a search; open the actual location instead");
-    }
-
-    @Override
-    public void copyInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name, boolean replace) throws FileOperationException {
-        throw new FileOperationException("Cannot copy within a search");
-    }
-
-    @Override
-    public void moveInternal(@NonNull Entry source, @NonNull Path destinationParent,
-                             @NonNull String name, boolean replace) throws FileOperationException {
-        throw new FileOperationException("Cannot move within a search");
-    }
-
-    @NonNull
-    @Override
-    public InputStream openRead(@NonNull Entry entry) throws FileOperationException {
-        return files.openRead(files.fromAbsolutePath(entry.localPath()));
-    }
-
-    @NonNull
-    @Override
-    public OutputStream openWrite(@NonNull Entry entry) throws FileOperationException {
-        throw new FileOperationException("Search entries are read-only");
     }
 
     @NonNull

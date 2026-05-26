@@ -10,8 +10,6 @@ import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import com.vpt.filemanager.storage.virtual.Storage;
 
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -98,18 +96,6 @@ public final class DeviceStorage implements Storage {
         File destination = files.target(files.fileAtStoragePath(destinationParent.storagePath()), name);
         if (replace) files.moveReplacing(files.fromAbsolutePath(source.localPath()), destination);
         else files.move(files.fromAbsolutePath(source.localPath()), destination);
-    }
-
-    @NonNull
-    @Override
-    public InputStream openRead(@NonNull Entry entry) throws FileOperationException {
-        return files.openRead(files.fromAbsolutePath(entry.localPath()));
-    }
-
-    @NonNull
-    @Override
-    public OutputStream openWrite(@NonNull Entry entry) throws FileOperationException {
-        return files.openWrite(files.fromAbsolutePath(entry.localPath()));
     }
 
     @NonNull

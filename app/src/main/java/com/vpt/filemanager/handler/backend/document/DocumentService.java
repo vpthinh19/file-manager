@@ -7,7 +7,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
+import com.vpt.filemanager.storage.virtual.archive.ArchiveBackend;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 
 @Singleton

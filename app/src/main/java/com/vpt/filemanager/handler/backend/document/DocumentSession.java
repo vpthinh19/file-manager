@@ -19,7 +19,7 @@ import java.util.Arrays;
 import com.vpt.filemanager.core.error.DocumentConflictException;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.path.Path;
-import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
+import com.vpt.filemanager.storage.virtual.archive.ArchiveBackend;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import java.io.File;

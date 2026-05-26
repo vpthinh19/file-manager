@@ -8,11 +8,8 @@ import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import com.vpt.filemanager.storage.virtual.Storage;
-import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
 
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -110,18 +107,6 @@ public final class ArchiveStorage implements Storage {
     public void extractToDevice(@NonNull Entry source, @NonNull Path destinationParent,
                                 @NonNull String name, boolean replace) throws FileOperationException {
         archives.extractToStorage(source, destinationParent, name, replace);
-    }
-
-    @NonNull
-    @Override
-    public InputStream openRead(@NonNull Entry entry) throws FileOperationException {
-        return files.openRead(files.fromAbsolutePath(archives.materialize(entry)));
-    }
-
-    @NonNull
-    @Override
-    public OutputStream openWrite(@NonNull Entry entry) throws FileOperationException {
-        throw new FileOperationException("Archive entries are not directly writable; use materialize + update");
     }
 
     @NonNull

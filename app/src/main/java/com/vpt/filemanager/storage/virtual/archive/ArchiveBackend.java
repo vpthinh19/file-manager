@@ -1,4 +1,4 @@
-package com.vpt.filemanager.handler.backend.archive;
+package com.vpt.filemanager.storage.virtual.archive;
 
 import androidx.annotation.NonNull;
 

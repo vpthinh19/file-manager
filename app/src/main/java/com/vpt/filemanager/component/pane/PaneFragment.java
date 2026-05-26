@@ -1,6 +1,7 @@
 package com.vpt.filemanager.component.pane;
 
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -53,7 +54,8 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     private boolean pendingReload;
     @Nullable private Path pendingLocation;
     @Nullable private SortOption pendingSort;
-    @Nullable private String restoredAnchor;
+    @Nullable private Path renderedLocation;
+    private boolean pendingRestore;
 
     public static PaneFragment newInstance(PaneId pane) {
         PaneFragment fragment = new PaneFragment();
@@ -92,7 +94,12 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         state.pane(pane()).observe(getViewLifecycleOwner(), value -> {
             binding.paneRoot.setActivated(state.activePaneValue() == pane());
             binding.progress.setVisibility(value.loading ? View.VISIBLE : View.GONE);
-            adapter.submitList(value.entries, () -> restoreRememberedEntry(value));
+            if (!value.location.equals(renderedLocation)) {
+                saveScroll(renderedLocation);
+                renderedLocation = value.location;
+                pendingRestore = true;
+            }
+            adapter.submitList(value.entries, () -> restoreScroll(value));
             adapter.setSelection(value.selection);
             if (!value.location.equals(requested)) requestLoad(value.location, value.sort, OpenMode.DEFAULT);
         });
@@ -205,7 +212,6 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         if (paneState.selectionMode || paneState.location.isTrash()) {
             state.toggleSelection(pane(), entry);
         } else {
-            if (!entry.isParent()) state.rememberEntry(pane(), paneState.location, entry.key());
             if (!entry.isFolder()) fileBeingOpened = entry.path();
             state.navigate(pane(), entry.path());
         }
@@ -236,23 +242,20 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         return slash < 0 ? serialized : serialized.substring(slash + 1);
     }
 
-    private void restoreRememberedEntry(PaneState paneState) {
-        String key = state.rememberedEntry(pane(), paneState.location);
-        if (key == null) return;
-        String token = paneState.location.serialize() + "|" + key;
-        if (token.equals(restoredAnchor)) return;
-        for (int index = 0; index < paneState.entries.size(); index++) {
-            if (key.equals(paneState.entries.get(index).key())) {
-                RecyclerView.LayoutManager manager = binding.rv.getLayoutManager();
-                if (manager instanceof LinearLayoutManager linear) {
-                    linear.scrollToPositionWithOffset(index, 0);
-                } else {
-                    binding.rv.scrollToPosition(index);
-                }
-                restoredAnchor = token;
-                return;
-            }
-        }
+    /** Remembers where {@code location} was scrolled before its rows are replaced. */
+    private void saveScroll(@Nullable Path location) {
+        if (location == null || binding == null) return;
+        RecyclerView.LayoutManager manager = binding.rv.getLayoutManager();
+        if (manager != null) state.saveScroll(pane(), location, manager.onSaveInstanceState());
+    }
+
+    /** Restores the saved scroll once the new location's rows are laid out. */
+    private void restoreScroll(PaneState paneState) {
+        if (!pendingRestore || binding == null || paneState.entries.isEmpty()) return;
+        pendingRestore = false;
+        Parcelable saved = state.savedScroll(pane(), paneState.location);
+        RecyclerView.LayoutManager manager = binding.rv.getLayoutManager();
+        if (saved != null && manager != null) manager.onRestoreInstanceState(saved);
     }
 
     @Override

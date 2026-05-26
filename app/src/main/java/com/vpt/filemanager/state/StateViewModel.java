@@ -1,5 +1,7 @@
 package com.vpt.filemanager.state;
 
+import android.os.Parcelable;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
@@ -95,29 +97,21 @@ public final class StateViewModel extends ViewModel {
     public void navigate(@NonNull PaneId pane, @NonNull Path target) {
         MutablePane value = value(pane);
         if (target.equals(value.location)) return;
-        rememberLeavingChild(value, target);
         value.back.push(value.location);
         value.forward.clear();
         value.location = target;
         value.resetRows();
-        if (content.getValue() != null && content.getValue().pane() == pane) {
-            content.setValue(null);
-        }
+        clearContentOf(pane);
         publish(pane);
     }
 
     public boolean back(@NonNull PaneId pane) {
         MutablePane value = value(pane);
         if (value.back.isEmpty()) return false;
-        Path departing = value.location;
-        Path target = value.back.peek();
-        rememberLeavingChild(value, target);
-        value.forward.push(departing);
+        value.forward.push(value.location);
         value.location = value.back.pop();
         value.resetRows();
-        if (content.getValue() != null && content.getValue().pane() == pane) {
-            content.setValue(null);
-        }
+        clearContentOf(pane);
         publish(pane);
         return true;
     }
@@ -128,7 +122,7 @@ public final class StateViewModel extends ViewModel {
         value.back.push(value.location);
         value.location = value.forward.pop();
         value.resetRows();
-        content.setValue(null);
+        clearContentOf(pane);
         publish(pane);
         return true;
     }
@@ -138,13 +132,14 @@ public final class StateViewModel extends ViewModel {
         if (parent != null) navigate(pane, parent);
     }
 
-    public void rememberEntry(@NonNull PaneId pane, @NonNull Path location, @NonNull String key) {
-        value(pane).rememberedEntries.put(location, key);
+    /** Stores a pane's scroll position so returning to {@code location} restores it exactly. */
+    public void saveScroll(@NonNull PaneId pane, @NonNull Path location, @Nullable Parcelable layout) {
+        if (layout != null) value(pane).scroll.put(location, layout);
     }
 
     @Nullable
-    public String rememberedEntry(@NonNull PaneId pane, @NonNull Path location) {
-        return value(pane).rememberedEntries.get(location);
+    public Parcelable savedScroll(@NonNull PaneId pane, @NonNull Path location) {
+        return value(pane).scroll.get(location);
     }
 
     public long beginLoading(@NonNull PaneId pane, @NonNull Path requested) {
@@ -268,23 +263,16 @@ public final class StateViewModel extends ViewModel {
         (pane == PaneId.LEFT ? leftState : rightState).setValue(value(pane).snapshot());
     }
 
-    private static void rememberLeavingChild(MutablePane value, Path target) {
-        Path parent = value.location.parent();
-        if (parent == null || !parent.equals(target)) return;
-        Path visiblePath = value.location;
-        String prefix = "local:";
-        if (value.location.isInsideArchive()) {
-            if (target.isInsideArchive()) prefix = "archive:";
-            else visiblePath = Path.storage(value.location.storagePath());
-        }
-        value.rememberedEntries.put(target, prefix + visiblePath.serialize());
+    private void clearContentOf(PaneId pane) {
+        OpenedContent open = content.getValue();
+        if (open != null && open.pane() == pane) content.setValue(null);
     }
 
     private static final class MutablePane {
         private final ArrayDeque<Path> back = new ArrayDeque<>();
         private final ArrayDeque<Path> forward = new ArrayDeque<>();
         private final LinkedHashSet<String> selection = new LinkedHashSet<>();
-        private final Map<Path, String> rememberedEntries = new HashMap<>();
+        private final Map<Path, Parcelable> scroll = new HashMap<>();
         private Path location;
         private List<Entry> entries = List.of();
         private SortOption sort;

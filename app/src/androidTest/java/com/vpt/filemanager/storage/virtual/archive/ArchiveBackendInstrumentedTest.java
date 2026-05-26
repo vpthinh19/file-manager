@@ -1,4 +1,4 @@
-package com.vpt.filemanager.handler.backend.archive;
+package com.vpt.filemanager.storage.virtual.archive;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
