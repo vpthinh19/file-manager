@@ -17,7 +17,7 @@
         android:layout_width="30dp"
         android:layout_height="30dp">
 
-        <com.vpt.filemanager.ui.pane.icon.FileIconView
+        <com.vpt.filemanager.component.pane.icon.FileIconView
             android:id="@+id/file_icon"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />

@@ -3,7 +3,7 @@ package com.vpt.filemanager;
 import android.app.Application;
 
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.ui.content.editor.SyntaxSetup;
+import com.vpt.filemanager.component.content.editor.SyntaxSetup;
 
 import java.io.IOException;
 
