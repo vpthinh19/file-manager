@@ -1,4 +1,4 @@
-package com.vpt.filemanager.entry;
+package com.vpt.filemanager.core.entry;
 
 import java.util.Comparator;
 

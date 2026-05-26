@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 

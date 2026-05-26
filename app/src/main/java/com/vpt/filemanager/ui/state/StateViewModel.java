@@ -6,8 +6,8 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.vpt.filemanager.entry.Entry;
-import com.vpt.filemanager.entry.SortOption;
+import com.vpt.filemanager.core.entry.Entry;
+import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.settings.UserPreferences;
 import com.vpt.filemanager.ui.content.OpenedContent;

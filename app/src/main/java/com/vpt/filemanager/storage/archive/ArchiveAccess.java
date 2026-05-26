@@ -26,7 +26,7 @@ import me.zhanghai.android.libarchive.Archive;
 import me.zhanghai.android.libarchive.ArchiveEntry;
 import me.zhanghai.android.libarchive.ArchiveException;
 
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.error.ArchiveOperationException;
 import com.vpt.filemanager.core.error.FileOperationException;

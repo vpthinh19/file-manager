@@ -10,7 +10,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import dagger.hilt.android.qualifiers.ApplicationContext;
-import com.vpt.filemanager.entry.SortOption;
+import com.vpt.filemanager.core.entry.SortOption;
 
 /** Persistent UI preferences; it does not contain file-browser behavior. */
 @Singleton

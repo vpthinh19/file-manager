@@ -15,7 +15,7 @@ import androidx.lifecycle.LifecycleOwner;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.entry.SortOption;
+import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.operation.FileOperations;
 import com.vpt.filemanager.ui.dialog.InputDialogs;

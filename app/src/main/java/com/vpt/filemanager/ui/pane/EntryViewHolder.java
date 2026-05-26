@@ -13,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.ui.format.ByteSize;
 import com.vpt.filemanager.ui.pane.icon.FileIconView;
 import com.vpt.filemanager.ui.pane.icon.IconCategory;

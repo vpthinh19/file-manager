@@ -3,7 +3,7 @@ package com.vpt.filemanager.operation;
 import androidx.annotation.NonNull;
 
 import com.vpt.filemanager.core.error.FileOperationException;
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 import com.vpt.filemanager.storage.archive.ArchiveAccess;

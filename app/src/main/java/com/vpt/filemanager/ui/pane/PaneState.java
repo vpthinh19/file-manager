@@ -2,8 +2,8 @@ package com.vpt.filemanager.ui.pane;
 
 import androidx.annotation.Nullable;
 
-import com.vpt.filemanager.entry.Entry;
-import com.vpt.filemanager.entry.SortOption;
+import com.vpt.filemanager.core.entry.Entry;
+import com.vpt.filemanager.core.entry.SortOption;
 import com.vpt.filemanager.core.path.Path;
 
 import java.util.Collections;

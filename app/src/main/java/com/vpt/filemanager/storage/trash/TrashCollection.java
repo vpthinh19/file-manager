@@ -5,7 +5,7 @@ import androidx.annotation.NonNull;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.storage.persistence.dao.TrashDao;
 import com.vpt.filemanager.storage.persistence.entity.TrashRecord;
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 
 import java.io.File;

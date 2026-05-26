@@ -5,7 +5,7 @@ import androidx.annotation.NonNull;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.storage.persistence.dao.BookmarkDao;
 import com.vpt.filemanager.storage.persistence.entity.BookmarkRecord;
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
 

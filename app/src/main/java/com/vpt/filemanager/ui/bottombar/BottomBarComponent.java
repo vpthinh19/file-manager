@@ -18,7 +18,7 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.core.threading.AppExecutors;
-import com.vpt.filemanager.entry.Entry;
+import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.operation.FileOperations;
 import com.vpt.filemanager.ui.dialog.InputDialogs;
