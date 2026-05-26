@@ -23,7 +23,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * {@link Storage} that scans local files for a name match. A search path is
+ * {@link Storage} that scans physical device files for a name match. A search path is
  * read-only and always behaves as a flat container.
  */
 @Singleton

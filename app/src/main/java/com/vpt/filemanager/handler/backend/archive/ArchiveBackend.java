@@ -8,7 +8,6 @@ import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.error.NameConflictException;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
-import com.vpt.filemanager.storage.archive.ArchiveFormat;
 
 import java.io.File;
 import java.io.IOException;

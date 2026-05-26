@@ -11,7 +11,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.vpt.filemanager.R;
-import com.vpt.filemanager.core.detect.ContentType;
+import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.component.drawer.DrawerComponent;
 import com.vpt.filemanager.core.format.MimeTypes;
 import com.vpt.filemanager.component.content.editor.TextEditorFragment;

@@ -2,7 +2,7 @@ package com.vpt.filemanager.handler;
 
 import static org.junit.Assert.assertSame;
 
-import com.vpt.filemanager.core.detect.ContentType;
+import com.vpt.filemanager.core.format.ContentType;
 
 import org.junit.Test;
 

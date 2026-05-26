@@ -6,7 +6,7 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 
-import com.vpt.filemanager.core.detect.ContentType;
+import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.error.FileOperationException;
 import com.vpt.filemanager.core.error.NameConflictException;

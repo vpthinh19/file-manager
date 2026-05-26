@@ -15,7 +15,7 @@ import java.util.List;
  * One storage backend. The {@link StorageRegistry} consults each implementation's
  * {@link #handles(Path)} to route a path to the right backend.
  *
- * <p>Implementations cover local files, mounted archives, virtual collections
+ * <p>Implementations cover device files, mounted archives, virtual collections
  * (trash, bookmarks, search), and any future remote source. Cross-backend
  * transfers are orchestrated by {@code StorageFacade} using
  * {@link #materialize(Path)} on the source plus a mutation on the destination.

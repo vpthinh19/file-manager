@@ -1,4 +1,4 @@
-package com.vpt.filemanager.storage.archive;
+package com.vpt.filemanager.handler.backend.archive;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -23,10 +23,8 @@ import java.util.zip.ZipOutputStream;
 
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.storage.LocalStorageAdapter;
-import com.vpt.filemanager.handler.backend.archive.ArchiveBackend;
-
 @RunWith(AndroidJUnit4.class)
-public final class ArchiveAccessInstrumentedTest {
+public final class ArchiveBackendInstrumentedTest {
     @Test
     public void zipSupportsBrowseMutateImportExtractAndSaveBack() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();

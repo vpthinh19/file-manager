@@ -1,4 +1,4 @@
-package com.vpt.filemanager.core.detect;
+package com.vpt.filemanager.core.format;
 
 public enum ContentType {
     TEXT,

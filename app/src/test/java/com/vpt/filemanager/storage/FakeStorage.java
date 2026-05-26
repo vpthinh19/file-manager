@@ -12,7 +12,7 @@ import java.util.function.Predicate;
 
 /**
  * Minimal {@link Storage} test double. Only the routing/dispatch surface the
- * registry and resolver tests exercise ({@code handles}, {@code isContainer},
+ * registry and facade tests exercise ({@code handles}, {@code isContainer},
  * {@code list}, {@code materialize}) is configurable; every mutating method
  * throws so a test that accidentally triggers one fails loudly.
  */

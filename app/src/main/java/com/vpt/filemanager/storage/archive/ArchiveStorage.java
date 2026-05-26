@@ -19,12 +19,7 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/**
- * {@link Storage} for archive containers. Claims paths that either point inside
- * a mounted archive ({@code storage:/x.zip!/...}) or to a file whose name has a
- * known archive extension. The container is opened transparently — there is no
- * "mount as folder" step the UI has to drive.
- */
+/** Virtual storage for paths already mounted inside an archive container. */
 @Singleton
 public final class ArchiveStorage implements Storage {
     private final ArchiveBackend archives;
@@ -43,18 +38,17 @@ public final class ArchiveStorage implements Storage {
 
     @Override
     public boolean isContainer(@NonNull Path path) throws FileOperationException {
-        if (!path.isInsideArchive()) return true; // bare archive file => act as root
+        if (!path.isInsideArchive()) return false;
         return archives.isDirectory(path);
     }
 
     @NonNull
     @Override
     public List<Entry> list(@NonNull Path path) throws FileOperationException {
-        Path target = path.isInsideArchive() ? path : Path.archive(path.storagePath(), "/");
         List<Entry> entries = new ArrayList<>();
-        Path parent = target.parent();
+        Path parent = path.parent();
         if (parent != null) entries.add(Entry.parent(parent));
-        entries.addAll(archives.list(target));
+        entries.addAll(archives.list(path));
         return entries;
     }
 
@@ -62,8 +56,6 @@ public final class ArchiveStorage implements Storage {
     @Override
     public File materialize(@NonNull Path path) throws FileOperationException {
         if (!path.isInsideArchive()) {
-            // A bare archive file is always a container; materialize is only ever
-            // called by the resolver on a non-container path.
             throw new FileOperationException("Archive containers are listed, not materialized");
         }
         String inner = path.archiveInnerPath();

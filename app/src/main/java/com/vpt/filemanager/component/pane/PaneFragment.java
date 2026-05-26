@@ -19,6 +19,7 @@ import com.vpt.filemanager.component.dialog.OpenAsDialogComponent;
 import com.vpt.filemanager.component.state.StateViewModel;
 import com.vpt.filemanager.core.entry.Entry;
 import com.vpt.filemanager.core.entry.SortOption;
+import com.vpt.filemanager.core.format.ContentType;
 import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.core.threading.AppExecutors;
 import com.vpt.filemanager.databinding.FragmentPaneBinding;
@@ -169,7 +170,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
             state.showEntries(pane(), request, List.of());
             state.showContent(new OpenedContent(pane(), launch.source(), launch.localPath(),
                     facade.contentUri(launch.localPath()).toString(), fileName(launch.source()),
-                    com.vpt.filemanager.core.detect.ContentType.OTHER, true, null));
+                    ContentType.OTHER, true, null));
         }
         completeLoad();
     }
