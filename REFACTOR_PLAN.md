@@ -16,7 +16,7 @@ This is the **current** roadmap — not a stale doc. The old `ARCHITECTURE.md` a
 | 2 | `Storage` interface + `StorageRegistry` + 5 impls + `StorageModule` | `0f43d7d` | ✅ done |
 | 3 | `Handler` + `HandlerRegistry` + sealed `HandlerResult` + 5 handlers | `554d12f` | ✅ done |
 | 4 | Slim `PathResolver`; delete `NavigationResult`/`Redirect`/`replaceResolvedLocation` | `12342b8` | ✅ done |
-| 5 | move `content/ContentDetector` → `core/detect/`; drop archive sniffing | — | ⏳ pending |
+| 5 | move `content/` → `core/detect/`; drop archive sniffing; `EXTERNAL`→`OTHER` | `e94ab52` | ✅ done |
 | 6 | `Entry`/`EntryType` → `core/entry/`; type = PARENT/FOLDER/FILE only | — | ⏳ pending |
 | 7 | `ui/` → `component/`; `settings/`+`ui/format/` → `core/`; `FileOperations` → `Operations` | — | ⏳ pending |
 | 8 | `Operations` facade uses `StorageRegistry` polymorphically | — | ⏳ pending |
@@ -25,7 +25,7 @@ This is the **current** roadmap — not a stale doc. The old `ARCHITECTURE.md` a
 | 11 | fix runtime so app launches (missing mipmap icon, Hilt, theme — see §12) | — | ⏳ pending |
 
 Build compiles clean (`./gradlew :app:compileDebugJavaWithJavac --no-daemon`)
-through Phase 4. Runtime is **not** yet validated. Old adapters
+through Phase 5. Runtime is **not** yet validated. Old adapters
 (`LocalStorageAdapter`, `ArchiveAccess`, `BookmarkCollection`, `TrashCollection`,
 `FileOperations`) still exist; the new `Storage` impls wrap them. Do not push;
 the user pushes.
