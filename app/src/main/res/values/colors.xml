@@ -3,7 +3,6 @@
   Material 3 palette - light variant.
   Role-based naming; consumed by themes.xml via ?attr/color* references.
   Dark counterparts live in res/values-night/colors.xml.
-  Generated from a neutral blue seed: hue similar to MIUI / MT Manager neutrals.
 -->
 <resources>
     <color name="md_primary">#2D55B7</color>
@@ -17,7 +16,7 @@
     <color name="md_on_secondary_container">#181A2C</color>
 
     <!--
-      Pane content surface. Pure white in light mode (no tint) so saturated brand colors stay
+      Pane content surface. Pure white in light mode (no tint) so saturated icon colors stay
       brand-accurate. Bottom bar shares this color (one content zone) — chrome lives above.
     -->
     <color name="md_surface">#FFFFFF</color>
@@ -39,10 +38,11 @@
     <color name="md_chrome_on_bg_variant">#B5B5B5</color>
 
     <!--
-      Subtle active-pane border. Light-blue accent matches the "white + gray + light-blue" light
-      palette guidance — not the saturated M3 colorPrimary that read as harsh.
+      Active-pane border = pure black in light mode (pure white in dark — see values-night). Aligns
+      the indicator with the chrome/toolbar visual hierarchy instead of competing with it via a
+      blue accent — the pane border now reads as a quiet "structural" mark, not a separate UI color.
     -->
-    <color name="pane_indicator_active">#42A5F5</color>
+    <color name="pane_indicator_active">#000000</color>
 
     <color name="md_outline">#767680</color>
     <color name="md_outline_variant">#C6C6D0</color>
@@ -50,63 +50,28 @@
     <color name="md_error">#BA1A1A</color>
     <color name="md_on_error">#FFFFFF</color>
 
+    <!-- Adaptive launcher icon background (brand teal); fixed across light/dark. -->
+    <color name="ic_launcher_background">#006B5B</color>
+
     <!-- Selected-item background for file rows (semi-transparent primary). -->
     <color name="row_selected_bg">#332D55B7</color>
 
     <!--
-      Badge colors per FileCategory. Medium-saturation, ~40-50% lightness so badges read clearly
-      on the light surface (#FAF8FD). Text inside each badge is locked to white (see
-      @color/badge_on_color) so contrast holds regardless of the bg hue.
+      Icon badge colors per IconCategory (light mode). Mid-saturation 30-50% lightness so the badge
+      reads strongly against the white pane while the WHITE glyph drawn on top keeps contrast at
+      4.5:1+. Folder uses the SAME color as the chrome (md_chrome_bg) so folder rows feel like a
+      vertical extension of the toolbar — a single visual hierarchy, MT-faithful.
     -->
-    <!--
-      Folder uses dark slate in BOTH modes (MT-faithful). The white folder glyph inside reads on
-      any surface because the badge holds its own contrast. Changing per-mode would either kill
-      contrast (light bg + white glyph) or look out of place.
-    -->
-    <color name="badge_folder">#37474F</color>
-
-    <!-- TOP-7 category badges (used for files that get a white glyph instead of ext text). -->
-    <color name="badge_image">#7B1FA2</color>
-    <color name="badge_video">#D81B60</color>
-    <color name="badge_audio">#EF6C00</color>
-    <color name="badge_archive">#5D4037</color>
-    <color name="badge_pdf">#B71C1C</color>
-    <color name="badge_apk">#689F38</color>
-
-    <!-- Legacy category colors kept for non-TOP-7 branches that still pass through FileLabel. -->
-    <color name="badge_text">#546E7A</color>
-    <color name="badge_code">#2E7D32</color>
-    <color name="badge_doc">#1565C0</color>
-    <color name="badge_unknown">#757575</color>
-    <color name="badge_on_color">#FFFFFF</color>
-
-    <!--
-      Brand colors for the file-shape + ext-text approach (per-extension).
-      Sourced from each tool's official brand color so .py looks "Python", .docx looks "Word", etc.
-      Dark-mode counterparts are softened in values-night/colors.xml so they read on dark surfaces.
-    -->
-    <color name="brand_python">#3776AB</color>
-    <color name="brand_java">#E76F00</color>
-    <color name="brand_kotlin">#7F52FF</color>
-    <color name="brand_js">#F0DB4F</color>
-    <color name="brand_ts">#3178C6</color>
-    <color name="brand_go">#00ADD8</color>
-    <color name="brand_rust">#CE422B</color>
-    <color name="brand_ruby">#CC342D</color>
-    <color name="brand_php">#777BB4</color>
-    <color name="brand_c_lang">#A8B9CC</color>
-    <color name="brand_cpp">#00599C</color>
-    <color name="brand_csharp">#9B4F96</color>
-    <color name="brand_html">#E34F26</color>
-    <color name="brand_css">#1572B6</color>
-    <color name="brand_json">#5C5C5C</color>
-    <color name="brand_xml">#A87E5D</color>
-    <color name="brand_yaml">#CB171E</color>
-    <color name="brand_sh">#4EAA25</color>
-    <color name="brand_sql">#336791</color>
-    <color name="brand_md">#383838</color>
-    <color name="brand_word">#185ABD</color>
-    <color name="brand_excel">#107C41</color>
-    <color name="brand_ppt">#C43E1C</color>
-    <color name="brand_default">#6E6E6E</color>
+    <color name="icon_folder">#212121</color>
+    <color name="icon_document">#1976D2</color>
+    <color name="icon_sheet">#2E7D32</color>
+    <color name="icon_slide">#E65100</color>
+    <color name="icon_pdf">#C62828</color>
+    <color name="icon_archive">#6D4C41</color>
+    <color name="icon_image">#7B1FA2</color>
+    <color name="icon_video">#C2185B</color>
+    <color name="icon_audio">#EF6C00</color>
+    <color name="icon_apk">#558B2F</color>
+    <color name="icon_code">#00838F</color>
+    <color name="icon_unknown">#616161</color>
 </resources>

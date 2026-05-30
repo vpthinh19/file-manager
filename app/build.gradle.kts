@@ -6,10 +6,10 @@ plugins {
 android {
     namespace = "com.vpt.filemanager"
     compileSdk = 36
-
     defaultConfig {
         applicationId = "com.vpt.filemanager"
         minSdk = 30
+        //noinspection EditedTargetSdkVersion
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
@@ -23,6 +23,7 @@ android {
     }
 
     buildFeatures {
+        dataBinding = true
         viewBinding = true
         buildConfig = true
     }
@@ -92,11 +93,12 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.session)
 
-    implementation(libs.commons.compress)
-    implementation(libs.zip4j)
-    implementation(libs.sora.editor)
+    implementation(platform("io.github.rosemoe:editor-bom:0.24.5"))
+    implementation("io.github.rosemoe:editor")
+    implementation("io.github.rosemoe:language-textmate")
     implementation(libs.timber)
     implementation(libs.juniversalchardet)
+    implementation(libs.libarchive.android)
 
     coreLibraryDesugaring(libs.desugar)
 
@@ -104,6 +106,8 @@ dependencies {
     testImplementation(libs.mockito.core)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.espresso.core)

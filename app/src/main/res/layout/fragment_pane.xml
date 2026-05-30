@@ -11,6 +11,9 @@
     android:foreground="@drawable/bg_pane_indicator"
     android:foregroundGravity="fill">
 
+    <!--
+      No row-level animation: large refreshes animate hundreds of items and degrade frame times.
+    -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv"
         android:layout_width="match_parent"
@@ -22,15 +25,5 @@
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_gravity="center"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tv_empty"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="@string/empty_folder"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="15sp"
         android:visibility="gone" />
 </FrameLayout>

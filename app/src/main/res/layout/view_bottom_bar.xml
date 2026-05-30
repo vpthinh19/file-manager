@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/bottom_container"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:background="?attr/colorSurface">
+
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton android:id="@+id/btn_back" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/action_back" android:src="@drawable/ic_arrow_back" />
+        <ImageButton android:id="@+id/btn_forward" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/action_forward" android:src="@drawable/ic_arrow_forward" />
+        <ImageButton android:id="@+id/btn_add" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/action_new_file" android:src="@drawable/ic_add" />
+        <ImageButton android:id="@+id/btn_swap" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/action_swap" android:src="@drawable/ic_swap" />
+        <ImageButton android:id="@+id/btn_up" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/action_up" android:src="@drawable/ic_arrow_up" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/selection_bar"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageButton android:id="@+id/btn_sel_all" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/menu_more_options" android:src="@drawable/ic_select_all" />
+        <ImageButton android:id="@+id/btn_sel_deselect" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/menu_more_options" android:src="@drawable/ic_deselect_all" />
+        <ImageButton android:id="@+id/btn_sel_cancel" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/action_close" android:src="@drawable/ic_close" />
+        <ImageButton android:id="@+id/btn_sel_range" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/menu_more_options" android:src="@drawable/ic_select_range" />
+        <ImageButton android:id="@+id/btn_sel_more" style="@style/BrowserBottomButton"
+            android:contentDescription="@string/menu_more_options" android:src="@drawable/ic_more" />
+    </LinearLayout>
+</FrameLayout>

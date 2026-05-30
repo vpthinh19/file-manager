@@ -35,11 +35,21 @@
         <item name="colorOnError">@color/md_on_error</item>
 
         <item name="android:colorBackground">@color/md_surface</item>
-        <item name="android:windowBackground">@color/md_surface</item>
+        <!--
+          windowBackground = chrome color (not pane color). Reason: Android 16 (targetSdk 36) forces
+          edge-to-edge with transparent system bars; whatever sits at the windowBackground layer is
+          what shows through the status/nav bar insets. Painting it chrome eliminates the race where
+          MIUI briefly reveals the pane color in the inset region during fragment transitions or
+          theme swaps (previous attempts using DrawerLayout app:statusBarBackground were drawn LATER
+          and lost the race). Content surface is still drawn by panes/AppBarLayout above, so users
+          never see chrome color in the actual content area.
+        -->
+        <item name="android:windowBackground">@color/md_chrome_bg</item>
 
         <!-- System bars match the dark chrome (toolbar + bottom nav) in BOTH modes. -->
         <item name="android:statusBarColor">@color/md_chrome_bg</item>
         <item name="android:navigationBarColor">@color/md_chrome_bg</item>
+        <item name="fontFamily">@font/font_family</item>
     </style>
 
     <style name="Theme.FileManager.NoActionBar" parent="Theme.FileManager" />
@@ -47,13 +57,6 @@
     <style name="Theme.FileManager.Fullscreen" parent="Theme.FileManager">
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowActionBar">false</item>
-    </style>
-
-    <style name="Theme.FileManager.Translucent" parent="Theme.FileManager">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <!-- Properties dialog 2-column row styles (MT-aligned: label left, value right). -->

@@ -5,18 +5,35 @@
   fragment lives inside the main content frame; the drawer sits as a second child anchored to
   the start edge.
 -->
+<!--
+  Status bar color is owned by android:windowBackground=@color/md_chrome_bg in themes.xml — the
+  windowBackground is the bottom layer, so Android 16's transparent system bars reveal chrome
+  color through their insets immediately on first frame (no race with DrawerLayout drawing).
+  fitsSystemWindows=true keeps the drawer scrim extending behind the system bars while children
+  remain padded clear of the inset region.
+-->
 <androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="false">
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/fragment_container"
+    <FrameLayout
+        android:id="@+id/main_surface"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+
+        <include layout="@layout/view_browser_host" />
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/content_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/md_chrome_bg"
+            android:visibility="gone" />
+    </FrameLayout>
 
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/nav_view"

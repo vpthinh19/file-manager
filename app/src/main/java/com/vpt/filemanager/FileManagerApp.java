@@ -2,22 +2,34 @@ package com.vpt.filemanager;
 
 import android.app.Application;
 
-import dagger.hilt.android.HiltAndroidApp;
-import com.vpt.filemanager.core.logging.TimberInitializer;
+import com.vpt.filemanager.app.threading.AppExecutors;
+import com.vpt.filemanager.handler.backend.document.SyntaxSetup;
 
-/**
- * Application root. We intentionally do NOT call
- * {@code DynamicColors.applyToActivitiesIfAvailable} — Material-You wallpaper-derived colors
- * would override our carefully-tuned MT-style palette (the wrong pink/cream surfaces seen on
- * 2026-05-18 dark-mode screenshots). Our static tokens in {@code colors.xml} / {@code values-night}
- * are the single source of truth.
- */
+import java.io.IOException;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.HiltAndroidApp;
+import timber.log.Timber;
+
+/** Android process entry point and one-time text editor warm-up. */
 @HiltAndroidApp
-public class FileManagerApp extends Application {
+public final class FileManagerApp extends Application {
+    @Inject
+    AppExecutors executors;
+
     @Override
     public void onCreate() {
         super.onCreate();
-        TimberInitializer.init();
+        if (BuildConfig.DEBUG) {
+            Timber.plant(new Timber.DebugTree());
+        }
+        executors.computation().execute(() -> {
+            try {
+                SyntaxSetup.prewarm(this);
+            } catch (IOException error) {
+                Timber.w(error, "Unable to prewarm TextMate setup");
+            }
+        });
     }
 }
-

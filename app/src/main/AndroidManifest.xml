@@ -21,48 +21,22 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:requestLegacyExternalStorage="false"
-        android:roundIcon="@drawable/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.FileManager"
         tools:targetApi="36">
 
         <activity
-            android:name=".ui.permission.PermissionGateActivity"
+            android:name=".component.main.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.FileManager.Translucent">
+            android:theme="@style/Theme.FileManager.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".ui.MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.FileManager.NoActionBar" />
-
-        <activity
-            android:name=".ui.viewer.ImageViewerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.FileManager.Fullscreen" />
-        <activity
-            android:name=".ui.viewer.VideoPlayerActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:exported="false"
-            android:theme="@style/Theme.FileManager.Fullscreen" />
-        <activity
-            android:name=".ui.viewer.AudioPlayerActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.viewer.TextEditorActivity"
-            android:exported="false" />
-
-        <service
-            android:name=".ui.operations.OperationService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

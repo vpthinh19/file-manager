@@ -2,9 +2,10 @@
 .idea/
 build/
 app/build/
+app/.cxx/
 local.properties
 *.iml
+*.log
 
-docs/
 .vscode/
 .claude/

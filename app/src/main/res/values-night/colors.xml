@@ -33,8 +33,8 @@
     <color name="md_chrome_on_bg">#FFFFFF</color>
     <color name="md_chrome_on_bg_variant">#B0B0B0</color>
 
-    <!-- Active pane border in dark mode — same blue accent, slightly lighter to read on #303030. -->
-    <color name="pane_indicator_active">#64B5F6</color>
+    <!-- Active pane border = pure white in dark mode (pure black in light). See values/colors.xml. -->
+    <color name="pane_indicator_active">#FFFFFF</color>
 
     <color name="md_outline">#8F909A</color>
     <color name="md_outline_variant">#45464F</color>
@@ -46,51 +46,21 @@
     <color name="row_selected_bg">#33B6C5FF</color>
 
     <!--
-      Badge colors per FileCategory (dark mode). Higher lightness (60-75%) so badges read on the
-      dark surface (#131318). Text stays white — light bg badges keep contrast because of the
-      shape's edge anti-aliasing on dark surface.
+      Icon badge colors per IconCategory (dark mode). Slightly brighter / higher-chroma variants of
+      the light palette so the badge reads on #303030 without going pastel. White glyph inside
+      keeps contrast regardless of badge hue. Folder = pure black (chrome color) so it merges with
+      the toolbar visually — the white glyph carries the icon identity alone.
     -->
-    <!-- Folder: same dark slate family (MT-faithful), slightly brighter for dark surface contrast. -->
-    <color name="badge_folder">#455A64</color>
-
-    <!-- TOP-7 category badges (dark mode — pastel for surface contrast). -->
-    <color name="badge_image">#CE93D8</color>
-    <color name="badge_video">#F48FB1</color>
-    <color name="badge_audio">#FFB74D</color>
-    <color name="badge_archive">#BCAAA4</color>
-    <color name="badge_pdf">#EF9A9A</color>
-    <color name="badge_apk">#C5E1A5</color>
-
-    <!-- Legacy category colors (dark). -->
-    <color name="badge_text">#90A4AE</color>
-    <color name="badge_code">#A5D6A7</color>
-    <color name="badge_doc">#64B5F6</color>
-    <color name="badge_unknown">#BDBDBD</color>
-    <color name="badge_on_color">#0E0E12</color>
-
-    <!-- Brand colors (dark mode — lightened/desaturated versions of brand palette). -->
-    <color name="brand_python">#6FA8DC</color>
-    <color name="brand_java">#FFB74D</color>
-    <color name="brand_kotlin">#B388FF</color>
-    <color name="brand_js">#FFF59D</color>
-    <color name="brand_ts">#81B5E6</color>
-    <color name="brand_go">#80DEEA</color>
-    <color name="brand_rust">#FF8A65</color>
-    <color name="brand_ruby">#EF9A9A</color>
-    <color name="brand_php">#B3B7DD</color>
-    <color name="brand_c_lang">#CFD8DC</color>
-    <color name="brand_cpp">#82B1FF</color>
-    <color name="brand_csharp">#CE93D8</color>
-    <color name="brand_html">#FFAB91</color>
-    <color name="brand_css">#90CAF9</color>
-    <color name="brand_json">#B0B0B0</color>
-    <color name="brand_xml">#D7B895</color>
-    <color name="brand_yaml">#EF9A9A</color>
-    <color name="brand_sh">#A5D6A7</color>
-    <color name="brand_sql">#90CAF9</color>
-    <color name="brand_md">#9E9E9E</color>
-    <color name="brand_word">#90CAF9</color>
-    <color name="brand_excel">#A5D6A7</color>
-    <color name="brand_ppt">#FFAB91</color>
-    <color name="brand_default">#9E9E9E</color>
+    <color name="icon_folder">#000000</color>
+    <color name="icon_document">#1E88E5</color>
+    <color name="icon_sheet">#43A047</color>
+    <color name="icon_slide">#F57C00</color>
+    <color name="icon_pdf">#E53935</color>
+    <color name="icon_archive">#795548</color>
+    <color name="icon_image">#8E24AA</color>
+    <color name="icon_video">#D81B60</color>
+    <color name="icon_audio">#FB8C00</color>
+    <color name="icon_apk">#689F38</color>
+    <color name="icon_code">#00ACC1</color>
+    <color name="icon_unknown">#757575</color>
 </resources>
