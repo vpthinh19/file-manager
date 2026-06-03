@@ -9,11 +9,9 @@ images, video, audio and source code without leaving the app.
 
 |||
 |--|--|
-|![home](images/home.png)|![drawer](images/drawer.png)|
-|![selection](images/selection.png)|![bottom-sheet](images/bottom-sheet.png)|
-|![open-zip](images/open-zip.png)|![text-editor](images/text-editor.png)|
-|![search](images/search.png)|![trash](images/deleted.jpg)|
-|![open-image](images/open-image.png)|![copy](images/copied.png)|
+|![home](images/home.png)|![drawer](images/drawer.png)|![selection](images/selection.png)|
+|![bottom-sheet](images/bottom-sheet.png)|![open-zip](images/open-zip.png)|![text-editor](images/text-editor.png)|
+|![search](images/search.png)|![trash](images/deleted.jpg)|![copy](images/copied.png)|
 
 ## Features
 
