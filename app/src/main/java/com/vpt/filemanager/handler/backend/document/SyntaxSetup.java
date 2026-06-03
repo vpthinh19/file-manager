@@ -25,11 +25,9 @@ import org.eclipse.tm4e.core.registry.IGrammarSource;
 import org.eclipse.tm4e.core.registry.IThemeSource;
 
 /**
- * Process-wide bridge between app assets and sora-editor's TextMate registries.
- *
- * <p>Theme/provider state is warmed once and shared. Grammars are deliberately lazy: loading all
- * available TM4E grammars on the first editor open would front-load parser work and retain grammar
- * data for languages the user never opens.
+ * Process-wide bridge between app assets and sora-editor's TextMate registries. Theme/provider
+ * state is warmed once and shared; grammars load lazily so opening one editor doesn't pull in
+ * parsers for languages the user never opens.
  */
 public final class SyntaxSetup {
     private static final int MAX_CACHED_GRAMMAR_SCOPES = 3;
@@ -42,18 +40,12 @@ public final class SyntaxSetup {
     private SyntaxSetup() {
     }
 
-    /**
-     * Cheap process warm-up used by the application background executor.
-     */
+    /** Cheap process warm-up run on a background executor. */
     public static synchronized void prewarm(@NonNull Context context) throws IOException {
         ensureInfrastructure(context);
     }
 
-    /**
-     * Build a language instance for one document, loading its grammar on demand.
-     *
-     * @return a language instance or {@code null} when no catalog entry exists for the scope.
-     */
+    /** Builds a language for one document, loading its grammar on demand; null if the scope is unknown. */
     @Nullable
     public static synchronized LanguageLease acquireLanguage(
             @NonNull Context context,
@@ -89,10 +81,7 @@ public final class SyntaxSetup {
         }
     }
 
-    /**
-     * Kept for compatibility with instrumentation tests and explicit callers. Unlike the old
-     * implementation, this does not load every grammar.
-     */
+    /** Kept for instrumentation tests and explicit callers; does not preload grammars. */
     public static synchronized void ensureInitialized(@NonNull Context context) throws IOException {
         ensureInfrastructure(context);
     }
@@ -220,9 +209,7 @@ public final class SyntaxSetup {
         }
     }
 
-    /**
-     * Keeps one grammar registry alive only while an editor uses it or it remains in the small MRU.
-     */
+    /** Keeps a grammar registry alive while an editor uses it or it stays in the MRU. */
     public static final class LanguageLease implements AutoCloseable {
         private final TextMateLanguage language;
         private CachedGrammar grammar;

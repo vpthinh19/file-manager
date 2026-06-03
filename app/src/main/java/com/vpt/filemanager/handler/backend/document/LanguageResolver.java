@@ -7,9 +7,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Resolves a document name to the stable TextMate scope exposed by {@link SyntaxCatalog}.
- */
+/** Resolves a document name to a TextMate scope from {@link SyntaxCatalog}. */
 public final class LanguageResolver {
     private static final Map<String, String> EXT_TO_SCOPE = buildMap();
     private static final Map<String, String> NAME_TO_SCOPE = buildNameMap();

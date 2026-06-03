@@ -13,9 +13,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Opens an archive file by mounting it as a directory root and listing it. The mounted path routes
- * to {@code ArchiveStorage}, which drives the libarchive backend (this handles nested archives,
- * since the mounted path keeps its parent archive boundaries).
+ * Opens an archive by mounting it as a directory root; the mounted path routes to
+ * {@code ArchiveStorage} and keeps its parent boundaries, so nested archives work.
  */
 @Singleton
 public final class ArchiveHandler implements Handler {

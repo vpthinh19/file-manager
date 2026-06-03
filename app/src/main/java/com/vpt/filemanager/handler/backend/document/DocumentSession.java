@@ -24,9 +24,7 @@ import com.vpt.filemanager.storage.physical.local.LocalStorageAdapter;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 import java.io.File;
 
-/**
- * One editor document session backed by a concrete local path.
- */
+/** One editor document session backed by a concrete local path. */
 public final class DocumentSession {
     private static final long HARD_LIMIT_BYTES = 8L * 1024 * 1024;
     private static final int READ_ONLY_THRESHOLD_BYTES = 1024 * 1024;

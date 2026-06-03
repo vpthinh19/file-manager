@@ -8,10 +8,8 @@ import com.vpt.filemanager.core.path.Path;
 import com.vpt.filemanager.storage.virtual.Storage;
 
 /**
- * Opens one resolved path. Every path type has a handler: folders and archives list, content
- * files render in-app or launch externally, and an unknown file defers to "open as". The
- * {@link com.vpt.filemanager.storage.facade.PathResolver} picks the handler; the handler does the
- * work itself or calls a backend (e.g. the editor's document service, the archive engine).
+ * Opens one resolved path, picked by {@code PathResolver}: folders/archives list, content files
+ * render in-app or launch externally, unknown files defer to "open as".
  */
 public interface Handler {
     @NonNull

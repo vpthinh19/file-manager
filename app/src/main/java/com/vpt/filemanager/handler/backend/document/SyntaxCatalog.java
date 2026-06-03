@@ -10,11 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Application-owned catalog of available TextMate grammars.
- *
- * <p>This catalog is intentionally data-only. It maps stable TextMate scopes to the TM4E asset
- * bundle without constructing grammar/analyzer instances. {@link SyntaxSetup} uses it as a
- * flyweight registry and loads only scopes needed by opened documents.
+ * Data-only catalog mapping TextMate scopes to their TM4E asset bundle; {@link SyntaxSetup}
+ * builds grammars lazily from it for the scopes documents actually request.
  */
 public final class SyntaxCatalog {
     private static final Map<String, SyntaxDefinition> DEFINITIONS = createDefinitions();

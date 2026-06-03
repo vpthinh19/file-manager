@@ -2,14 +2,7 @@ package com.vpt.filemanager.component.pane.icon;
 
 import java.util.Locale;
 
-/**
- * Visual icon bucket only; opening behavior is determined separately from the extension policy.
- *
- * <p>One icon per intuitive file kind: a user sees "document" or "spreadsheet" regardless of
- * whether the extension is .docx, .doc, .md, or .txt. Per-extension brand colors removed (Option D)
- * because they fragmented the rail with too many distinct tints and required ext-text overlays that
- * overflowed on long extensions (e.g. DOCX, MARKDOWN).
- */
+/** Visual icon bucket only — one icon per file kind; opening behavior is decided separately. */
 public enum IconCategory {
     FOLDER,
     DOCUMENT,
@@ -24,10 +17,7 @@ public enum IconCategory {
     CODE,
     UNKNOWN;
 
-    /**
-     * Maps a file name (extension only — directory check is the caller's job) to an icon bucket.
-     * Folder rows must call {@link #FOLDER} directly via {@link FileIconView#bindFolder()}.
-     */
+    /** Maps a file name's extension to a bucket; folder rows use {@link FileIconView#bindFolder()}. */
     public static IconCategory ofFileName(String name) {
         if (name == null || name.isEmpty()) {
             return UNKNOWN;

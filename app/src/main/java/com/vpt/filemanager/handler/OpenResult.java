@@ -8,10 +8,7 @@ import com.vpt.filemanager.storage.virtual.Capability;
 import java.util.EnumSet;
 import java.util.List;
 
-/**
- * What a {@link Handler} produces when opening a path — and the value {@code StorageFacade.open}
- * hands back to a pane. One sealed result covers every handler outcome.
- */
+/** What a {@link Handler} produces when opening a path; one sealed type per outcome. */
 public sealed interface OpenResult
         permits OpenResult.Directory, OpenResult.OpenContent,
                 OpenResult.LaunchIntent, OpenResult.NeedsOpenAs {

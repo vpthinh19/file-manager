@@ -30,9 +30,8 @@ import me.zhanghai.android.libarchive.ArchiveEntry;
 import me.zhanghai.android.libarchive.ArchiveException;
 
 /**
- * Libarchive backend for {@code ArchiveStorage}. Physical files, cache files and replacements are
- * created and mutated only by {@link LocalStorageAdapter}; native archive calls receive adapter
- * handles as pathname arguments.
+ * Libarchive backend for {@code ArchiveStorage}. All physical/cache files are owned by
+ * {@link LocalStorageAdapter}; native calls receive its handles as pathname arguments.
  */
 @Singleton
 public final class ArchiveBackend {
@@ -143,10 +142,7 @@ public final class ArchiveBackend {
         }
     }
 
-    /**
-     * Verifies and retains a passphrase in memory for subsequent reads from this mounted
-     * container. Credentials deliberately do not cross the backend boundary or reach disk.
-     */
+    /** Verifies and keeps a passphrase in memory only; credentials never reach disk. */
     public void unlock(@NonNull Path location, @NonNull String password)
             throws FileOperationException {
         requireArchive(location);
@@ -554,11 +550,7 @@ public final class ArchiveBackend {
         }
     }
 
-    /**
-     * Opens {@code container} for reading, runs {@code body} with the native handle, and always
-     * frees it. {@link ArchiveOperationException}s pass through; anything else becomes a {@code
-     * failure(failureMessage, ...)}. This is the single owner of the read-handle lifecycle.
-     */
+    /** Single owner of the read-handle lifecycle: opens {@code container}, runs {@code body}, always frees. */
     private <T> T withReader(File container, String failureMessage, ArchiveReader<T> body)
             throws FileOperationException {
         long archive = 0L;

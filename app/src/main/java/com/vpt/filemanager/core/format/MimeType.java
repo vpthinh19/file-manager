@@ -2,10 +2,7 @@ package com.vpt.filemanager.core.format;
 
 import java.net.URLConnection;
 
-/**
- * Thin wrapper over {@link URLConnection#guessContentTypeFromName(String)}. The result is used
- * only as the MIME hint for system Intents (ACTION_VIEW, ACTION_SEND).
- */
+/** MIME hint for system Intents, via {@link URLConnection#guessContentTypeFromName(String)}. */
 public final class MimeType {
     private MimeType() {
     }

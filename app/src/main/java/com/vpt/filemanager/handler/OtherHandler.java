@@ -13,10 +13,7 @@ import java.io.File;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/**
- * Fallback handler: opens a file with an external app via {@code ACTION_VIEW}. Also serves every
- * file type with no dedicated in-app handler (documents, APKs, unknown extensions).
- */
+/** Fallback handler: opens a file in an external app via {@code ACTION_VIEW}. */
 @Singleton
 public final class OtherHandler implements Handler {
     @Inject

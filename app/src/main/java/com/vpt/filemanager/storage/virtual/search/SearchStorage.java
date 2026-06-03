@@ -20,10 +20,7 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/**
- * Read-only {@link Storage} that scans physical device files for a name match. A search path
- * always behaves as a flat container.
- */
+/** Read-only {@link Storage} that scans device files for a name match; always a flat container. */
 @Singleton
 public final class SearchStorage implements Storage {
     private static final int MAX_RESULTS = 1000;

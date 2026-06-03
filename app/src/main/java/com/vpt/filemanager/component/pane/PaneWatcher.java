@@ -8,9 +8,8 @@ import com.vpt.filemanager.storage.facade.StorageFacade;
 import com.vpt.filemanager.storage.virtual.InvalidationSubscription;
 
 /**
- * Owns one filesystem-change subscription for the pane's current location. It re-subscribes only
- * when the location actually changes, so reloads that stay in the same folder (a refresh, a sort
- * change) don't tear down and rebuild the watcher.
+ * Owns the pane's filesystem-change subscription, re-subscribing only when the location changes so
+ * same-folder reloads (refresh, sort) don't rebuild the watcher.
  */
 final class PaneWatcher {
     private final StorageFacade facade;

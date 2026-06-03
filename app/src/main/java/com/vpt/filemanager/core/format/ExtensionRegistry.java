@@ -11,10 +11,7 @@ import javax.inject.Singleton;
 /** Single extension-based routing policy for files opened from the browser. */
 @Singleton
 public final class ExtensionRegistry {
-    /**
-     * The handler a path routes to. {@link #classify(String)} returns one of the file types;
-     * {@code FOLDER} is supplied by the resolver for containers (it has no extension).
-     */
+    /** Handler a path routes to; {@code FOLDER} is supplied by the resolver, the rest by {@link #classify(String)}. */
     public enum Type {
         FOLDER,
         TEXT,

@@ -4,12 +4,7 @@ import androidx.annotation.Nullable;
 
 import java.util.List;
 
-/**
- * Immutable TextMate grammar registration record.
- *
- * <p>The record contains asset paths only. Grammar objects are created lazily by
- * {@link SyntaxSetup} for the scopes actually requested by an editor instance.
- */
+/** Immutable grammar registration: asset paths only, no grammar objects (built lazily by {@link SyntaxSetup}). */
 final class SyntaxDefinition {
     final String name;
     final String displayName;

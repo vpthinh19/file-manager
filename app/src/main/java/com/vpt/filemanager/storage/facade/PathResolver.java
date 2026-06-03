@@ -14,12 +14,9 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * The brain of navigation: it decides which {@link Handler} opens a pane's {@link Path}. A
- * container resolves to the folder handler; otherwise the path is classified by extension (the
- * file may live on the device, inside an archive, or inside a nested archive). Passing a non-null
- * {@code forced} type is the "open as" override that bypasses extension classification. It
- * performs no I/O: the name needed for classification is read straight from the path, so nothing
- * is extracted to cache here.
+ * Decides which {@link Handler} opens a {@link Path}: containers use the folder handler, files are
+ * classified by extension. A non-null {@code forced} type is the "open as" override. Does no I/O —
+ * the name is read straight from the path.
  */
 @Singleton
 public final class PathResolver {

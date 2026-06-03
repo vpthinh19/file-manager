@@ -13,16 +13,9 @@ import java.util.EnumMap;
 import com.vpt.filemanager.R;
 
 /**
- * Routes {@link IconCategory} to its visuals (badge color + white glyph drawable). Single dispatch
- * point so adding a category is one switch arm here + one color pair + one glyph drawable.
- *
- * <p>Folder uses the same dispatch but with the dedicated folder badge color — keeps the rendering
- * loop uniform (every row = colored badge + white glyph).
- *
- * <p>{@link #badgeTint(Context, IconCategory)} memoizes {@link ColorStateList} per category so the
- * RecyclerView binding hot path (~30 rows × 60 fps) does NOT allocate a fresh CSL per row. The
- * cache is invalidated when the system's day/night mode flips (theme swap returns different
- * resolved colors).
+ * Routes {@link IconCategory} to its badge color + glyph drawable. {@link #badgeTint} memoizes the
+ * {@link ColorStateList} per category to avoid per-row allocation on the RecyclerView hot path,
+ * clearing the cache when day/night mode flips.
  */
 final class IconMapper {
     private static final EnumMap<IconCategory, ColorStateList> TINT_CACHE =
@@ -68,10 +61,6 @@ final class IconMapper {
         }
     }
 
-    /**
-     * Lazy-cached {@link ColorStateList} for the badge tint. Survives across RV bind calls; only
-     * rebuilds when day/night mode changes (so colors stay live across theme swaps).
-     */
     static ColorStateList badgeTint(Context context, IconCategory category) {
         int nightMode = context.getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_NIGHT_MASK;

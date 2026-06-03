@@ -28,10 +28,7 @@ import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
 
-/**
- * Shared observable browser state. Components modify it explicitly; it performs no filesystem,
- * archive, storage-facade or Android-view work.
- */
+/** Shared observable browser state; holds no filesystem, storage, or Android-view logic. */
 @HiltViewModel
 public final class StateViewModel extends ViewModel {
     private final MutablePane left;

@@ -8,10 +8,9 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * Minimal {@link Storage} test double. Only the routing/dispatch surface the registry and facade
- * tests exercise ({@code handles}, {@code isContainer}, {@code list}, {@code materialize}) is
- * configurable; the interface defaults make every mutation throw, so a test that accidentally
- * triggers one fails loudly.
+ * Minimal {@link Storage} test double: only the routing surface ({@code handles}, {@code
+ * isContainer}, {@code list}, {@code materialize}) is configurable. Mutations throw by default, so
+ * an unexpected one fails loudly.
  */
 public final class FakeStorage implements Storage {
     private final Predicate<Path> handles;

@@ -12,11 +12,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Maps an {@link ExtensionRegistry.Type} to the {@link Handler} that opens it.
- *
- * <p>Hilt collects every {@code @IntoSet Handler} binding; this registry indexes them by their
- * declared {@link Handler#type()} once at construction. Types with no dedicated handler
- * (e.g. {@code APK_INSTALLER}) fall back to {@link OtherHandler}.
+ * Indexes the injected {@link Handler} set by {@link Handler#type()}. Types without a dedicated
+ * handler (e.g. {@code APK_INSTALLER}) fall back to {@link OtherHandler}.
  */
 @Singleton
 public final class HandlerRegistry {

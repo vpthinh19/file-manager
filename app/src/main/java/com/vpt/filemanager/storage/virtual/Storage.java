@@ -10,15 +10,9 @@ import java.io.File;
 import java.util.List;
 
 /**
- * One storage backend. {@link StorageRegistry} routes a path to the right backend by asking each
- * implementation's {@link #handles(Path)}.
- *
- * <p>Only {@link #handles} and {@link #list} are mandatory. Everything else has a default:
- * a backend is a read-only container unless it overrides the relevant capability. Read-only
- * collections (trash, bookmarks, search) therefore declare just what they support; writable
- * backends (device, archive) override the mutations. Cross-backend transfers are orchestrated by
- * {@code StorageFacade} using {@link #materialize(Path)} on the source plus a mutation on the
- * destination.
+ * One storage backend, selected per path by {@link StorageRegistry} via {@link #handles(Path)}.
+ * Only {@link #handles} and {@link #list} are mandatory; a backend stays a read-only container
+ * until it overrides a mutation.
  */
 public interface Storage {
     boolean handles(@NonNull Path path);
@@ -26,11 +20,7 @@ public interface Storage {
     @NonNull
     List<Entry> list(@NonNull Path path) throws FileOperationException;
 
-    /**
-     * True when this path lists children (folder, archive folder or mount root, trash, bookmarks,
-     * or a search result). False when it points at a single file opened by a handler. Collections
-     * are always containers; only file-bearing backends override this.
-     */
+    /** False only when the path is a single file; collections are always containers. */
     default boolean isContainer(@NonNull Path path) throws FileOperationException {
         return true;
     }
@@ -39,10 +29,7 @@ public interface Storage {
         return false;
     }
 
-    /**
-     * Produce a real {@link File} a handler can read. Local returns the file as is; archive
-     * extracts to cache; a future remote backend would download to cache.
-     */
+    /** A real {@link File} a handler can read (local: as-is; archive: extracted to cache). */
     @NonNull
     default File materialize(@NonNull Path path) throws FileOperationException {
         throw new FileOperationException("This location is a collection, not a file");

@@ -61,11 +61,7 @@ public final class StorageFacade {
         return open(path, null);
     }
 
-    /**
-     * Routes the path to its backend, then lets the resolved
-     * {@link com.vpt.filemanager.handler.Handler} open it. A non-null {@code as} forces the type
-     * ("open as"); null resolves by extension.
-     */
+    /** Routes the path to its backend and opens it; non-null {@code as} forces the type ("open as"). */
     @NonNull
     public OpenResult open(@NonNull Path path, @Nullable ExtensionRegistry.Type as)
             throws FileOperationException {

@@ -16,11 +16,7 @@ import dagger.hilt.InstallIn;
 import dagger.hilt.components.SingletonComponent;
 import dagger.multibindings.IntoSet;
 
-/**
- * Collects every {@link Handler} into the {@code Set<Handler>} consumed by
- * {@link com.vpt.filemanager.handler.HandlerRegistry}. Adding a new content
- * type means adding one more {@code @Binds @IntoSet} method here.
- */
+/** Binds every {@link Handler} into the set consumed by {@code HandlerRegistry}. */
 @Module
 @InstallIn(SingletonComponent.class)
 public abstract class HandlerModule {

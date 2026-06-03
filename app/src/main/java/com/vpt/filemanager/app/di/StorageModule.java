@@ -14,12 +14,7 @@ import dagger.hilt.InstallIn;
 import dagger.hilt.components.SingletonComponent;
 import dagger.multibindings.IntoSet;
 
-/**
- * Collects every {@link Storage} implementation into the {@code Set<Storage>}
- * consumed by {@link StorageRegistry}. Adding a new
- * backend means adding one more {@code @Binds @IntoSet} method here; nothing
- * else changes.
- */
+/** Binds every {@link Storage} backend into the set consumed by {@link StorageRegistry}. */
 @Module
 @InstallIn(SingletonComponent.class)
 public abstract class StorageModule {

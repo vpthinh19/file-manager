@@ -303,10 +303,7 @@ public final class LocalStorageAdapter {
         }
     }
 
-    /**
-     * Watches a device directory for change, delegating to a shared {@link DirectoryWatcher} so
-     * dual panes on the same folder don't multiply refresh work.
-     */
+    /** Watches a device directory via the shared {@link DirectoryWatcher}. */
     @NonNull
     public InvalidationSubscription observeDirectory(@NonNull File directory,
                                                      @NonNull Runnable invalidated)

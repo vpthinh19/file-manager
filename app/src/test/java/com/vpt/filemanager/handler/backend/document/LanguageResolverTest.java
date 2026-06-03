@@ -5,12 +5,7 @@ import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
-/**
- * JVM coverage for mapping file names to TextMate scopes.
- *
- * <p>Coverage: extension mapping (positive + case-insensitive + edge), Dockerfile special case,
- * unknown fallback.
- */
+/** Maps file names to TextMate scopes: extensions, case-insensitivity, Dockerfile, fallbacks. */
 public final class LanguageResolverTest {
 
     @Test
@@ -26,7 +21,7 @@ public final class LanguageResolverTest {
 
     @Test
     public void kotlin_kts_maps_to_gradle_kotlin_dsl_scope() {
-        // VS Code Gradle Kotlin DSL extension EXTENDS Kotlin syntax — đúng scope cho v1.
+        // .kt deliberately uses the Gradle Kotlin DSL scope, which extends Kotlin syntax.
         assertEquals("source.gradle-kotlin-dsl", LanguageResolver.scopeFor("App.kt"));
         assertEquals("source.gradle-kotlin-dsl", LanguageResolver.scopeFor("build.gradle.kts"));
     }
@@ -132,8 +127,6 @@ public final class LanguageResolverTest {
 
     @Test
     public void hidden_files_with_known_ext_resolve() {
-        // .bashrc → ext=bashrc not in map → null. .gitignore similar.
-        // But .config.yml → ext=yml → resolve.
         assertEquals("source.yaml", LanguageResolver.scopeFor(".config.yml"));
         assertNull(LanguageResolver.scopeFor(".bashrc"));
     }
@@ -145,13 +138,11 @@ public final class LanguageResolverTest {
 
     @Test
     public void dot_only_filename_returns_null() {
-        // "." có dot ở index 0 → ext rỗng → null
         assertNull(LanguageResolver.scopeFor("."));
     }
 
     @Test
     public void multi_dot_filename_uses_last_extension() {
-        // "a.b.java" → lastIndexOf('.') match phần đuôi → ext=java → source.java
         assertEquals("source.java", LanguageResolver.scopeFor("a.b.java"));
         assertEquals("source.json", LanguageResolver.scopeFor("package-lock.json"));
         assertEquals("source.gradle-kotlin-dsl", LanguageResolver.scopeFor("build.gradle.kts"));

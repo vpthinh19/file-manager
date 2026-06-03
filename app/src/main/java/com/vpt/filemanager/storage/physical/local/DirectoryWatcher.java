@@ -19,9 +19,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Watches device directories for change. One debounced {@link FileObserver} is shared by every
- * virtual location observing the same directory, so dual panes on the same folder don't multiply
- * refresh work. Callbacks are delivered on the main thread.
+ * Watches device directories for change. One debounced {@link FileObserver} is shared per directory
+ * so dual panes on the same folder don't multiply refresh work. Callbacks run on the main thread.
  */
 final class DirectoryWatcher {
     private static final int EVENTS = FileObserver.CREATE | FileObserver.DELETE
