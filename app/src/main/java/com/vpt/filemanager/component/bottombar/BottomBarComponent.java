@@ -190,7 +190,7 @@ public final class BottomBarComponent {
         } else if (action == 7 && single != null) {
             run(() -> storage.bookmark(single), "Bookmarked");
         } else if (action == 8 && single != null && !single.isInsideArchive()) {
-            PropertiesDialogComponent.show(activity, single);
+            PropertiesDialogComponent.show(activity, single, executors);
         } else {
             toast(activity.getString(R.string.selection_single_only));
         }

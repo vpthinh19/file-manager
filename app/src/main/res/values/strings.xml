@@ -28,6 +28,8 @@
     <string name="empty_folder">This folder is empty</string>
     <string name="loading">Loading…</string>
     <string name="properties">Properties</string>
+    <string name="action_checksum">Checksum</string>
+    <string name="checksum_calculating">Calculating…</string>
     <string name="unavailable">Unavailable</string>
     <string name="file_name">File name</string>
     <string name="folder_name">Folder name</string>
