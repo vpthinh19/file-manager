@@ -3,16 +3,18 @@ package com.vpt.filemanager.component.dialog;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.graphics.Typeface;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStat;
 import android.util.TypedValue;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.vpt.filemanager.R;
 import com.vpt.filemanager.app.threading.AppExecutors;
@@ -27,12 +29,12 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * Read-only file metadata, MT Manager style. The active row set degrades gracefully: anything that
- * needs the physical path or a {@code stat()} syscall is simply skipped when unavailable, so the
- * dialog never fails the caller. Layout is a monospace {@link TextView} for column alignment.
+ * Read-only file metadata, MT Manager style. Rows use the {@code PropertiesLabel}/{@code
+ * PropertiesValue} theme styles (app font + Material colors) so the dialog stays visually in sync
+ * with the rest of the app. Anything needing the physical path or a {@code stat()} syscall is
+ * skipped when unavailable, so the dialog never fails the caller.
  */
 public final class PropertiesDialogComponent {
-    private static final int LABEL_WIDTH = 12;
     private static final DateFormat DATE =
             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM);
 
@@ -48,20 +50,20 @@ public final class PropertiesDialogComponent {
     public static void show(@NonNull Context context, @NonNull Entry entry,
                             @Nullable AppExecutors executors) {
         String physical = entry.localPathOrNull();
-        StringBuilder body = new StringBuilder();
-        append(body, "Name", entry.name());
+        LinearLayout rows = column(context);
+        addRow(rows, "Name", entry.name());
         if (physical != null) {
             int slash = physical.lastIndexOf('/');
-            if (slash > 0) append(body, "Parent", physical.substring(0, slash + 1));
+            if (slash > 0) addRow(rows, "Parent", physical.substring(0, slash + 1));
         }
-        append(body, "Type", entry.isFolder() ? "Folder" : "File");
-        append(body, "Size", formatSize(entry.size()));
-        if (entry.modifiedAt() > 0) append(body, "Modified", DATE.format(new Date(entry.modifiedAt())));
-        if (physical != null) appendStat(body, physical);
+        addRow(rows, "Type", entry.isFolder() ? "Folder" : "File");
+        addRow(rows, "Size", formatSize(entry.size()));
+        if (entry.modifiedAt() > 0) addRow(rows, "Modified", DATE.format(new Date(entry.modifiedAt())));
+        if (physical != null) addStatRows(rows, physical);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(context)
                 .setTitle(R.string.properties)
-                .setView(monospaceView(context, body.toString().trim()))
+                .setView(rows)
                 .setPositiveButton(android.R.string.ok, null);
         if (executors != null && physical != null && !entry.isFolder()) {
             String path = physical;
@@ -72,12 +74,12 @@ public final class PropertiesDialogComponent {
     }
 
     /** Appends Permissions / Owner / Group from a single stat() call; skipped on any error. */
-    private static void appendStat(StringBuilder body, String path) {
+    private static void addStatRows(LinearLayout rows, String path) {
         try {
             StructStat stat = Os.stat(path);
-            append(body, "Permissions", formatMode(stat.st_mode));
-            append(body, "Owner", String.valueOf(stat.st_uid));
-            append(body, "Group", String.valueOf(stat.st_gid));
+            addRow(rows, "Permissions", formatMode(stat.st_mode));
+            addRow(rows, "Owner", String.valueOf(stat.st_uid));
+            addRow(rows, "Group", String.valueOf(stat.st_gid));
         } catch (ErrnoException ignored) {
             // Metadata is optional; the rest of the dialog still renders.
         }
@@ -122,7 +124,7 @@ public final class PropertiesDialogComponent {
                 }
                 new AlertDialog.Builder(context)
                         .setTitle(R.string.action_checksum)
-                        .setView(monospaceView(context, computed))
+                        .setView(messageView(context, computed))
                         .setPositiveButton(android.R.string.ok, null)
                         .show();
             });
@@ -141,21 +143,44 @@ public final class PropertiesDialogComponent {
         return hex.toString();
     }
 
-    private static void append(StringBuilder body, String label, String value) {
-        body.append(padRight(label)).append(value).append('\n');
+    private static LinearLayout column(Context context) {
+        LinearLayout layout = new LinearLayout(context);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int side = dp(context, 24);
+        layout.setPadding(side, dp(context, 12), side, 0);
+        return layout;
     }
 
-    private static String padRight(String label) {
-        StringBuilder padded = new StringBuilder(label);
-        while (padded.length() < LABEL_WIDTH) padded.append(' ');
-        return padded.toString();
+    /** Adds one {@code label  …  value} row using the shared Properties styles. */
+    private static void addRow(LinearLayout parent, String label, String value) {
+        Context context = parent.getContext();
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        int gap = dp(context, 6);
+        row.setPadding(0, gap, 0, gap);
+
+        TextView labelView = new TextView(context, null, 0, R.style.PropertiesLabel);
+        labelView.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        labelView.setText(label);
+
+        TextView valueView = new TextView(context, null, 0, R.style.PropertiesValue);
+        valueView.setLayoutParams(new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        valueView.setTextIsSelectable(true);
+        valueView.setText(value);
+
+        row.addView(labelView);
+        row.addView(valueView);
+        parent.addView(row);
     }
 
-    private static TextView monospaceView(Context context, String text) {
+    /** Multi-line message body (e.g. checksum result) in the app font. */
+    private static TextView messageView(Context context, String text) {
         TextView view = new TextView(context);
         int side = dp(context, 24);
         view.setPadding(side, dp(context, 16), side, 0);
-        view.setTypeface(Typeface.MONOSPACE);
+        view.setTypeface(ResourcesCompat.getFont(context, R.font.font_family));
         view.setTextIsSelectable(true);
         view.setText(text);
         return view;
