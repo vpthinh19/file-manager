@@ -82,8 +82,6 @@ public final class TopBarComponent {
                     () -> run(() -> storage.emptyTrash(), "Trash emptied"));
         } else if (id == R.id.action_exit) {
             activity.finishAffinity();
-        } else if (id == R.id.action_settings) {
-            Toast.makeText(activity, R.string.coming_soon, Toast.LENGTH_SHORT).show();
         } else {
             return false;
         }

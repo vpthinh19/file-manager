@@ -24,11 +24,6 @@
         android:title="@string/action_sort"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_settings"
-        android:icon="@drawable/ic_settings"
-        android:title="@string/menu_settings"
-        app:showAsAction="never" />
-    <item
         android:id="@+id/action_exit"
         android:icon="@drawable/ic_exit"
         android:title="@string/action_exit"

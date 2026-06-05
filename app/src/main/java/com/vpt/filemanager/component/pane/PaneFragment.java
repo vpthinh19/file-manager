@@ -115,6 +115,15 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         });
     }
 
+    /**
+     * True only while the view exists. Async I/O callbacks ({@link #applyResult},
+     * {@link #applyFailure}, {@link #requestPassword}) can land after {@link #onDestroyView}
+     * has nulled {@link #watcher}/{@link #binding}; they must bail rather than touch them.
+     */
+    private boolean viewAlive() {
+        return watcher != null && binding != null;
+    }
+
     private void requestLoad(Path location, SortOption sort, @Nullable ExtensionRegistry.Type as) {
         if (inFlight) {
             pendingReload = true;
@@ -126,6 +135,7 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     }
 
     private void load(Path location, SortOption sort, @Nullable ExtensionRegistry.Type as) {
+        if (!viewAlive()) return;
         inFlight = true;
         requested = location;
         watcher.watch(location);
@@ -152,6 +162,10 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     private void requestPassword(Path location, long request, SortOption sort,
                                  @Nullable ExtensionRegistry.Type as,
                                  ArchivePasswordRequiredException cause) {
+        if (!viewAlive()) {
+            completeLoad();
+            return;
+        }
         ArchivePasswordDialogComponent.show(requireContext(), fileName(location), password ->
                 executors.io().execute(() -> {
                     try {
@@ -177,6 +191,10 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     }
 
     private void applyResult(Path source, long request, OpenResult result) {
+        if (!viewAlive()) {
+            completeLoad();
+            return;
+        }
         if (result instanceof OpenResult.Directory directory) {
             requested = directory.canonicalPath();
             watcher.watch(directory.canonicalPath());
@@ -210,6 +228,10 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
     }
 
     private void applyFailure(Path location, long request, Throwable error) {
+        if (!viewAlive()) {
+            completeLoad();
+            return;
+        }
         String message = error.getMessage();
         if (location.equals(fileBeingOpened)) {
             fileBeingOpened = null;
@@ -276,6 +298,13 @@ public final class PaneFragment extends Fragment implements EntryAdapter.Listene
         if (watcher != null) watcher.close();
         watcher = null;
         binding = null;
+        // In-flight I/O may still call back; reset bookkeeping so a recreated view starts clean
+        // and any late callback short-circuits via viewAlive().
+        inFlight = false;
+        pendingReload = false;
+        pendingLocation = null;
+        pendingSort = null;
+        requested = null;
         super.onDestroyView();
     }
 }
